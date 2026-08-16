@@ -6,10 +6,12 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { run } from '../src/syndicate/run.js';
+import { makeFakeClients } from './helpers/fake-clients.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const briefPath = path.join(root, 'test/fixtures/brief.json');
 const runScript = path.join(root, 'src/syndicate/run.js');
+const fakeEnv = { ANTHROPIC_API_KEY: 'fake', XAI_API_KEY: 'fake' }; // run() only checks these are present, not that they're real
 
 test('run({ dry: true }) completes a full shift with no model calls, writing the documented layout', async () => {
   const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
@@ -71,6 +73,33 @@ test('run() never touches real clients when env is explicitly empty, even with d
     await assert.rejects(() => run({ briefPath, dry: false, cwd: root, runsDir, env: {} }));
     const entries = await readdir(runsDir).catch(() => []);
     assert.deepEqual(entries, [], 'no run directory should have been created before the key check failed');
+  } finally {
+    await rm(runsDir, { recursive: true, force: true });
+  }
+});
+
+test('run({ dry: false }) against fake clients writes cost-log.jsonl incrementally, one line per real charge', async () => {
+  // exercises the exact non-dry code path that once fired a real shift by
+  // accident (see the "no API keys" test above) — but entirely offline,
+  // via injected fake clients, so it can safely run every time
+  const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
+  try {
+    const result = await run({ briefPath, dry: false, cwd: root, runsDir, env: fakeEnv, clients: makeFakeClients() });
+
+    assert.equal(result.dry, false);
+    assert.ok(result.costSpent > 0, 'fake clients report real-shaped usage, so cost should accumulate');
+
+    const costLogPath = path.join(runsDir, 'test-brief', 'cost-log.jsonl');
+    const lines = (await readFile(costLogPath, 'utf8')).trim().split('\n');
+    assert.ok(lines.length > 0);
+    const entries = lines.map(l => JSON.parse(l));
+    for (const e of entries) {
+      assert.ok(['anthropic', 'xai'].includes(e.vendor));
+      assert.ok(e.usd > 0);
+      assert.ok(e.at);
+    }
+    const total = entries.reduce((s, e) => s + e.usd, 0);
+    assert.ok(Math.abs(total - result.costSpent) < 1e-9, 'the log should sum to the same total run() reports');
   } finally {
     await rm(runsDir, { recursive: true, force: true });
   }

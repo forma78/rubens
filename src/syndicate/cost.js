@@ -71,15 +71,21 @@ function usdForUsage(vendor, model, usage, { batch = false } = {}) {
   return mult * ((uncached / 1e6) * table.input + (cached / 1e6) * cachedRate + (output / 1e6) * table.output);
 }
 
-/** A running total with a hard cap, per call site (generator/judge/etc). */
-function createCostTracker(maxUsd) {
+/** A running total with a hard cap, per call site (generator/judge/etc).
+ *  `onAdd(entry)` fires synchronously on every real charge — a process
+ *  that gets killed mid-shift still leaves a real record of what was
+ *  actually spent up to that point, instead of a total that only exists in
+ *  memory and dies with the process (see the commit this was added in). */
+function createCostTracker(maxUsd, { onAdd } = {}) {
   let spent = 0;
   const log = [];
   return {
     add(vendor, model, usage, opts = {}) {
       const usd = usdForUsage(vendor, model, usage, opts);
       spent += usd;
-      log.push({ vendor, model, usd, batch: !!opts.batch, at: new Date().toISOString(), tag: opts.tag ?? null });
+      const entry = { vendor, model, usd, batch: !!opts.batch, at: new Date().toISOString(), tag: opts.tag ?? null };
+      log.push(entry);
+      if (onAdd) onAdd(entry);
       return usd;
     },
     get spent() { return spent; },

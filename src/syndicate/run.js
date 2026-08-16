@@ -5,6 +5,7 @@
    finished. */
 
 import { mkdir, writeFile, appendFile, readFile } from 'node:fs/promises';
+import { appendFileSync } from 'node:fs';
 import path from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
@@ -48,7 +49,7 @@ async function buildBaseState(brief, referencePath) {
   return { state, refs, ovr: [{}, {}, {}, {}, {}], palette: analysed };
 }
 
-async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: envOverride }) {
+async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: envOverride, clients: clientsOverride }) {
   const fileConfig = JSON.parse(await readFile(path.join(cwd, 'config/syndicate.json'), 'utf8'));
   const roles = JSON.parse(await readFile(path.join(cwd, 'config/roles.json'), 'utf8'));
   // env is injectable (like clients below) precisely so a test can force
@@ -68,7 +69,10 @@ async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: 
     if (!env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set in .env — required for a real shift (use --dry to skip model calls)');
     if (!env.XAI_API_KEY) throw new Error('XAI_API_KEY is not set in .env — required for a real shift (use --dry to skip model calls)');
   }
-  const clients = dry ? {} : {
+  // like env: injectable so a test can exercise the real (dry:false) path
+  // against a fake client — no network, no key, no spend — the same DI
+  // pattern round.js's own functions already use
+  const clients = dry ? {} : clientsOverride ?? {
     anthropic: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }),
     xai: new OpenAI({ apiKey: env.XAI_API_KEY, baseURL: syndicateConfig.models.xai.base_url }),
   };
@@ -83,7 +87,13 @@ async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: 
 
   const referenceJpeg = await toTransmitJpeg(await readFile(referencePath));
 
-  const costTracker = createCostTracker(syndicateConfig.limits.maxUsd);
+  const costLogPath = path.join(runDir, 'cost-log.jsonl');
+  const costTracker = createCostTracker(syndicateConfig.limits.maxUsd, {
+    // synchronous and on every real charge: a killed or crashed process
+    // still leaves a true record of what was actually spent, rather than a
+    // total that only ever existed in memory
+    onAdd: dry ? undefined : (entry) => appendFileSync(costLogPath, jsonlLine(entry)),
+  });
   const startedAt = Date.now();
   const maxMs = syndicateConfig.limits.maxMinutes * 60 * 1000;
   const timeUp = () => Date.now() - startedAt > maxMs;
