@@ -25,18 +25,33 @@ function shuffle(arr, rnd) {
  * self-pairs, no repeated pairs): a perfect matching at circulant distance
  * n/2 if k is odd (needs even n), plus one full cycle per remaining pair of
  * degree at distances 1, 2, ... — the standard circulant construction.
+ *
+ * When n is odd and k is odd, an exactly-k-regular simple graph cannot
+ * exist at all (the sum of degrees, n*k, would be odd — every graph's
+ * degree sum is even, each edge counting twice). The round's field size
+ * (survivors carried forward + this round's new children) is not always
+ * even, so this is a real case, not a hypothetical one: fall back to
+ * adding one phantom id, building an exactly-k-regular graph on n+1 (now
+ * even) ids, and dropping every edge touching the phantom. The k real ids
+ * that were paired with it end up with degree k-1 instead of k — the
+ * smallest possible shortfall, and only on that many ids.
  */
 function kRegularPairs(ids, k, rnd) {
   const n = ids.length;
   if (k >= n) throw new Error(`pairing: k (${k}) must be less than the number of variants (${n})`);
-  if ((n * k) % 2 !== 0) throw new Error(`pairing: a ${k}-regular graph needs n*k even (n=${n})`);
+
+  if (n % 2 !== 0 && k % 2 !== 0) {
+    const PHANTOM = Symbol('phantom');
+    const withPhantom = kRegularPairs([...ids, PHANTOM], k, rnd);
+    return withPhantom.filter(([a, b]) => a !== PHANTOM && b !== PHANTOM);
+  }
 
   const order = shuffle(ids, rnd);
   const edges = [];
   let remaining = k;
 
   if (remaining % 2 === 1) {
-    if (n % 2 !== 0) throw new Error(`pairing: odd degree ${k} needs an even number of variants (got ${n})`);
+    // n is guaranteed even here (the odd/odd case was handled above)
     const half = n / 2;
     for (let i = 0; i < half; i++) edges.push([order[i], order[i + half]]);
     remaining -= 1;

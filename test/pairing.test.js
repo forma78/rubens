@@ -39,10 +39,23 @@ test('kRegularPairs handles even k without the odd-degree matching branch', () =
   for (const id of ids) assert.equal(d.get(id), 4);
 });
 
-test('kRegularPairs rejects k >= n and infeasible odd-degree/odd-n combinations', () => {
+test('kRegularPairs rejects k >= n', () => {
   const ids = ['a', 'b', 'c'];
   assert.throws(() => kRegularPairs(ids, 3, Math.random));
-  assert.throws(() => kRegularPairs(['a', 'b', 'c'], 1, Math.random)); // odd k, odd n
+});
+
+test('kRegularPairs falls back gracefully for odd n + odd k (no exact k-regular graph exists)', () => {
+  // n*k must be even for a k-regular simple graph to exist; odd n with odd
+  // k is the one combination where it can't (SPEC's round field size,
+  // survivors + new children, is not always even). The phantom-node
+  // fallback should give every id degree k or k-1, never fewer, never more,
+  // and still no self-pairs or duplicate pairs.
+  const ids = Array.from({ length: 9 }, (_, i) => `v${i}`); // odd n
+  const edges = kRegularPairs(ids, 3, () => Math.random()); // odd k
+  const d = degrees(ids, edges);
+  for (const id of ids) assert.ok(d.get(id) === 3 || d.get(id) === 2, `${id} has degree ${d.get(id)}`);
+  const shortfall = ids.filter(id => d.get(id) === 2);
+  assert.equal(shortfall.length, 3, 'exactly k ids should be the ones short by one (the phantom had degree k)');
 });
 
 test('round1Pairs is deterministic in its seed', () => {

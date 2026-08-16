@@ -72,11 +72,11 @@ test('the recovered palette lands close to the true stripe colours', async () =>
   try {
     const file = await writeStripes(dir, 'bands.png', { w: 300, h: 120, colours: [RED, GREEN, BLUE], axis: 'x' });
     const result = await analyseFile(file);
-    const unhex = (h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
-    // every true colour should have some recovered swatch within a small Lab-ish RGB distance
+    // pal is the engine-native [r,g,b]-per-band shape (not hex — that's a
+    // display concern for cli.js), so it can be compared to the truth colours directly
     for (const truth of [RED, GREEN, BLUE]) {
       const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-      const nearest = Math.min(...result.pal.map(h => dist(unhex(h), truth)));
+      const nearest = Math.min(...result.pal.map(rgb => dist(rgb, truth)));
       assert.ok(nearest < 20, `expected a swatch near ${truth}, closest was ${nearest.toFixed(1)} away`);
     }
   } finally {

@@ -1,5 +1,4 @@
 import sharp from 'sharp';
-import { hex } from '../engine/colour.js';
 import { analyseSize, analysePixels } from './analyse.js';
 
 /* decode + resize is the one step that genuinely differs from the browser:
@@ -8,7 +7,13 @@ import { analyseSize, analysePixels } from './analyse.js';
    resample would blend adjacent stroke colours together before analysePixels
    ever sees them, changing what the k-means finds. ensureAlpha() forces RGBA
    output so analysePixels (`d[i*4]`, `d[i*4+1]`, `d[i*4+2]`) reads it
-   exactly like ImageData.data, regardless of whether the source had alpha. */
+   exactly like ImageData.data, regardless of whether the source had alpha.
+
+   `pal` stays in the engine's native [r,g,b]-per-band shape (the same shape
+   PRESETS and every REFS entry in src/engine/ uses) — run.js feeds this
+   straight to dye()/reband() as a REFS entry. Formatting it as hex strings
+   is a display concern for whoever prints it (src/analyse/cli.js), not
+   this function's job. */
 async function analyseFile(path) {
   const img = sharp(path);
   const meta = await img.metadata();
@@ -25,7 +30,7 @@ async function analyseFile(path) {
     height: meta.height,
     analysedAt: { w, h },
     vertical: result.vertical,
-    pal: result.pal.map(hex),
+    pal: result.pal,
     prof: result.prof
   };
 }

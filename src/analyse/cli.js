@@ -1,4 +1,5 @@
 import { writeFile } from 'node:fs/promises';
+import { hex } from '../engine/colour.js';
 import { analyseFile } from './decode.js';
 
 function parseArgs(argv) {
@@ -21,7 +22,10 @@ async function main() {
   }
 
   const results = [];
-  for (const path of paths) results.push(await analyseFile(path));
+  for (const path of paths) {
+    const r = await analyseFile(path);
+    results.push({ ...r, pal: r.pal.map(hex) }); // hex strings for human-readable output only
+  }
   const output = results.length === 1 ? results[0] : results;
   const json = JSON.stringify(output, null, 2);
 
