@@ -1,0 +1,161 @@
+-- Rubens Syndicate — full schema
+-- Supabase → SQL Editor → Run. Safe to run twice.
+
+create extension if not exists pgcrypto;
+
+-- ---------------------------------------------------------------- sketches
+-- states saved by hand from the generator's Archive panel
+create table if not exists public.sketches (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  title      text not null default 'untitled',
+  note       text,
+  thumb      text,
+  state      jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists sketches_user_created_idx
+  on public.sketches (user_id, created_at desc);
+
+-- ---------------------------------------------------------------- briefs
+create table if not exists public.briefs (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  slug         text not null,
+  instruction  text not null,
+  base_state   jsonb not null,      -- palettes already locked in
+  palette      jsonb,               -- what the analyser read from the reference
+  reference    text,                -- path or url of the hand-painted study
+  rounds       int  not null default 5,
+  published    boolean not null default false,
+  status       text not null default 'running',   -- running | done | aborted
+  cost_usd     numeric(10,4) not null default 0,
+  created_at   timestamptz not null default now(),
+  unique (user_id, slug)
+);
+
+-- ---------------------------------------------------------------- variants
+create table if not exists public.variants (
+  id           uuid primary key default gen_random_uuid(),
+  brief_id     uuid not null references public.briefs(id) on delete cascade,
+  round        int  not null,
+  label        text not null,                 -- var-07
+  source       text not null,                 -- anthropic | xai | mechanical
+  agent_id     text,                          -- gen-tight …
+  parent_id    uuid references public.variants(id) on delete set null,
+  patch        jsonb not null,
+  state        jsonb not null,
+  intent       text,
+  render_url   text,
+  rating       numeric(8,2) not null default 1500,
+  disagreement numeric(5,4) not null default 0,
+  survived     boolean not null default false,
+  created_at   timestamptz not null default now()
+);
+create index if not exists variants_brief_round_idx
+  on public.variants (brief_id, round, rating desc);
+
+-- ---------------------------------------------------------------- comparisons
+-- one forced pairwise choice. provenance is the point of this table.
+create table if not exists public.comparisons (
+  id          uuid primary key default gen_random_uuid(),
+  brief_id    uuid not null references public.briefs(id) on delete cascade,
+  round       int  not null,
+  judge_id    text not null,                  -- architect | old-master | …
+  vendor      text not null,                  -- anthropic | xai
+  model       text not null,                  -- exact model id used
+  request_id  text,
+  left_id     uuid not null references public.variants(id) on delete cascade,
+  right_id    uuid not null references public.variants(id) on delete cascade,
+  shown_first uuid not null,                  -- which one was slot A
+  winner_id   uuid references public.variants(id) on delete cascade,
+  why         text,
+  tokens_in   int,
+  tokens_out  int,
+  error       text,                           -- set instead of a winner on failure
+  created_at  timestamptz not null default now()
+);
+create index if not exists comparisons_brief_round_idx
+  on public.comparisons (brief_id, round);
+
+-- ---------------------------------------------------------------- reactions
+-- the art director's own signal. kept apart from the jury on purpose.
+create table if not exists public.reactions (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  variant_id uuid not null references public.variants(id) on delete cascade,
+  kind       text not null default 'like',    -- like | chosen | painted
+  note       text,
+  created_at timestamptz not null default now(),
+  unique (user_id, variant_id, kind)
+);
+
+-- ================================================================ security
+alter table public.sketches    enable row level security;
+alter table public.briefs      enable row level security;
+alter table public.variants    enable row level security;
+alter table public.comparisons enable row level security;
+alter table public.reactions   enable row level security;
+
+-- owner: full control over own rows
+do $$
+declare t text;
+begin
+  foreach t in array array['sketches','briefs','reactions'] loop
+    execute format('drop policy if exists %I_own on public.%I', t, t);
+    execute format($f$create policy %I_own on public.%I
+                      for all to authenticated
+                      using (user_id = auth.uid())
+                      with check (user_id = auth.uid())$f$, t, t);
+  end loop;
+end $$;
+
+-- variants and comparisons belong to their brief
+drop policy if exists variants_own on public.variants;
+create policy variants_own on public.variants for all to authenticated
+  using (exists (select 1 from public.briefs b
+                 where b.id = brief_id and b.user_id = auth.uid()))
+  with check (exists (select 1 from public.briefs b
+                      where b.id = brief_id and b.user_id = auth.uid()));
+
+drop policy if exists comparisons_own on public.comparisons;
+create policy comparisons_own on public.comparisons for all to authenticated
+  using (exists (select 1 from public.briefs b
+                 where b.id = brief_id and b.user_id = auth.uid()))
+  with check (exists (select 1 from public.briefs b
+                      where b.id = brief_id and b.user_id = auth.uid()));
+
+-- ---------------------------------------------------------------- public site
+-- anonymous readers see only what the owner published, one shift at a time.
+drop policy if exists briefs_public on public.briefs;
+create policy briefs_public on public.briefs
+  for select to anon using (published = true);
+
+drop policy if exists variants_public on public.variants;
+create policy variants_public on public.variants
+  for select to anon using (exists (select 1 from public.briefs b
+                                    where b.id = brief_id and b.published));
+
+drop policy if exists comparisons_public on public.comparisons;
+create policy comparisons_public on public.comparisons
+  for select to anon using (exists (select 1 from public.briefs b
+                                    where b.id = brief_id and b.published));
+
+-- Projects created after 30 May 2026 do not expose tables to the REST API
+-- automatically. Without these grants the API returns nothing and the error
+-- does not say why.
+grant usage on schema public to authenticated, anon;
+grant select, insert, update, delete
+  on public.sketches, public.briefs, public.variants, public.comparisons, public.reactions
+  to authenticated;
+grant select on public.briefs, public.variants, public.comparisons to anon;
+
+-- ---------------------------------------------------------------- housekeeping
+create or replace function public.touch_updated_at()
+returns trigger language plpgsql as $$
+begin new.updated_at = now(); return new; end $$;
+
+drop trigger if exists sketches_touch on public.sketches;
+create trigger sketches_touch before update on public.sketches
+  for each row execute function public.touch_updated_at();

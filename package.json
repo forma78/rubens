@@ -1,0 +1,23 @@
+{
+  "name": "rubens-syndicate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Acrylic on canvas, composed by an algorithm written from the artist's own brushwork.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "npx serve .",
+    "render": "node src/syndicate/render.js",
+    "analyse": "node src/analyse/cli.js",
+    "syndicate": "node src/syndicate/run.js",
+    "dry": "node src/syndicate/run.js --dry",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@resvg/resvg-js": "^2.6.0",
+    "openai": "^4.0.0",
+    "sharp": "^0.33.0"
+  },
+  "license": "SEE LICENSE IN LICENSE"
+}

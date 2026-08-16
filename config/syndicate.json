@@ -1,0 +1,36 @@
+{
+  "rounds": 5,
+  "variantsPerRound": 24,
+  "survivors": 6,
+  "wildcards": 1,
+
+  "proposalSplit": { "anthropic": 8, "xai": 8, "mechanical": 8 },
+  "mutation": { "keysPerChild": [2, 4], "sigmaPctOfRange": 12 },
+
+  "judging": {
+    "pairsPerVariantPerJudge": 3,
+    "extraRandomPairsPerVariant": 1,
+    "shuffleSlots": true,
+    "maxWords": 25,
+    "imageLongestSide": 768,
+    "imageFormat": "jpeg",
+    "imageQuality": 80,
+    "useBatchApi": true
+  },
+
+  "elo": { "start": 1500, "k": 24, "applyAtEndOfRound": true },
+
+  "models": {
+    "anthropic": { "generator": "claude-opus-5", "judge": "claude-sonnet-5" },
+    "xai": { "base_url": "https://api.x.ai/v1", "generator": "grok-4.6", "judge": "grok-4.6" }
+  },
+
+  "limits": {
+    "maxUsd": 12,
+    "maxMinutes": 45,
+    "retriesPerCall": 1,
+    "abortOnCapAndWriteWhatExists": true
+  },
+
+  "note": "Model ids and prices move. Verify against platform.claude.com/docs pricing and docs.x.ai before the first paid shift, and re-run the dry run (variantsPerRound 4, rounds 1, one judge) whenever a model id changes."
+}
