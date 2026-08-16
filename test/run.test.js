@@ -49,10 +49,28 @@ test('run({ dry: true }) completes a full shift with no model calls, writing the
 test('run() throws a clear error for a real (non-dry) shift with no API keys configured', async () => {
   const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
   try {
+    // env: {} is an explicit override — this must stay independent of
+    // whatever the real repo's own .env happens to contain (it now holds
+    // real keys), or this test stops testing "no keys" and instead fires a
+    // real, paid shift. That happened once already; see run.js's `env`
+    // param and the commit message for the incident.
     await assert.rejects(
-      () => run({ briefPath, dry: false, cwd: root, runsDir }),
+      () => run({ briefPath, dry: false, cwd: root, runsDir, env: {} }),
       /ANTHROPIC_API_KEY|XAI_API_KEY/
     );
+  } finally {
+    await rm(runsDir, { recursive: true, force: true });
+  }
+});
+
+test('run() never touches real clients when env is explicitly empty, even with dry:false', async () => {
+  // belt-and-braces: assert the rejection happens before any client is
+  // constructed or any file is written, by checking runsDir stays empty
+  const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
+  try {
+    await assert.rejects(() => run({ briefPath, dry: false, cwd: root, runsDir, env: {} }));
+    const entries = await readdir(runsDir).catch(() => []);
+    assert.deepEqual(entries, [], 'no run directory should have been created before the key check failed');
   } finally {
     await rm(runsDir, { recursive: true, force: true });
   }

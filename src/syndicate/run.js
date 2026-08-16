@@ -48,10 +48,13 @@ async function buildBaseState(brief, referencePath) {
   return { state, refs, ovr: [{}, {}, {}, {}, {}], palette: analysed };
 }
 
-async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir }) {
+async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: envOverride }) {
   const fileConfig = JSON.parse(await readFile(path.join(cwd, 'config/syndicate.json'), 'utf8'));
   const roles = JSON.parse(await readFile(path.join(cwd, 'config/roles.json'), 'utf8'));
-  const env = await loadEnv(path.join(cwd, '.env'));
+  // env is injectable (like clients below) precisely so a test can force
+  // the "no keys" case deterministically, regardless of what the real
+  // repo's own .env happens to contain at the time the test runs
+  const env = envOverride ?? await loadEnv(path.join(cwd, '.env'));
   const brief = await loadBrief(briefPath, fileConfig);
   const referencePath = path.join(cwd, brief.reference);
 
