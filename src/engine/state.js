@@ -1,7 +1,7 @@
 const S={
-  ratio:3, pattern:'grid', cols:14, rows:30, weave:5.1, edge:7.1, dot:40,
-  nv:2, nh:3, rw:34, angle:79, scatter:13, over:0,
-  squeeze:15, swell:64, round:67, drape:45, hand:26,
+  ratio:3, pattern:'grid', cols:5, rows:6, weave:0.4, edge:3, dot:40,
+  nv:1, nh:2, rw:34, angle:78, scatter:11, over:-3,
+  squeeze:15, swell:64, round:58, drape:58, hand:34,
   thread:'#B0822F', cell:'#FFFFFF', ribbon:'#1877E0', bg:'#FFFFFF',
   seed:11,
   /* dye — shared brush */
