@@ -279,7 +279,7 @@ import { analyseSize, analysePixels } from '../src/analyse/analyse.js';
 const S=structuredClone(DEFAULT_STATE);
 
 let REFS=PRESETS.slice();
-let OVR=[{},{},{},{},{}];                     /* manual band overrides, per layer */
+let OVR=[{},{},{},{},{0:'#0a0a0a',1:'#000000'}];  /* manual band overrides, per layer — Layer 5 defaults to a black ribbon */
 
 /* ---- analyse an uploaded image: palette + band profile + stroke axis ----
    The decode step only: draw the image into a canvas at analyseSize(),
