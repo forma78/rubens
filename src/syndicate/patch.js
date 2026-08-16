@@ -168,4 +168,4 @@ function validate(patch, opts = {}) {
   return { ok: errors.length === 0, patch: out, errors };
 }
 
-export { validate, RANGE, FLOAT_KEYS };
+export { validate, RANGE, FLOAT_KEYS, LAYER_RANGE, LAYER_DIR_SPAN_COVER_MAX_I };

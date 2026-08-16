@@ -1,0 +1,64 @@
+/* SPEC 3.3 — what generator and judge agents are told. Pure string
+   building, no network — lets the prompts be tested without an API key. */
+
+const JSON_ONLY = 'Reply with a single JSON object and nothing else — no markdown fence, no prose before or after it.';
+
+/**
+ * Generator agents are given: the parent state (JSON), the parent render
+ * (PNG, attached separately by the caller), the brief, and the critiques
+ * that variant received last round. They return one patch and one sentence
+ * of intent.
+ */
+function generatorSystemPrompt(rolePrompt) {
+  return [
+    rolePrompt,
+    '',
+    'You are proposing one change to a generative textile composition. You will see the current',
+    'state as JSON and a render of it. Return a patch: a flat JSON object of parameter changes to',
+    'merge onto that state. Only include keys you want to change. Do not include locked keys',
+    '(ratio, pattern, L[i].ref, or a colour picker unless the brief explicitly names it as unlocked)',
+    '— any patch touching one is discarded entirely.',
+    '',
+    'Reply with exactly this shape:',
+    '{"patch": {"<key>": <value>, ...}, "intent": "<one sentence, under 25 words>"}',
+    JSON_ONLY,
+  ].join('\n');
+}
+
+function generatorUserPrompt({ brief, parentState, critiques }) {
+  const lines = [
+    `Brief: ${brief.instruction}`,
+    '',
+    'Current state:',
+    JSON.stringify(parentState),
+  ];
+  if (critiques && critiques.length) {
+    lines.push('', 'What judges said about this variant last round:', ...critiques.map(c => `- ${c}`));
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Each judge call carries two renders labelled A and B, the brief, the
+ * reference, and the role prompt. It returns strictly
+ * { "winner": "A" | "B", "why": "one sentence, under 25 words" }.
+ */
+function judgeSystemPrompt(rolePrompt, maxWords) {
+  return [
+    rolePrompt,
+    '',
+    'You will see two renders of a generative textile composition, labelled A and B, and a photograph',
+    'of the reference study this composition was searched against — a tonal target for composition,',
+    'not something to copy literally.',
+    '',
+    `Pick the one you prefer. Reply with exactly this shape:`,
+    `{"winner": "A" | "B", "why": "<one sentence, under ${maxWords} words>"}`,
+    JSON_ONLY,
+  ].join('\n');
+}
+
+function judgeUserPrompt({ brief }) {
+  return `Brief: ${brief.instruction}\n\nA is the first image, B is the second, the reference photograph is the third.`;
+}
+
+export { generatorSystemPrompt, generatorUserPrompt, judgeSystemPrompt, judgeUserPrompt };

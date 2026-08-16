@@ -1,7 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { Resvg } from '@resvg/resvg-js';
-import sharp from 'sharp';
-import { svgOut, S as DEFAULT_STATE, PRESETS } from '../engine/index.js';
+import { S as DEFAULT_STATE, PRESETS } from '../engine/index.js';
+import { renderToPng } from './render-core.js';
 
 function parseArgs(argv) {
   const args = {};
@@ -26,12 +25,8 @@ async function main() {
   const refs = raw.refs ?? PRESETS;
   const quality = args.quality ?? 'preview';
 
-  const svg = svgOut(S, refs, ovr, { quality });
-  const png = new Resvg(svg).render().asPng();
-
-  let out = sharp(png);
-  if (args.height) out = out.resize({ height: Number(args.height) });
-  await writeFile(args.out, await out.png().toBuffer());
+  const png = await renderToPng(S, refs, ovr, { quality, height: args.height });
+  await writeFile(args.out, png);
 }
 
 main();
