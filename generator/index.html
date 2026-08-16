@@ -267,10 +267,10 @@
 <script type="module">
 import {
   S as DEFAULT_STATE, dom, mk,
-  s2lab, lab2s, hex, PRESETS, reband, RB,
+  s2lab, lab2s, hex, PRESETS, reband, invalidateReband,
   ribbons, layers, lattice, panels, edges, drape, outline, bbox,
   dye, pick, strokeInk, shareOf, dyePanel, dyeRibbons, COLC,
-  frame, svgOut
+  frame, canonicalFrame, svgOut
 } from '../src/engine/index.js';
 
 /* the editor owns a private, mutable copy — the imported S is the engine's
@@ -399,6 +399,7 @@ function canvasSink(g){
 }
 function render(g,W,H){
   const R=ribbons(S), F=frame(S,W,H), L=layers(S), LT=lattice(S,L), T=p=>[p[0]*F.k+F.ox,p[1]*F.k+F.oy];
+  const sc=F.k/canonicalFrame(S).k;
   const on=S.paint&&S.pattern==='grid', sink=canvasSink(g);
   const PS=[dye(S,REFS,OVR,F.k,0),dye(S,REFS,OVR,F.k,1),dye(S,REFS,OVR,F.k,2),dye(S,REFS,OVR,F.k,3)];
   COLC.clear();
@@ -416,7 +417,7 @@ function render(g,W,H){
     g.save(); g.clip(path);
     if(on&&S.wover){ dyePanel(S,sink,poly,E,LT.X,LT.Y,T,PS); sink.flush(); }
     if(S.pattern==='grid'){
-      g.strokeStyle=S.thread; g.lineWidth=S.weave;
+      g.strokeStyle=S.thread; g.lineWidth=S.weave*sc;
       for(const x of L.xs) if(x>B.x0-0.08&&x<B.x1+0.08) threadPath(g,E,B,'v',x,T);
       for(const y of L.ys) if(y>B.y0-0.08&&y<B.y1+0.08) threadPath(g,E,B,'h',y,T);
     } else {
@@ -431,7 +432,7 @@ function render(g,W,H){
     }
     if(on&&!S.wover){ dyePanel(S,sink,poly,E,LT.X,LT.Y,T,PS); sink.flush(); }
     g.restore();
-    g.strokeStyle=S.thread; g.lineWidth=S.edge; g.stroke(path);
+    g.strokeStyle=S.thread; g.lineWidth=S.edge*sc; g.stroke(path);
   }
 
   const ov=S.over/100;
@@ -495,7 +496,7 @@ function buildRefs(){                       /* the shared library */
     if(r.src){
       const x=document.createElement('span'); x.className='x'; x.textContent='\u00D7';
       x.onclick=()=>{ if(REFS.length<2) return;
-                      REFS.splice(i,1); for(const k in RB) delete RB[k];
+                      REFS.splice(i,1); invalidateReband(REFS);
                       for(let li=0;li<5;li++){ S.L[li].ref=Math.max(0,Math.min(S.L[li].ref,REFS.length-1)); OVR[li]={}; }
                       refreshDye(); draw(); };
       b.appendChild(x);
@@ -625,7 +626,7 @@ function addFiles(files){
       REFS.push({name:f.name,src:url,thumb:t.toDataURL(),pal:a.pal,prof:a.prof});
       const li=NEXT[0]%4; NEXT[0]++;
       S.L[li].ref=REFS.length-1; S.L[li].dir=a.vertical?'v':'h'; OVR[li]={};
-      for(const k in RB) delete RB[k];
+      invalidateReband(REFS);
       refreshDye(); draw();
     };
     img.src=url;

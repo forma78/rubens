@@ -47,12 +47,20 @@ const PRESETS=[
            pal:p[1].split(',').map(h=>unhex('#'+h)), prof:unpack(p[2],8)}));
 
 /* ---- merge adjacent bands down to K (gradient complexity) ----
-   REFS threaded through as an argument: the cache RB stays module-local
-   (each engine process renders one state at a time, so it never sees two
-   different REFS arrays reuse the same idx/K within a run). */
-const RB={};
+   Cached per REFS array, not globally: a plain object keyed by "idx:K" is
+   wrong the moment a process ever sees more than one REFS array (or the
+   same array spliced in place, which is exactly what removing a reference
+   image does) — two different palettes at the same idx:K would collide and
+   the second reband would silently get the first one's answer. A WeakMap
+   keyed on the REFS array itself gives every array its own bucket, and lets
+   a discarded REFS array (and its cache) be garbage collected once nothing
+   else holds it — which matters once a long-lived process (the Phase 3
+   runner) renders many states with different REFS arrays back to back. */
+const RB=new WeakMap();
 function reband(REFS,idx,K){
-  const key=idx+':'+K; if(RB[key]) return RB[key];
+  let bucket=RB.get(REFS);
+  if(!bucket){ bucket=new Map(); RB.set(REFS,bucket); }
+  const key=idx+':'+K; if(bucket.has(key)) return bucket.get(key);
   const r=REFS[idx];
   let pal=r.pal.map(c=>c.slice()), prof=r.prof.map(x=>x.slice());
   while(pal.length>K){
@@ -68,7 +76,14 @@ function reband(REFS,idx,K){
     pal.splice(bi+1,1);
     for(const row of prof){ row[bi]+=row[bi+1]; row.splice(bi+1,1); }
   }
-  return RB[key]={pal,prof};
+  const result={pal,prof};
+  bucket.set(key,result);
+  return result;
 }
+/* call whenever a REFS array is structurally mutated in place (an upload
+   appended, a reference removed) — removing a reference splices the array,
+   which shifts every index after it, so any cached reband for this array is
+   no longer trustworthy and the whole bucket is dropped, not just one key */
+function invalidateReband(REFS){ RB.delete(REFS); }
 
-export { s2lab, lab2s, hex, unhex, unpack, PRESETS, reband };
+export { s2lab, lab2s, hex, unhex, unpack, PRESETS, reband, invalidateReband };

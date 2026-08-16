@@ -8,6 +8,23 @@ function frame(S,W,H){
   return {k,ox:(W-D.w*k)/2,oy:(H-D.h*k)/2,w:D.w,h:D.h};
 }
 
+/* ---------- canonical viewport ----------
+   S.weave/S.edge are raw pixel widths (the UI sliders literally say "px").
+   A raw pixel width only means one consistent thing if it is measured
+   against a fixed viewport — otherwise the same slider value reads thicker
+   in a small preview than in a full export, and thicker still in whatever
+   size the browser window happens to be. The canonical viewport is that
+   fixed reference: the full-quality export size (SPEC 1.2's base:1600), not
+   an arbitrary new number. Both surfaces compute their own frame's scale
+   relative to this one and use the ratio (`sc`) to rescale weave/edge, so a
+   full-quality render always has sc=1 and every other viewport is
+   consistent with it instead of with its own incidental size. */
+const CANONICAL_BASE=1600;
+function canonicalFrame(S){
+  const D=dom(S);
+  return frame(S, Math.round(CANONICAL_BASE*D.w), Math.round(CANONICAL_BASE*D.h));
+}
+
 /* ---------- svg ----------
    Public signature per SPEC 1.1/1.2: svgOut(state, refs, ovr, opts).
    `state`/`refs`/`ovr` are aliased to S/REFS/OVR so the body below is the
@@ -18,11 +35,7 @@ function svgOut(state,refs,ovr,opts={}){
   const base=opts.base||(quality==='preview'?700:1600);
   const D=dom(S), W=Math.round(base*D.w), H=Math.round(base*D.h);
   const R=ribbons(S), F=frame(S,W,H), L=layers(S), LT=lattice(S,L);
-  /* the browser export used to rescale stroke widths against the live
-     on-screen canvas size (view.clientWidth/Height); that DOM reference does
-     not exist here. The original code already fell back to sc=1 whenever the
-     view had no size yet, so this is that same fallback, made unconditional. */
-  const sc=1;
+  const sc=F.k/canonicalFrame(S).k;
   const T=p=>[(p[0]*F.k+F.ox),(p[1]*F.k+F.oy)];
   const T2=p=>T(p).map(v=>v.toFixed(2));
   const poly2=a=>a.map(p=>T2(p).join(',')).join(' ');
@@ -91,4 +104,4 @@ function svgOut(state,refs,ovr,opts={}){
          `<rect width="${W}" height="${H}" fill="${S.bg}"/><defs>${defs}</defs>${body}</svg>`;
 }
 
-export { frame, svgOut };
+export { frame, canonicalFrame, CANONICAL_BASE, svgOut };
