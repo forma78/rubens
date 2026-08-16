@@ -63,8 +63,19 @@ function isNumber(v) {
  * dropped and logged in `errors`, but the rest of the patch survives. A key
  * that names a locked field (ratio, pattern, L[i].ref, or a colour picker
  * the brief did not explicitly unlock) rejects the whole patch — `patch`
- * comes back empty — because a locked field is not a mistake to tolerate,
- * it is the one thing a patch is not allowed to say.
+ * comes back empty.
+ *
+ * The two rejections are not the same kind of failure, which is why they
+ * get different blast radii. An unknown key or a wrong type is noise: the
+ * model misspelled a field, sent a string where a number belongs, hallucinated
+ * a parameter that doesn't exist — an isolated slip in an otherwise
+ * good-faith patch, so only that key is dropped and the rest is still
+ * usable. A locked key is a different kind of wrong: the agent is not
+ * mistaken about a value, it is mistaken about its own authority — it
+ * thinks it may change something the brief withheld from it (the ratio, the
+ * pattern, which palette a layer holds, a colour nobody unlocked). That
+ * isn't a typo to route around; it's grounds to distrust the whole patch,
+ * so nothing from it survives, not even the keys that were otherwise fine.
  *
  * opts.unlockedColours: array of 'thread'|'cell'|'ribbon'|'bg' the brief
  * has explicitly unlocked (SPEC 2.1). Defaults to none.
