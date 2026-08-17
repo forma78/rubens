@@ -15,7 +15,7 @@ test('loadBrief reads a well-formed brief', async () => {
   assert.equal(brief.canvasFormat, '70x100');
   assert.equal(brief.reference, 'studies/color_01.jpg');
   assert.equal(brief.rounds, 1);
-  assert.equal(brief.variantsPerRound, 4);
+  assert.equal(brief.variantsPerRound, 12);
   assert.equal(brief.survivors, 2);
   assert.deepEqual(brief.unlockedColours, []);
 });

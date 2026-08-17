@@ -5,6 +5,6 @@
   "canvasFormat": "70x100",
   "reference": "studies/color_01.jpg",
   "rounds": 1,
-  "variantsPerRound": 4,
+  "variantsPerRound": 12,
   "survivors": 2
 }

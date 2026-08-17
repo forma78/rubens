@@ -32,8 +32,8 @@ test('run({ dry: true }) completes a full shift with no model calls, writing the
     const files = await readdir(variantsDir);
     const pngs = files.filter(f => f.endsWith('.png'));
     const jsons = files.filter(f => f.endsWith('.json'));
-    assert.equal(pngs.length, 4); // fixture brief sets variantsPerRound:4
-    assert.equal(jsons.length, 4);
+    assert.equal(pngs.length, 12); // fixture brief sets variantsPerRound:12
+    assert.equal(jsons.length, 12);
 
     const baseState = JSON.parse(await readFile(path.join(runDir, 'base-state.json'), 'utf8'));
     assert.equal(baseState.S.ratio, 3); // fixture brief sets ratio:3
