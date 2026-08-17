@@ -31,8 +31,8 @@ test('usdForUsage treats Anthropic cache fields as additive, not a subset of inp
 });
 
 test('usdForUsage accepts OpenAI itself (same shape as xAI, since xAI is the openai client at a different base_url)', () => {
-  const usd = usdForUsage('openai', 'gpt-5.1-mini', { prompt_tokens: 1_000_000, completion_tokens: 0 });
-  assert.equal(usd, 1.00); // placeholder input price per 1M — see PRICING.openai's comment
+  const usd = usdForUsage('openai', 'gpt-5.4-mini', { prompt_tokens: 1_000_000, completion_tokens: 0 });
+  assert.equal(usd, 0.75); // confirmed input price per 1M, platform.openai.com/docs/pricing 2026-08-17
 });
 
 test('batch pricing is 50% of standard', () => {

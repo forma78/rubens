@@ -22,11 +22,12 @@ const PRICING = {
     'grok-4.6': { input: 2.00, cachedInput: 0.50, output: 6.00, verified: true },
   },
   openai: {
-    // UNVERIFIED — model id is also a placeholder (see config/syndicate.json's
-    // own note); check both against platform.openai.com/docs/pricing before
-    // real spend and correct the model id in config/syndicate.json to match
-    'gpt-5.1':      { input: 10.00, output: 30.00, verified: false },
-    'gpt-5.1-mini': { input: 1.00, output: 4.00, verified: false },
+    // confirmed against platform.openai.com/docs/pricing, 2026-08-17.
+    // gpt-5.1 has no mini sibling (only gpt-5 and gpt-5.4 do), so the judge
+    // role uses gpt-5.4-mini instead — a different generation from the
+    // gpt-5.1 generator, by deliberate choice, not an oversight.
+    'gpt-5.1':      { input: 1.25, cachedInput: 0.125, output: 10.00, verified: true },
+    'gpt-5.4-mini': { input: 0.75, cachedInput: 0.075, output: 4.50, verified: true },
   }
 };
 

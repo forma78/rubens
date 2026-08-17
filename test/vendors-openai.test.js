@@ -34,7 +34,7 @@ test('judge() sends three images and parses the verdict', async () => {
   let seen;
   const client = { chat: { completions: { create: async (params) => { seen = params; return reply({ winner: 'B', why: 'Softer.' }); } } } };
   const r = await judge(client, {
-    model: 'gpt-5.1-mini', rolePrompt: 'p', brief: { instruction: 'x' }, maxWords: 25,
+    model: 'gpt-5.4-mini', rolePrompt: 'p', brief: { instruction: 'x' }, maxWords: 25,
     imageA: Buffer.from('a'), imageB: Buffer.from('b'), referenceImage: Buffer.from('r'),
   });
   const images = seen.messages[1].content.filter(c => c.type === 'image_url');
@@ -44,13 +44,13 @@ test('judge() sends three images and parses the verdict', async () => {
 
 test('judgeBatchLine builds a /v1/chat/completions batch input line with three images', () => {
   const line = judgeBatchLine('pair-01', {
-    model: 'gpt-5.1-mini', rolePrompt: 'p', brief: { instruction: 'x' }, maxWords: 25,
+    model: 'gpt-5.4-mini', rolePrompt: 'p', brief: { instruction: 'x' }, maxWords: 25,
     imageA: Buffer.from('a'), imageB: Buffer.from('b'), referenceImage: Buffer.from('r'),
   });
   assert.equal(line.custom_id, 'pair-01');
   assert.equal(line.method, 'POST');
   assert.equal(line.url, '/v1/chat/completions');
-  assert.equal(line.body.model, 'gpt-5.1-mini');
+  assert.equal(line.body.model, 'gpt-5.4-mini');
   const images = line.body.messages[1].content.filter(c => c.type === 'image_url');
   assert.equal(images.length, 3);
 });

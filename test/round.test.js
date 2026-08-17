@@ -15,7 +15,7 @@ const config = {
   models: {
     anthropic: { generator: 'claude-opus-5', judge: 'claude-sonnet-5' },
     xai: { generator: 'grok-4.6', judge: 'grok-4.6' },
-    openai: { generator: 'gpt-5.1', judge: 'gpt-5.1-mini' },
+    openai: { generator: 'gpt-5.1', judge: 'gpt-5.4-mini' },
   },
   limits: { retriesPerCall: 1 },
 };
