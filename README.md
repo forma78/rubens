@@ -19,7 +19,7 @@ The generator then lays synthetic strokes by drawing from that probability — s
 the boundaries interlock in the same combed fingers my brush leaves.
 
 A syndicate of agents searches the space that generator opens. It proposes
-compositions, renders them, argues about them across two model vendors, and
+compositions, renders them, argues about them across three model vendors, and
 ranks them by forced pairwise choice. I am the art director: I pick one.
 
 Then I paint it by hand, and it stops obeying. The tape edge runs straight where
@@ -29,6 +29,18 @@ finished canvas is photographed and pushed back through the same analyser, and
 the delta between sketch and painting is published with the work.
 
 Hand teaches the algorithm. Algorithm proposes to the hand.
+
+---
+
+## Update, 2026-08-17 — a third vendor
+
+The syndicate started with two model vendors, Anthropic and xAI, each judging
+the other's proposals so disagreement meant something. It is now three —
+OpenAI joined both sides, generating and judging. Three independent opinions
+land on an unusual finalist more often than two do, and disagreement across
+three reads more like a jury than a coin flip. It costs more per shift. That
+is a deliberate trade, not an oversight — the syndicate searches, I still
+paint, and a canvas sold pays that back.
 
 ---
 
@@ -44,9 +56,9 @@ Hand teaches the algorithm. Algorithm proposes to the hand.
 | `canvases/` | Finished paintings and their deviation reports. |
 
 The `runs/` folder is the point. Every verdict carries the model that produced
-it, its version, the timestamp and the request id. Where two vendors disagreed,
-the disagreement is kept rather than averaged away — it is usually the most
-interesting thing in the file.
+it, its version, the timestamp and the request id. Where the vendors disagreed
+on the same pair, the disagreement is kept rather than averaged away — it is
+usually the most interesting thing in the file.
 
 ---
 
@@ -54,8 +66,8 @@ interesting thing in the file.
 
 The generator alone needs nothing. Open `generator/index.html` in a browser.
 
-The syndicate needs Node 20+, an Anthropic key, an xAI key and a Supabase
-project. See `docs/SPEC.md`.
+The syndicate needs Node 20+, an Anthropic key, an xAI key, an OpenAI key and
+a Supabase project. See `docs/SPEC.md`.
 
 ---
 
