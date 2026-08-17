@@ -1,5 +1,6 @@
 /* SPEC 3.1 — the brief. */
 import { readFile } from 'node:fs/promises';
+import { CANVAS_PROFILES } from './canvas.js';
 
 const REQUIRED = ['id', 'instruction', 'ratio', 'reference'];
 
@@ -35,6 +36,13 @@ async function loadBrief(briefPath, syndicateConfig) {
   if (raw.survivors !== undefined && (!Number.isInteger(raw.survivors) || raw.survivors < 1)) {
     errors.push(`survivors must be a positive integer (got ${JSON.stringify(raw.survivors)})`);
   }
+  // optional: a physical canvas format (canvas.js) selects nv/nh clamps and
+  // prompt guidance that ratio alone can't (60x80 and 120x90 render
+  // through the same ratio but want different treatment). A typo here
+  // should fail loudly, not silently fall back to an unconstrained shift.
+  if (raw.canvasFormat !== undefined && !Object.prototype.hasOwnProperty.call(CANVAS_PROFILES, raw.canvasFormat)) {
+    errors.push(`canvasFormat "${raw.canvasFormat}" is not a known format (${Object.keys(CANVAS_PROFILES).join(', ')})`);
+  }
   if (errors.length) {
     throw new Error(`invalid brief ${briefPath}:\n  ${errors.join('\n  ')}`);
   }
@@ -43,6 +51,7 @@ async function loadBrief(briefPath, syndicateConfig) {
     id: raw.id,
     instruction: raw.instruction,
     ratio: raw.ratio,
+    canvasFormat: raw.canvasFormat,
     reference: raw.reference,
     rounds: raw.rounds ?? syndicateConfig.rounds,
     variantsPerRound: raw.variantsPerRound ?? syndicateConfig.variantsPerRound,

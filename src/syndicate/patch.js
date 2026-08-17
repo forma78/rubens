@@ -89,14 +89,17 @@ function isNumber(v) {
  *
  * opts.unlockedColours: array of 'thread'|'cell'|'ribbon'|'bg' the brief
  * has explicitly unlocked (SPEC 2.1). Defaults to none.
- * opts.ratio: the engine's RATIOS index for this brief's canvas — when a
- * canvas.js profile exists for it, its nv/nh overrides take precedence
- * over the base RANGE (SPEC 2.1's table stays the fallback for any ratio
- * without a profile).
+ * opts.canvasFormat: the brief's physical canvas format string (e.g.
+ * '60x80') — when canvas.js has a profile for it, its nv/nh overrides take
+ * precedence over the base RANGE (SPEC 2.1's table stays the fallback for
+ * any format without a profile). Not the same as the engine's ratio index:
+ * 60x80 and 120x90 render through the *same* ratio but want different
+ * nv/nh treatment, since rotating the canvas swaps which axis is
+ * "vertical" — see canvas.js.
  */
 function validate(patch, opts = {}) {
   const unlockedColours = new Set(opts.unlockedColours || []);
-  const rangeOverrides = canvasRangeOverrides(opts.ratio);
+  const rangeOverrides = canvasRangeOverrides(opts.canvasFormat);
 
   if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
     return { ok: false, patch: {}, errors: [{ key: null, reason: 'patch must be a flat object' }] };

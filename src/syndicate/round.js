@@ -105,7 +105,7 @@ async function proposeRound({
         try {
           result = await vendorMod.propose(client, {
             model: models.generator,
-            rolePrompt: `${gen.prompt} ${canvasGuidance(parent.state.ratio)}`,
+            rolePrompt: `${gen.prompt} ${canvasGuidance(brief.canvasFormat)}`,
             brief,
             parentState: parent.state,
             parentRenderPng: parentJpeg,
@@ -129,7 +129,7 @@ async function proposeRound({
       }
     }
 
-    const { ok, patch: clean, errors } = validate(patch, { unlockedColours, ratio: parent.state.ratio });
+    const { ok, patch: clean, errors } = validate(patch, { unlockedColours, canvasFormat: brief.canvasFormat });
     logProposal({ ...meta, patch, intent, accepted: ok, errors });
     const finalPatch = ok ? clean : {}; // an invalid patch contributes no change rather than nothing at all
     const state = applyPatch(parent.state, finalPatch);

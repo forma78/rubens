@@ -2,6 +2,7 @@
   "id": "test-brief",
   "instruction": "A calm, evenly lit test brief used only by the test suite.",
   "ratio": 3,
+  "canvasFormat": "70x100",
   "reference": "studies/color_01.jpg",
   "rounds": 1,
   "variantsPerRound": 4,

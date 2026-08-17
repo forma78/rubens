@@ -12,6 +12,7 @@ test('loadBrief reads a well-formed brief', async () => {
   const brief = await loadBrief(fixturePath, syndicateDefaults);
   assert.equal(brief.id, 'test-brief');
   assert.equal(brief.ratio, 3);
+  assert.equal(brief.canvasFormat, '70x100');
   assert.equal(brief.reference, 'studies/color_01.jpg');
   assert.equal(brief.rounds, 1);
   assert.equal(brief.variantsPerRound, 4);
@@ -50,6 +51,17 @@ test('loadBrief rejects an out-of-range ratio', async () => {
     const p = path.join(dir, 'bad-ratio.json');
     await writeFile(p, JSON.stringify({ id: 'x', instruction: 'y', ratio: 9, reference: 'z' }));
     await assert.rejects(() => loadBrief(p, syndicateDefaults), /ratio must be/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('loadBrief rejects an unknown canvasFormat', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'rubens-brief-'));
+  try {
+    const p = path.join(dir, 'bad-format.json');
+    await writeFile(p, JSON.stringify({ id: 'x', instruction: 'y', ratio: 0, reference: 'z', canvasFormat: '50x50' }));
+    await assert.rejects(() => loadBrief(p, syndicateDefaults), /canvasFormat "50x50" is not a known format/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

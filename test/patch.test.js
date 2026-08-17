@@ -128,21 +128,28 @@ test('a non-object patch is rejected outright', () => {
   }
 });
 
-test('opts.ratio overrides nv/nh with the canvas profile\'s narrower range', () => {
-  // ratio 2 = 60x80cm: nv is fixed at exactly 1, nh is 2 or 3 (canvas.js)
-  const { patch } = validate({ nv: 3, nh: 6 }, { ratio: 2 });
+test('opts.canvasFormat overrides nv/nh with the canvas profile\'s narrower range', () => {
+  // 60x80cm: nv is fixed at exactly 1, nh is 2 or 3 (canvas.js)
+  const { patch } = validate({ nv: 3, nh: 6 }, { canvasFormat: '60x80' });
   assert.deepEqual(patch, { nv: 1, nh: 3 });
 });
 
-test('opts.ratio with no canvas profile falls back to the base RANGE', () => {
-  // ratio 3 = 70x100cm has no nv/nh override in canvas.js
-  const { patch } = validate({ nv: 3, nh: 6 }, { ratio: 3 });
+test('opts.canvasFormat with no canvas profile falls back to the base RANGE', () => {
+  // 70x100cm has no nv/nh override in canvas.js
+  const { patch } = validate({ nv: 3, nh: 6 }, { canvasFormat: '70x100' });
   assert.deepEqual(patch, { nv: 3, nh: 6 });
 });
 
-test('no ratio at all still clamps against the base RANGE', () => {
+test('no canvasFormat at all still clamps against the base RANGE', () => {
   const { patch } = validate({ nv: 9, nh: 9 });
   assert.deepEqual(patch, { nv: 4, nh: 6 });
+});
+
+test('60x80 and 120x90 share an engine ratio but validate() clamps nv/nh differently', () => {
+  const p1 = validate({ nv: 3 }, { canvasFormat: '60x80' }).patch;
+  const p2 = validate({ nv: 3 }, { canvasFormat: '120x90' }).patch;
+  assert.deepEqual(p1, { nv: 1 });   // hard-fixed
+  assert.deepEqual(p2, { nv: 3 });   // no hard clamp, soft preference only
 });
 
 test('an empty patch is valid and produces no errors', () => {
