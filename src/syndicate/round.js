@@ -12,6 +12,7 @@
 
 import { mk } from '../engine/rng.js';
 import { validate } from './patch.js';
+import { canvasGuidance } from './canvas.js';
 import { mutate } from './mutate.js';
 import { renderToPng } from './render-core.js';
 import { toTransmitJpeg } from './image.js';
@@ -104,7 +105,7 @@ async function proposeRound({
         try {
           result = await vendorMod.propose(client, {
             model: models.generator,
-            rolePrompt: gen.prompt,
+            rolePrompt: `${gen.prompt} ${canvasGuidance(parent.state.ratio)}`,
             brief,
             parentState: parent.state,
             parentRenderPng: parentJpeg,
@@ -128,7 +129,7 @@ async function proposeRound({
       }
     }
 
-    const { ok, patch: clean, errors } = validate(patch, { unlockedColours });
+    const { ok, patch: clean, errors } = validate(patch, { unlockedColours, ratio: parent.state.ratio });
     logProposal({ ...meta, patch, intent, accepted: ok, errors });
     const finalPatch = ok ? clean : {}; // an invalid patch contributes no change rather than nothing at all
     const state = applyPatch(parent.state, finalPatch);

@@ -4,24 +4,34 @@
    only gate a patch passes through before it touches a state — nothing
    downstream should trust an unvalidated patch. */
 
+import { canvasRangeOverrides } from './canvas.js';
+
 /* range, per SPEC 2.1. Granularity (integer vs one-decimal float) is taken
    from the generator's own sliders (step="1" vs step="0.1"), since the
-   table only calls out "integer" explicitly for a few keys. */
+   table only calls out "integer" explicitly for a few keys.
+
+   cols/rows/rw/angle/over/squeeze/round/drape were tightened after round 1
+   of the first real shift produced compositions that don't read as real
+   cloth (shallow-angle folds, near-zero drape, an overhang that vanishes) —
+   see src/syndicate/canvas.js. These are physical properties of cloth in
+   general, so the tightened bounds apply regardless of canvas ratio;
+   nv/nh are the one dimension that's genuinely canvas-specific and are
+   layered on top per ratio by canvasRangeOverrides(), not here. */
 const RANGE = {
-  cols:    [2, 40],
-  rows:    [2, 48],
+  cols:    [2, 8],
+  rows:    [2, 8],
   weave:   [0.4, 20],
   edge:    [0.4, 20],
   nv:      [0, 4],
   nh:      [0, 6],
-  rw:      [1, 60],
-  angle:   [45, 90],
+  rw:      [30, 60],
+  angle:   [70, 90],
   scatter: [0, 100],
-  over:    [-10, 30],
-  squeeze: [0, 80],
+  over:    [-10, -1],
+  squeeze: [0, 20],
   swell:   [0, 80],
-  round:   [0, 100],
-  drape:   [0, 100],
+  round:   [0, 80],
+  drape:   [1, 100],
   hand:    [0, 100],
   seed:    [1, 99999],
   pitch:   [2, 40],
@@ -79,9 +89,14 @@ function isNumber(v) {
  *
  * opts.unlockedColours: array of 'thread'|'cell'|'ribbon'|'bg' the brief
  * has explicitly unlocked (SPEC 2.1). Defaults to none.
+ * opts.ratio: the engine's RATIOS index for this brief's canvas — when a
+ * canvas.js profile exists for it, its nv/nh overrides take precedence
+ * over the base RANGE (SPEC 2.1's table stays the fallback for any ratio
+ * without a profile).
  */
 function validate(patch, opts = {}) {
   const unlockedColours = new Set(opts.unlockedColours || []);
+  const rangeOverrides = canvasRangeOverrides(opts.ratio);
 
   if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
     return { ok: false, patch: {}, errors: [{ key: null, reason: 'patch must be a flat object' }] };
@@ -154,7 +169,7 @@ function validate(patch, opts = {}) {
         errors.push({ key, reason: 'wrong type: expected a number' });
         continue;
       }
-      const [lo, hi] = RANGE[key];
+      const [lo, hi] = rangeOverrides[key] ?? RANGE[key];
       out[key] = clampNum(value, lo, hi, FLOAT_KEYS.has(key));
       continue;
     }

@@ -3,37 +3,37 @@ import assert from 'node:assert/strict';
 import { validate } from '../src/syndicate/patch.js';
 
 test('a clean patch passes through unchanged', () => {
-  const { ok, patch, errors } = validate({ cols: 18, weave: 3.4, seed: 42 });
+  const { ok, patch, errors } = validate({ cols: 7, weave: 3.4, seed: 42 });
   assert.equal(ok, true);
   assert.deepEqual(errors, []);
-  assert.deepEqual(patch, { cols: 18, weave: 3.4, seed: 42 });
+  assert.deepEqual(patch, { cols: 7, weave: 3.4, seed: 42 });
 });
 
 test('out-of-range numerics are clamped, not rejected', () => {
   const { ok, patch, errors } = validate({ cols: 999, over: -50, angle: 10 });
   assert.equal(ok, true);
   assert.deepEqual(errors, []);
-  assert.deepEqual(patch, { cols: 40, over: -10, angle: 45 });
+  assert.deepEqual(patch, { cols: 8, over: -10, angle: 70 });
 });
 
 test('integer keys round; weave/edge round to one decimal', () => {
-  const { patch } = validate({ cols: 15.6, weave: 3.456, edge: 7.04 });
-  assert.deepEqual(patch, { cols: 16, weave: 3.5, edge: 7.0 });
+  const { patch } = validate({ cols: 5.6, weave: 3.456, edge: 7.04 });
+  assert.deepEqual(patch, { cols: 6, weave: 3.5, edge: 7.0 });
 });
 
 test('unknown keys are dropped and logged, the rest of the patch survives', () => {
-  const { ok, patch, errors } = validate({ cols: 10, glow: 5 });
+  const { ok, patch, errors } = validate({ cols: 7, glow: 5 });
   assert.equal(ok, false);
-  assert.deepEqual(patch, { cols: 10 });
+  assert.deepEqual(patch, { cols: 7 });
   assert.equal(errors.length, 1);
   assert.equal(errors[0].key, 'glow');
   assert.match(errors[0].reason, /unknown key/);
 });
 
 test('wrong types are dropped and logged, the rest of the patch survives', () => {
-  const { ok, patch, errors } = validate({ cols: 10, seed: '42' });
+  const { ok, patch, errors } = validate({ cols: 7, seed: '42' });
   assert.equal(ok, false);
-  assert.deepEqual(patch, { cols: 10 });
+  assert.deepEqual(patch, { cols: 7 });
   assert.equal(errors.length, 1);
   assert.equal(errors[0].key, 'seed');
   assert.match(errors[0].reason, /wrong type/);
@@ -126,6 +126,23 @@ test('a non-object patch is rejected outright', () => {
     assert.deepEqual(patch, {});
     assert.ok(errors.length > 0);
   }
+});
+
+test('opts.ratio overrides nv/nh with the canvas profile\'s narrower range', () => {
+  // ratio 2 = 60x80cm: nv is fixed at exactly 1, nh is 2 or 3 (canvas.js)
+  const { patch } = validate({ nv: 3, nh: 6 }, { ratio: 2 });
+  assert.deepEqual(patch, { nv: 1, nh: 3 });
+});
+
+test('opts.ratio with no canvas profile falls back to the base RANGE', () => {
+  // ratio 3 = 70x100cm has no nv/nh override in canvas.js
+  const { patch } = validate({ nv: 3, nh: 6 }, { ratio: 3 });
+  assert.deepEqual(patch, { nv: 3, nh: 6 });
+});
+
+test('no ratio at all still clamps against the base RANGE', () => {
+  const { patch } = validate({ nv: 9, nh: 9 });
+  assert.deepEqual(patch, { nv: 4, nh: 6 });
 });
 
 test('an empty patch is valid and produces no errors', () => {
