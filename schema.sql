@@ -24,12 +24,13 @@ create table if not exists public.briefs (
   user_id      uuid not null default auth.uid() references auth.users(id) on delete cascade,
   slug         text not null,
   instruction  text not null,
-  base_state   jsonb not null,      -- palettes already locked in
+  canvas_format text,               -- e.g. '60x80' (src/syndicate/canvas.js) — set at creation, before a run exists
+  base_state   jsonb,               -- palettes already locked in — null until the shift actually runs
   palette      jsonb,               -- what the analyser read from the reference
   reference    text,                -- path or url of the hand-painted study
   rounds       int  not null default 5,
   published    boolean not null default false,
-  status       text not null default 'running',   -- running | done | aborted
+  status       text not null default 'pending',   -- pending | running | done | aborted
   cost_usd     numeric(10,4) not null default 0,
   created_at   timestamptz not null default now(),
   unique (user_id, slug)
@@ -150,6 +151,25 @@ grant select, insert, update, delete
   on public.sketches, public.briefs, public.variants, public.comparisons, public.reactions
   to authenticated;
 grant select on public.briefs, public.variants, public.comparisons to anon;
+
+-- ---------------------------------------------------------------- storage
+-- reference images uploaded from the brief-creation form. Public read (the
+-- object's URL is unguessable, same tradeoff the studies/ photos already
+-- accept) so a run can fetch it without needing a signed URL; only an
+-- authenticated owner can upload.
+insert into storage.buckets (id, name, public)
+values ('references', 'references', true)
+on conflict (id) do nothing;
+
+drop policy if exists references_owner_upload on storage.objects;
+create policy references_owner_upload on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'references');
+
+drop policy if exists references_public_read on storage.objects;
+create policy references_public_read on storage.objects
+  for select to public
+  using (bucket_id = 'references');
 
 -- ---------------------------------------------------------------- housekeeping
 create or replace function public.touch_updated_at()
