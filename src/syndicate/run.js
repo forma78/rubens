@@ -4,7 +4,7 @@
    (SPEC 3.5), writing whatever it has rather than pretending the shift
    finished. */
 
-import { mkdir, writeFile, appendFile, readFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile, appendFile, readFile } from 'node:fs/promises';
 import { appendFileSync } from 'node:fs';
 import path from 'node:path';
 import Anthropic from '@anthropic-ai/sdk';
@@ -82,6 +82,15 @@ async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: 
   };
 
   const runDir = path.join(runsDir ?? path.join(cwd, 'runs'), brief.id);
+  // proposals.jsonl/comparisons.jsonl are opened with appendFile below so a
+  // round can log durably as it goes — but that means a runDir left over
+  // from an earlier, interrupted attempt at this same brief.id would get
+  // *mixed into* this run's log rather than replaced by it (stale lines,
+  // duplicate variant ids, contradictory patches under the same id). SPEC's
+  // acceptance criterion 4 ("re-run the same shift... get the same
+  // variants") already implies a run always starts clean, not resumed — so
+  // clear it first.
+  await rm(runDir, { recursive: true, force: true });
   await mkdir(runDir, { recursive: true });
 
   const { state: baseState, refs, ovr, palette } = await buildBaseState(brief, referencePath);
