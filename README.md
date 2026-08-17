@@ -44,6 +44,31 @@ paint, and a canvas sold pays that back.
 
 ---
 
+## Update, 2026-08-18 — names, and cloth that behaves like cloth
+
+Every judge and every generator now has a name instead of a role id — Ford,
+Maeve, Arnold and Angela judge; Bernard, Dolores, Akecheta, Akane, Clementine
+and Felix propose. `FINAL.md` attributes each verdict to whoever said it. The
+point isn't decoration: a jury of models arguing under real names, in the
+open, is more interesting to watch than a table of scores, and this
+repository is meant to be watched, not only read.
+
+The generators also learned what canvas they're actually sketching for.
+Round one of the first real shift produced compositions no cloth makes — a
+fold at a shallow angle, an overhang past nothing, drape sitting at zero.
+The range an agent may propose in is now the range real stretched cloth
+occupies, and it changes with the physical canvas: 60×80cm fixes a single
+vertical ribbon, 100×100cm allows up to three, and a 120×90cm canvas is the
+same composition as 60×80cm, painted on its side. The agents are told why,
+not only clamped — a brushstroke covers proportionally less of a bigger
+canvas, and that's worth knowing, not just enforcing.
+
+Finished shifts now archive to Supabase too — brief, every variant, every
+comparison. Metadata for now; images once there is a site worth showing them
+on.
+
+---
+
 ## What is in this repository
 
 | | |
