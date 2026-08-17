@@ -182,6 +182,7 @@ async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: 
     comparisons: allComparisons,
     roundsRun,
     costSpent: costTracker.spent,
+    roles,
   });
   await writeFile(path.join(runDir, 'FINAL.md'), md);
 
