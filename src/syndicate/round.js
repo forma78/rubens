@@ -82,9 +82,13 @@ async function proposeRound({
   for (const source of jobs) {
     const parent = parents[vi % parents.length];
     const seed = seedBase + roundNum * 100000 + vi;
+    // assigned up front (not in a post-hoc pass) so logProposal can carry
+    // the same id proposals.jsonl needs to be joined back to its variant —
+    // vi already increments in lockstep with the eventual variants[] index
+    const id = `r${roundNum}-var-${String(vi + 1).padStart(2, '0')}`;
     vi++;
 
-    let patch, intent, meta = { source, parentId: parent.id };
+    let patch, intent, meta = { id, source, parentId: parent.id };
     if (source === 'mechanical') {
       patch = mutate(parent.state, seed);
       intent = 'mechanical mutation';
@@ -112,15 +116,15 @@ async function proposeRound({
         }
       }
       if (!result) {
-        logProposal({ source, generatorId: gen.id, parentId: parent.id, patch: null, intent: null, accepted: false, error: lastError?.message ?? 'unknown error' });
+        logProposal({ id, source, generatorId: gen.id, parentId: parent.id, patch: null, intent: null, accepted: false, error: lastError?.message ?? 'unknown error' });
         patch = mutate(parent.state, seed); // fill the slot mechanically rather than short the round
         intent = 'mechanical mutation (fallback after generator failure)';
-        meta = { source: 'mechanical', parentId: parent.id, fallbackFrom: source };
+        meta = { id, source: 'mechanical', parentId: parent.id, fallbackFrom: source };
       } else {
         costTracker.add(source, models.generator, result.usage, { tag: `propose:${gen.id}` });
         patch = result.patch;
         intent = result.intent;
-        meta = { source, generatorId: gen.id, parentId: parent.id };
+        meta = { id, source, generatorId: gen.id, parentId: parent.id };
       }
     }
 
@@ -131,13 +135,9 @@ async function proposeRound({
     // a new child has no rating of its own yet; inherit the parent's for
     // Swiss sort purposes only (SPEC 3.3 round 2+ pairing) — its own Elo
     // still starts at 1500 like every other variant this round
-    variants.push({ id: null, state, intent, seedRating: parent.seedRating ?? 1500, ...meta });
+    variants.push({ state, intent, patch: finalPatch, seedRating: parent.seedRating ?? 1500, ...meta });
   }
 
-  // ids are globally unique across the shift (not just this round) so a
-  // survivor carried forward from an earlier round is never confused with
-  // a freshly-proposed child that happens to land on the same slot number
-  variants.forEach((v, i) => { v.id = `r${roundNum}-var-${String(i + 1).padStart(2, '0')}`; });
   return variants;
 }
 
@@ -257,7 +257,7 @@ function recordComparison(c, r, vendor, model, costTracker, comparisons, logComp
   const loser = winner === c.a ? c.b : c.a;
   if (r.usage) costTracker.add(vendor, model, r.usage, { tag: `judge:${c.role.id}`, batch });
   logComparison({ ...base, ok: true, winner, loser, why: r.why, requestId: r.id });
-  comparisons.push({ pairId: c.pairId, a: c.a, b: c.b, vendor, winner, loser, why: r.why, judgeId: c.role.id });
+  comparisons.push({ pairId: c.pairId, a: c.a, b: c.b, slotA: c.slotA, vendor, model, winner, loser, why: r.why, judgeId: c.role.id, requestId: r.id, usage: r.usage });
 }
 
 /** SPEC 3.3 Select: top `survivors` by rating + `wildcards` (default 1) —

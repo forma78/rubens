@@ -19,12 +19,14 @@ import { toTransmitJpeg } from './image.js';
 import { proposeRound, renderRound, judgeRound, selectRound } from './round.js';
 import { renderFinalMd } from './report.js';
 import { analyseFile } from '../analyse/decode.js';
+import { signIn, syncShift } from './sync.js';
 
 function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry') args.dry = true;
+    else if (a === '--publish') args.publish = true;
     else if (a.startsWith('--')) args[a.slice(2)] = argv[++i];
   }
   return args;
@@ -49,7 +51,7 @@ async function buildBaseState(brief, referencePath) {
   return { state, refs, ovr: [{}, {}, {}, {}, {}], palette: analysed };
 }
 
-async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: envOverride, clients: clientsOverride }) {
+async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: envOverride, clients: clientsOverride, publish = false, sync: syncOverride, fetchImpl }) {
   const fileConfig = JSON.parse(await readFile(path.join(cwd, 'config/syndicate.json'), 'utf8'));
   const roles = JSON.parse(await readFile(path.join(cwd, 'config/roles.json'), 'utf8'));
   // env is injectable (like clients below) precisely so a test can force
@@ -104,6 +106,9 @@ async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: 
   const allVariantsById = new Map();
   const allComparisons = [];
   const critiquesByVariant = new Map(); // variant id -> [why, ...] said about it when it lost
+  const allRatings = new Map();      // variant id -> its rating from the round it was judged in
+  const allDisagreements = new Map(); // variant id -> its disagreement share, same scope
+  const survivedIds = new Set();      // variant ids that were ever selected to carry forward
 
   let field = null; // survivors carried into the next round, or null before round 1
   let lastSelected = [];
@@ -156,6 +161,10 @@ async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: 
 
     await writeFile(path.join(roundDir, 'ratings.json'), JSON.stringify({ dry, ratings, disagreements, selected, wildcard }, null, 2));
 
+    for (const [id, r] of Object.entries(ratings)) allRatings.set(id, r);
+    for (const [id, d] of Object.entries(disagreements)) allDisagreements.set(id, d);
+    for (const id of selected) survivedIds.add(id);
+
     for (const id of selected) {
       const why = comparisons.filter(c => c.loser === id).map(c => c.why).filter(Boolean);
       if (why.length) critiquesByVariant.set(id, why);
@@ -186,19 +195,50 @@ async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: 
   });
   await writeFile(path.join(runDir, 'FINAL.md'), md);
 
-  return { runDir, roundsRun, aborted, costSpent: costTracker.spent, finalIds, dry };
+  // Phase 4: batch-sync the finished shift to Supabase (metadata only, no
+  // image upload — see src/syndicate/sync.js). Everything up to this point
+  // is already durably on disk in runDir, which is the real record per
+  // CLAUDE.md; a publish failure here is reported, not thrown, so it never
+  // masquerades as the shift itself having failed.
+  let published = false, publishError = null;
+  if (publish && !dry) {
+    const { signIn: signInFn, syncShift: syncShiftFn } = syncOverride ?? { signIn, syncShift };
+    try {
+      if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY || !env.SUPABASE_EMAIL || !env.SUPABASE_PASSWORD) {
+        throw new Error('--publish requires SUPABASE_URL/SUPABASE_ANON_KEY/SUPABASE_EMAIL/SUPABASE_PASSWORD all set in .env');
+      }
+      const { accessToken } = await signInFn({
+        supabaseUrl: env.SUPABASE_URL, apikey: env.SUPABASE_ANON_KEY,
+        email: env.SUPABASE_EMAIL, password: env.SUPABASE_PASSWORD, fetchImpl,
+      });
+      await syncShiftFn({
+        supabaseUrl: env.SUPABASE_URL, apikey: env.SUPABASE_ANON_KEY, accessToken,
+        brief, baseState, palette, variantsById: allVariantsById, comparisons: allComparisons,
+        allRatings, allDisagreements, survivedIds, roundsRun, costSpent: costTracker.spent, aborted,
+      }, { fetchImpl });
+      published = true;
+    } catch (e) {
+      publishError = e.message;
+      console.error(`[syndicate] publish to Supabase failed: ${e.message}`);
+    }
+  }
+
+  return { runDir, roundsRun, aborted, costSpent: costTracker.spent, finalIds, dry, published, publishError };
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (!args.brief) {
-    console.error('usage: npm run syndicate -- --brief <path.json> [--dry]');
+    console.error('usage: npm run syndicate -- --brief <path.json> [--dry] [--publish]');
     process.exitCode = 1;
     return;
   }
-  const result = await run({ briefPath: args.brief, dry: !!args.dry });
+  const result = await run({ briefPath: args.brief, dry: !!args.dry, publish: !!args.publish });
   console.log(`[syndicate] ${result.dry ? 'dry run' : 'shift'} complete: ${result.roundsRun} round(s), $${result.costSpent.toFixed(2)} spent${result.aborted ? ' (aborted: cap reached)' : ''}`);
   console.log(`[syndicate] see ${result.runDir}/FINAL.md`);
+  if (args.publish && !args.dry) {
+    console.log(result.published ? '[syndicate] published to Supabase' : `[syndicate] NOT published: ${result.publishError}`);
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

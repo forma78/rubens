@@ -105,6 +105,74 @@ test('run({ dry: false }) against fake clients writes cost-log.jsonl incremental
   }
 });
 
+test('run() does not publish by default, and dry runs never publish even if asked', async () => {
+  const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
+  try {
+    const r1 = await run({ briefPath, dry: true, cwd: root, runsDir });
+    assert.equal(r1.published, false);
+    assert.equal(r1.publishError, null);
+
+    // publish:true is ignored in dry mode — nothing real to publish and no
+    // key check to even attempt, same gate as the API-key check above it
+    const r2 = await run({ briefPath, dry: true, cwd: root, runsDir, publish: true });
+    assert.equal(r2.published, false);
+  } finally {
+    await rm(runsDir, { recursive: true, force: true });
+  }
+});
+
+test('run({ publish: true }) reports (not throws) a clear error when SUPABASE_* is missing from env', async () => {
+  const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
+  try {
+    const result = await run({ briefPath, dry: false, cwd: root, runsDir, env: fakeEnv, clients: makeFakeClients(), publish: true });
+    assert.equal(result.published, false);
+    assert.match(result.publishError, /SUPABASE_URL|SUPABASE_ANON_KEY|SUPABASE_EMAIL|SUPABASE_PASSWORD/);
+    // the shift itself must still have completed and written its record —
+    // a failed publish is not the same thing as a failed shift
+    await assert.doesNotReject(readFile(path.join(runsDir, 'test-brief', 'FINAL.md')));
+  } finally {
+    await rm(runsDir, { recursive: true, force: true });
+  }
+});
+
+test('run({ publish: true }) calls the injected sync functions with the shift\'s real data and reports success', async () => {
+  const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
+  const fakeSupabaseEnv = { ...fakeEnv, SUPABASE_URL: 'https://x.supabase.co', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_EMAIL: 'owner@example.com', SUPABASE_PASSWORD: 'right-password' };
+  let seenSignIn, seenSync;
+  const fakeSync = {
+    signIn: async (args) => { seenSignIn = args; return { accessToken: 'jwt-abc' }; },
+    syncShift: async (args) => { seenSync = args; return { briefId: 'b1', variantCount: 4, comparisonCount: 2 }; },
+  };
+  try {
+    const result = await run({ briefPath, dry: false, cwd: root, runsDir, env: fakeSupabaseEnv, clients: makeFakeClients(), publish: true, sync: fakeSync });
+    assert.equal(result.published, true);
+    assert.equal(result.publishError, null);
+    assert.equal(seenSignIn.email, 'owner@example.com');
+    assert.equal(seenSync.accessToken, 'jwt-abc');
+    assert.equal(seenSync.brief.id, 'test-brief');
+    assert.ok(seenSync.variantsById.size > 0);
+  } finally {
+    await rm(runsDir, { recursive: true, force: true });
+  }
+});
+
+test('run({ publish: true }) reports a sync failure without throwing or losing the local record', async () => {
+  const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
+  const fakeSupabaseEnv = { ...fakeEnv, SUPABASE_URL: 'https://x.supabase.co', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_EMAIL: 'owner@example.com', SUPABASE_PASSWORD: 'right-password' };
+  const failingSync = {
+    signIn: async () => ({ accessToken: 'jwt-abc' }),
+    syncShift: async () => { throw new Error('RLS: JWT expired'); },
+  };
+  try {
+    const result = await run({ briefPath, dry: false, cwd: root, runsDir, env: fakeSupabaseEnv, clients: makeFakeClients(), publish: true, sync: failingSync });
+    assert.equal(result.published, false);
+    assert.match(result.publishError, /RLS: JWT expired/);
+    await assert.doesNotReject(readFile(path.join(runsDir, 'test-brief', 'FINAL.md')));
+  } finally {
+    await rm(runsDir, { recursive: true, force: true });
+  }
+});
+
 test('the real CLI (node src/syndicate/run.js --dry) runs end to end', async () => {
   // the CLI always writes under <cwd>/runs (no --runsDir flag), so this
   // necessarily touches the real repo's runs/test-brief/ — clean it up after
