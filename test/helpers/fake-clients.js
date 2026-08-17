@@ -1,7 +1,7 @@
-/* Fake Anthropic/xAI clients for exercising the real (non-mocked) code path
-   in round.js and run.js — request building, response parsing, cost
-   tracking — with no network call, no API key, and no spend. Shared by
-   round.test.js and run.test.js. */
+/* Fake Anthropic/xAI/OpenAI clients for exercising the real (non-mocked)
+   code path in round.js and run.js — request building, response parsing,
+   cost tracking — with no network call, no API key, and no spend. Shared
+   by round.test.js and run.test.js. */
 
 function textMessage(obj) {
   return { content: [{ type: 'text', text: JSON.stringify(obj) }], usage: { input_tokens: 100, output_tokens: 20 }, id: 'msg' };
@@ -16,10 +16,10 @@ function isJudgeCall(systemText) {
   return /Pick the one you prefer/.test(systemText);
 }
 
-function makeFakeClients() {
+function makeFakeAnthropicClient() {
   const batches = new Map();
   let batchCounter = 0;
-  const anthropicClient = {
+  return {
     messages: {
       create: async (params) => {
         if (isJudgeCall(params.system)) return textMessage({ winner: 'A', why: 'Reads bolder here.' });
@@ -46,20 +46,78 @@ function makeFakeClients() {
       },
     },
   };
-  const xaiClient = {
+}
+
+function chatCompletionsCreate({ proposePatch, judgeVerdict }) {
+  return async (params) => {
+    const system = params.messages.find(m => m.role === 'system')?.content ?? '';
+    const body = isJudgeCall(system) ? judgeVerdict : proposePatch;
+    return { choices: [{ message: { content: JSON.stringify(body) } }], usage: { prompt_tokens: 50, completion_tokens: 10 }, id: 'c' };
+  };
+}
+
+function makeFakeXaiClient() {
+  return {
     chat: {
       completions: {
-        create: async (params) => {
-          const system = params.messages.find(m => m.role === 'system')?.content ?? '';
-          if (isJudgeCall(system)) {
-            return { choices: [{ message: { content: JSON.stringify({ winner: 'A', why: 'Reads bolder.' }) } }], usage: { prompt_tokens: 50, completion_tokens: 10 }, id: 'c' };
-          }
-          return { choices: [{ message: { content: JSON.stringify({ patch: { scatter: 15 }, intent: 'Loosen it.' }) } }], usage: { prompt_tokens: 50, completion_tokens: 10 }, id: 'c' };
-        },
+        create: chatCompletionsCreate({
+          proposePatch: { patch: { scatter: 15 }, intent: 'Loosen it.' },
+          judgeVerdict: { winner: 'A', why: 'Reads bolder.' },
+        }),
       },
     },
   };
-  return { anthropic: anthropicClient, xai: xaiClient };
+}
+
+/** OpenAI's batch path is file-based: upload a .jsonl of requests, create a
+ *  batch pointed at that file's id, download a .jsonl of results once
+ *  status is 'completed'. This fake mirrors that shape closely enough for
+ *  vendors/openai.js's submit/poll/fetch functions to run unmodified
+ *  against it — see test/vendors-openai.test.js for the isolated version. */
+function makeFakeOpenaiClient() {
+  const files = new Map();
+  const batches = new Map();
+  let fileCounter = 0, batchCounter = 0;
+  return {
+    chat: {
+      completions: {
+        create: chatCompletionsCreate({
+          proposePatch: { patch: { grain: 40 }, intent: 'Add texture.' },
+          judgeVerdict: { winner: 'A', why: 'Feels more deliberate.' },
+        }),
+      },
+    },
+    files: {
+      create: async ({ file }) => {
+        const id = `file_${fileCounter++}`;
+        files.set(id, await file.text());
+        return { id };
+      },
+      content: async (fileId) => {
+        const lines = files.get(fileId).trim().split('\n').map(l => JSON.parse(l));
+        const outLines = lines.map((l, i) => {
+          const winner = i % 2 === 0 ? 'A' : 'B';
+          return JSON.stringify({
+            custom_id: l.custom_id,
+            response: { status_code: 200, body: { id: 'r_' + l.custom_id, choices: [{ message: { content: JSON.stringify({ winner, why: `Prefers ${winner} here.` }) } }], usage: { prompt_tokens: 40, completion_tokens: 8 } } },
+          });
+        });
+        return { text: async () => outLines.join('\n') + '\n' };
+      },
+    },
+    batches: {
+      create: async ({ input_file_id }) => {
+        const id = `batch_${batchCounter++}`;
+        batches.set(id, { id, input_file_id, status: 'completed', output_file_id: input_file_id });
+        return batches.get(id);
+      },
+      retrieve: async (id) => batches.get(id),
+    },
+  };
+}
+
+function makeFakeClients() {
+  return { anthropic: makeFakeAnthropicClient(), xai: makeFakeXaiClient(), openai: makeFakeOpenaiClient() };
 }
 
 export { makeFakeClients, textMessage, isJudgeCall };

@@ -7,25 +7,27 @@ import { renderToPng } from '../src/syndicate/render-core.js';
 import { makeFakeClients } from './helpers/fake-clients.js';
 
 const config = {
-  variantsPerRound: 6,
+  variantsPerRound: 8,
   survivors: 2,
   wildcards: 1,
-  proposalSplit: { anthropic: 2, xai: 2, mechanical: 2 },
+  proposalSplit: { anthropic: 2, xai: 2, openai: 2, mechanical: 2 },
   judging: { pairsPerVariantPerJudge: 3, extraRandomPairsPerVariant: 1, shuffleSlots: true, maxWords: 25 },
   models: {
     anthropic: { generator: 'claude-opus-5', judge: 'claude-sonnet-5' },
     xai: { generator: 'grok-4.6', judge: 'grok-4.6' },
+    openai: { generator: 'gpt-5.1', judge: 'gpt-5.1-mini' },
   },
   limits: { retriesPerCall: 1 },
 };
 const roles = {
   judges: [
-    { id: 'architect', vendors: ['anthropic', 'xai'], prompt: 'judge weight', rounds: [1, 2] },
-    { id: 'gallerist', vendors: ['anthropic', 'xai'], prompt: 'judge hand', rounds: [2] },
+    { id: 'architect', vendors: ['anthropic', 'xai', 'openai'], prompt: 'judge weight', rounds: [1, 2] },
+    { id: 'gallerist', vendors: ['anthropic', 'xai', 'openai'], prompt: 'judge hand', rounds: [2] },
   ],
   generators: [
     { id: 'gen-tight', vendor: 'anthropic', prompt: 'tighten' },
     { id: 'gen-loose', vendor: 'xai', prompt: 'loosen' },
+    { id: 'gen-grain', vendor: 'openai', prompt: 'texture' },
   ],
 };
 const brief = { instruction: 'Anxious.', unlockedColours: [] };
@@ -100,10 +102,10 @@ test('judgeRound (round 1): every active judge x vendor evaluates the round-1 pa
   });
 
   // round 1: only 'architect' is active (rounds:[1,2] includes 1; 'gallerist' only [2])
-  // pairs per variant = 3, on 2 vendors = 6 judge-calls per variant-slot, but each *pair* is
-  // shared, so total comparisons = pairs * judgeInstances = (6*3/2) * (1 role * 2 vendors)
+  // pairsPerVariantPerJudge pairs per variant, shared across every active
+  // (role, vendor) combination — 1 active role x 3 vendors here
   const expectedPairs = config.variantsPerRound * config.judging.pairsPerVariantPerJudge / 2;
-  assert.equal(comparisons.length, expectedPairs * 2); // 1 active role x 2 vendors
+  assert.equal(comparisons.length, expectedPairs * 3); // 1 active role x 3 vendors
   assert.equal(logged.length, comparisons.length);
   for (const c of comparisons) {
     assert.ok(children.some(v => v.id === c.winner));

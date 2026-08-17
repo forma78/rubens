@@ -20,6 +20,13 @@ const PRICING = {
   xai: {
     // confirmed against the docs.x.ai pricing page, 2026-08-17
     'grok-4.6': { input: 2.00, cachedInput: 0.50, output: 6.00, verified: true },
+  },
+  openai: {
+    // UNVERIFIED — model id is also a placeholder (see config/syndicate.json's
+    // own note); check both against platform.openai.com/docs/pricing before
+    // real spend and correct the model id in config/syndicate.json to match
+    'gpt-5.1':      { input: 10.00, output: 30.00, verified: false },
+    'gpt-5.1-mini': { input: 1.00, output: 4.00, verified: false },
   }
 };
 
@@ -33,12 +40,14 @@ function warnUnverified(vendor, model) {
 
 /** usdForUsage(vendor, model, usage, { batch }) -> number (USD)
  *
- * The two vendors report cached input differently and it matters which:
- * Anthropic's cache_creation_input_tokens/cache_read_input_tokens are
- * separate, additive token pools alongside input_tokens (a cache write
+ * Anthropic reports cached input differently from the other two, and it
+ * matters which: its cache_creation_input_tokens/cache_read_input_tokens
+ * are separate, additive token pools alongside input_tokens (a cache write
  * costs *more* than a normal token, a cache read costs less) — they are
- * not a subset of input_tokens. xAI's prompt_tokens_details.cached_tokens,
- * OpenAI-style, *is* a subset of prompt_tokens. Treating Anthropic's cache
+ * not a subset of input_tokens. xAI and OpenAI's
+ * prompt_tokens_details.cached_tokens *is* a subset of prompt_tokens (xAI's
+ * client is the openai SDK pointed at a different base_url, so it reports
+ * usage in the same shape as OpenAI itself). Treating Anthropic's cache
  * fields as a subset (subtracting them from input_tokens) would silently
  * undercount real spend, which is the one thing this module must not do. */
 function usdForUsage(vendor, model, usage, { batch = false } = {}) {

@@ -68,6 +68,7 @@ async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: 
   if (!dry) {
     if (!env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set in .env — required for a real shift (use --dry to skip model calls)');
     if (!env.XAI_API_KEY) throw new Error('XAI_API_KEY is not set in .env — required for a real shift (use --dry to skip model calls)');
+    if (!env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is not set in .env — required for a real shift (use --dry to skip model calls)');
   }
   // like env: injectable so a test can exercise the real (dry:false) path
   // against a fake client — no network, no key, no spend — the same DI
@@ -75,6 +76,7 @@ async function run({ briefPath, dry = false, cwd = process.cwd(), runsDir, env: 
   const clients = dry ? {} : clientsOverride ?? {
     anthropic: new Anthropic({ apiKey: env.ANTHROPIC_API_KEY }),
     xai: new OpenAI({ apiKey: env.XAI_API_KEY, baseURL: syndicateConfig.models.xai.base_url }),
+    openai: new OpenAI({ apiKey: env.OPENAI_API_KEY }),
   };
 
   const runDir = path.join(runsDir ?? path.join(cwd, 'runs'), brief.id);

@@ -1,10 +1,10 @@
 {
   "rounds": 5,
-  "variantsPerRound": 24,
+  "variantsPerRound": 32,
   "survivors": 6,
   "wildcards": 1,
 
-  "proposalSplit": { "anthropic": 8, "xai": 8, "mechanical": 8 },
+  "proposalSplit": { "anthropic": 8, "xai": 8, "openai": 8, "mechanical": 8 },
   "mutation": { "keysPerChild": [2, 4], "sigmaPctOfRange": 12 },
 
   "judging": {
@@ -22,7 +22,8 @@
 
   "models": {
     "anthropic": { "generator": "claude-opus-5", "judge": "claude-sonnet-5" },
-    "xai": { "base_url": "https://api.x.ai/v1", "generator": "grok-4.6", "judge": "grok-4.6" }
+    "xai": { "base_url": "https://api.x.ai/v1", "generator": "grok-4.6", "judge": "grok-4.6" },
+    "openai": { "generator": "gpt-5.1", "judge": "gpt-5.1-mini" }
   },
 
   "limits": {
@@ -32,5 +33,5 @@
     "abortOnCapAndWriteWhatExists": true
   },
 
-  "note": "Model ids and prices move. Verify against platform.claude.com/docs pricing and docs.x.ai before the first paid shift, and re-run the dry run (variantsPerRound 4, rounds 1, one judge) whenever a model id changes."
+  "note": "Model ids and prices move. Verify against platform.claude.com/docs pricing, docs.x.ai, and platform.openai.com/docs/pricing before the first paid shift, and re-run the dry run (variantsPerRound 4, rounds 1, one judge) whenever a model id changes. openai.generator/judge are PLACEHOLDERS, not confirmed real model ids — replace before spending real money. Three symmetric vendors (was two) means judging costs roughly 1.5x what it did per pair; the maxUsd cap below is unchanged from before that decision — raise it deliberately if you want a full shift to finish without hitting it."
 }

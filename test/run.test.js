@@ -11,7 +11,7 @@ import { makeFakeClients } from './helpers/fake-clients.js';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const briefPath = path.join(root, 'test/fixtures/brief.json');
 const runScript = path.join(root, 'src/syndicate/run.js');
-const fakeEnv = { ANTHROPIC_API_KEY: 'fake', XAI_API_KEY: 'fake' }; // run() only checks these are present, not that they're real
+const fakeEnv = { ANTHROPIC_API_KEY: 'fake', XAI_API_KEY: 'fake', OPENAI_API_KEY: 'fake' }; // run() only checks these are present, not that they're real
 
 test('run({ dry: true }) completes a full shift with no model calls, writing the documented layout', async () => {
   const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
@@ -58,7 +58,7 @@ test('run() throws a clear error for a real (non-dry) shift with no API keys con
     // param and the commit message for the incident.
     await assert.rejects(
       () => run({ briefPath, dry: false, cwd: root, runsDir, env: {} }),
-      /ANTHROPIC_API_KEY|XAI_API_KEY/
+      /ANTHROPIC_API_KEY|XAI_API_KEY|OPENAI_API_KEY/
     );
   } finally {
     await rm(runsDir, { recursive: true, force: true });
@@ -94,7 +94,7 @@ test('run({ dry: false }) against fake clients writes cost-log.jsonl incremental
     assert.ok(lines.length > 0);
     const entries = lines.map(l => JSON.parse(l));
     for (const e of entries) {
-      assert.ok(['anthropic', 'xai'].includes(e.vendor));
+      assert.ok(['anthropic', 'xai', 'openai'].includes(e.vendor));
       assert.ok(e.usd > 0);
       assert.ok(e.at);
     }

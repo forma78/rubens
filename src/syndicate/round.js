@@ -1,6 +1,14 @@
 /* SPEC 3.3 — one round: propose -> render -> judge -> rank -> select.
    "mutate" (survivors carrying forward unchanged) happens in run.js, which
-   owns the loop across rounds; this module does the inside of one round. */
+   owns the loop across rounds; this module does the inside of one round.
+
+   Three model vendors now, not two (Anthropic, xAI, OpenAI), added for
+   symmetry so disagreement is measured across all three rather than a
+   single pair. Two of them (Anthropic, OpenAI) have a batch judging path;
+   xAI does not, so it stays sequential. The two batch APIs are shaped
+   differently underneath (Anthropic takes an array of requests directly,
+   OpenAI wants a .jsonl file uploaded first) — BATCH_ADAPTERS below is the
+   uniform seam that lets judgeRound not care which. */
 
 import { mk } from '../engine/rng.js';
 import { validate } from './patch.js';
@@ -11,6 +19,25 @@ import { round1Pairs, swissPairs } from './pairing.js';
 import { eloRound, disagreement } from './elo.js';
 import * as anthropic from './vendors/anthropic.js';
 import * as xai from './vendors/xai.js';
+import * as openai from './vendors/openai.js';
+
+const VENDOR_MODULES = { anthropic, xai, openai };
+const BATCH_ADAPTERS = {
+  anthropic: {
+    buildItem: (id, params) => anthropic.judgeBatchRequest(id, params),
+    submit: (client, items) => anthropic.submitJudgeBatch(client, items),
+    poll: (client, batchId, opts) => anthropic.pollBatch(client, batchId, opts),
+    // anthropic.fetchBatchResults wants the batch *id*; poll() gives us the object
+    fetch: (client, batch, opts) => anthropic.fetchBatchResults(client, batch.id, opts),
+  },
+  openai: {
+    buildItem: (id, params) => openai.judgeBatchLine(id, params),
+    submit: (client, items) => openai.submitJudgeBatch(client, items),
+    poll: (client, batchId, opts) => openai.pollBatch(client, batchId, opts),
+    // openai.fetchBatchResults wants the batch *object* (output_file_id lives on it)
+    fetch: (client, batch, opts) => openai.fetchBatchResults(client, batch, opts),
+  },
+};
 
 function applyPatch(state, patch) {
   const next = structuredClone(state);
@@ -23,11 +50,12 @@ function applyPatch(state, patch) {
 }
 
 /**
- * proposeRound: variantsPerRound patches from parents, split anthropic /
- * xai / mechanical per config.proposalSplit. Round 1 has a single parent
- * (the base state) and no critiques. Every proposal — model or mechanical —
- * is written to proposals.jsonl via `logProposal`, accepted or rejected;
- * a rejected model proposal is retried once (SPEC 2.1) then dropped, in
+ * proposeRound: variantsPerRound patches from parents, split across every
+ * model vendor named in config.proposalSplit plus mechanical, in
+ * proportion to their configured shares. Round 1 has a single parent (the
+ * base state) and no critiques. Every proposal — model or mechanical — is
+ * written to proposals.jsonl via `logProposal`, accepted or rejected; a
+ * rejected model proposal is retried once (SPEC 2.1) then dropped, in
  * which case that slot is filled by a mechanical mutation instead so the
  * round still reaches variantsPerRound.
  */
@@ -37,15 +65,12 @@ async function proposeRound({
 }) {
   const n = config.variantsPerRound;
   const split = config.proposalSplit;
-  const total = split.anthropic + split.xai + split.mechanical;
+  const modelVendors = Object.keys(split).filter(k => k !== 'mechanical');
+  const total = Object.values(split).reduce((a, b) => a + b, 0);
   const counts = dry
-    ? { anthropic: 0, xai: 0, mechanical: n }
-    : {
-        anthropic: Math.round((split.anthropic / total) * n),
-        xai: Math.round((split.xai / total) * n),
-        mechanical: 0,
-      };
-  counts.mechanical = n - counts.anthropic - counts.xai;
+    ? Object.fromEntries(modelVendors.map(v => [v, 0]))
+    : Object.fromEntries(modelVendors.map(v => [v, Math.round((split[v] / total) * n)]));
+  counts.mechanical = n - modelVendors.reduce((s, v) => s + (counts[v] || 0), 0);
 
   const jobs = [];
   for (const [source, count] of Object.entries(counts)) {
@@ -64,7 +89,7 @@ async function proposeRound({
       patch = mutate(parent.state, seed);
       intent = 'mechanical mutation';
     } else {
-      const vendorMod = source === 'anthropic' ? anthropic : xai;
+      const vendorMod = VENDOR_MODULES[source];
       const client = clients[source];
       const models = config.models[source];
       const generators = roles.generators.filter(g => g.vendor === source);
@@ -127,15 +152,16 @@ async function renderRound(variants, refs, ovr) {
 
 /**
  * judgeRound: builds the round's pair set, evaluates it with every judge
- * role active this round (per roles.json's own `rounds` list) on both its
- * vendors, and returns { comparisons, byId } where comparisons is the flat
- * list elo.js/disagreement() expect and byId collects the `why` quotes a
- * variant received, split into for/against.
+ * role active this round (per roles.json's own `rounds` list) on every
+ * vendor that role lists, and returns { comparisons } — the flat list
+ * elo.js/disagreement() expect.
  *
- * Anthropic's calls for the round go through the Message Batches API in
- * one batch (SPEC 3.5); xAI calls go one at a time. In --dry mode nothing
- * is called at all — comparisons come back empty and every variant keeps
- * the Elo start rating, clearly marked as unjudged by the caller.
+ * Calls are grouped by vendor. A vendor with a BATCH_ADAPTERS entry
+ * (Anthropic, OpenAI) goes through its batch API, one batch for the whole
+ * round (SPEC 3.5); anything else (xAI) goes one call at a time. In --dry
+ * mode nothing is called at all — comparisons come back empty and every
+ * variant keeps the Elo start rating, clearly marked as unjudged by the
+ * caller.
  */
 async function judgeRound({
   variants, roundNum, config, roles, brief, referenceJpeg,
@@ -165,48 +191,57 @@ async function judgeRound({
     }
   }
 
-  const comparisons = [];
-  const anthropicCalls = calls.filter(c => c.vendor === 'anthropic');
-  const xaiCalls = calls.filter(c => c.vendor === 'xai');
-
-  // --- Anthropic: one batch for the whole round ---
-  if (anthropicCalls.length && !costTracker.capped()) {
-    const requests = anthropicCalls.map((c, i) => anthropic.judgeBatchRequest(`c${i}`, {
-      model: config.models.anthropic.judge,
-      rolePrompt: c.role.prompt,
-      brief,
-      maxWords: config.judging.maxWords,
-      imageA: byId.get(c.slotA).jpeg,
-      imageB: byId.get(c.slotB).jpeg,
-      referenceImage: referenceJpeg,
-    }));
-    const batchId = await anthropic.submitJudgeBatch(clients.anthropic, requests);
-    await anthropic.pollBatch(clients.anthropic, batchId);
-    const results = await anthropic.fetchBatchResults(clients.anthropic, batchId, { maxWords: config.judging.maxWords });
-    anthropicCalls.forEach((c, i) => {
-      const r = results.get(`c${i}`);
-      recordComparison(c, r, 'anthropic', config.models.anthropic.judge, costTracker, comparisons, logComparison, true);
-    });
+  const callsByVendor = new Map();
+  for (const c of calls) {
+    if (!callsByVendor.has(c.vendor)) callsByVendor.set(c.vendor, []);
+    callsByVendor.get(c.vendor).push(c);
   }
 
-  // --- xAI: one at a time ---
-  for (const c of xaiCalls) {
-    if (costTracker.capped()) break;
-    let r;
-    try {
-      r = await xai.judge(clients.xai, {
-        model: config.models.xai.judge,
+  const comparisons = [];
+  for (const [vendor, vendorCalls] of callsByVendor) {
+    if (!vendorCalls.length || costTracker.capped()) continue;
+    const model = config.models[vendor]?.judge;
+    const client = clients[vendor];
+    const adapter = BATCH_ADAPTERS[vendor];
+
+    if (adapter) {
+      const items = vendorCalls.map((c, i) => adapter.buildItem(`c${i}`, {
+        model,
         rolePrompt: c.role.prompt,
         brief,
         maxWords: config.judging.maxWords,
         imageA: byId.get(c.slotA).jpeg,
         imageB: byId.get(c.slotB).jpeg,
         referenceImage: referenceJpeg,
+      }));
+      const batchId = await adapter.submit(client, items);
+      const batch = await adapter.poll(client, batchId);
+      const results = await adapter.fetch(client, batch, { maxWords: config.judging.maxWords });
+      vendorCalls.forEach((c, i) => {
+        const r = results.get(`c${i}`);
+        recordComparison(c, r, vendor, model, costTracker, comparisons, logComparison, true);
       });
-    } catch (e) {
-      r = { error: e.message };
+    } else {
+      const vendorMod = VENDOR_MODULES[vendor];
+      for (const c of vendorCalls) {
+        if (costTracker.capped()) break;
+        let r;
+        try {
+          r = await vendorMod.judge(client, {
+            model,
+            rolePrompt: c.role.prompt,
+            brief,
+            maxWords: config.judging.maxWords,
+            imageA: byId.get(c.slotA).jpeg,
+            imageB: byId.get(c.slotB).jpeg,
+            referenceImage: referenceJpeg,
+          });
+        } catch (e) {
+          r = { error: e.message };
+        }
+        recordComparison(c, r, vendor, model, costTracker, comparisons, logComparison, false);
+      }
     }
-    recordComparison(c, r, 'xai', config.models.xai.judge, costTracker, comparisons, logComparison, false);
   }
 
   return { comparisons };
