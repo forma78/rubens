@@ -269,6 +269,7 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
     // forward from an earlier round already have a row from that round's
     // own pass through this same loop.
     await renderRound(children, refs, ovr, {
+      config: syndicateConfig,
       onRendered: async (v) => {
         v.roundNum = `round-${roundNum}`;
         await writeFile(path.join(variantsDir, `${v.id}.png`), v.png);

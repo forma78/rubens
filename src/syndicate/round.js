@@ -4,13 +4,30 @@
 
    Three model vendors now, not two (Anthropic, xAI, OpenAI), added for
    symmetry so disagreement is measured across all three rather than a
-   single pair. Two of them (Anthropic, OpenAI) have a batch judging path;
-   xAI does not, so it stays sequential. The two batch APIs are shaped
-   differently underneath (Anthropic takes an array of requests directly,
-   OpenAI wants a .jsonl file uploaded first) — BATCH_ADAPTERS below is the
-   uniform seam that lets judgeRound not care which. */
+   single pair.
+
+   TWO SHIFT MODES (2026-08-18). A shift used to run every judge call
+   through the vendors' batch APIs, one vendor at a time. Batch is a queue
+   with a 24-hour SLA and a 50% discount: correct for volume, wrong for a
+   shift someone is watching. Three vendors polled sequentially at 15s
+   intervals is how a round became hours.
+
+   - live (config.judging.useBatchApi false, the default): every call goes
+     through the ordinary synchronous endpoint, all vendors together, with
+     `limits.concurrency.judge` in flight. Round latency becomes the
+     slowest call times the number of waves, not the sum of three queues.
+   - night (useBatchApi true): the original path, unchanged, kept behind
+     BATCH_ADAPTERS for large unattended runs where the discount is worth
+     the wait.
+
+   proposeRound and renderRound are pooled the same way. Everything stays
+   deterministic: ids and seeds come from the job index, not from
+   completion order, and both the proposals and comparisons arrays are
+   assembled in index order before anyone reads them (eloRound applies K
+   updates in array order — reordering it would change ratings). */
 
 import { mk } from '../engine/rng.js';
+import { mapPool, serialise } from './pool.js';
 import { validate } from './patch.js';
 import { canvasGuidance } from './canvas.js';
 import { mutate } from './mutate.js';
@@ -39,6 +56,17 @@ const BATCH_ADAPTERS = {
     fetch: (client, batch, opts) => openai.fetchBatchResults(client, batch, opts),
   },
 };
+
+/* How many calls are allowed in flight per stage. Judge calls are short
+   and network-bound, so they take the widest lane; render is resvg, which
+   is synchronous CPU work — going wider than a handful of cores buys
+   nothing and only lengthens the event-loop stalls. Overridable per shift
+   in config.limits.concurrency. */
+const DEFAULT_CONCURRENCY = { propose: 12, render: 6, judge: 24 };
+
+function lanes(config) {
+  return { ...DEFAULT_CONCURRENCY, ...(config?.limits?.concurrency ?? {}) };
+}
 
 function applyPatch(state, patch) {
   const next = structuredClone(state);
@@ -78,16 +106,25 @@ async function proposeRound({
     for (let i = 0; i < count; i++) jobs.push(source);
   }
 
-  const variants = [];
-  let vi = 0;
-  for (const source of jobs) {
+  // one JPEG per distinct parent, not one per job. Round 1 has a single
+  // parent and used to re-encode the same PNG 24 times; later rounds have
+  // `survivors` of them. The promise itself is cached, so concurrent jobs
+  // sharing a parent await the same encode instead of racing to redo it.
+  const parentJpegs = new Map();
+  const parentJpeg = (parent) => {
+    if (!parentJpegs.has(parent.id)) parentJpegs.set(parent.id, toTransmitJpeg(parent.png));
+    return parentJpegs.get(parent.id);
+  };
+  // proposals.jsonl lines are long enough that two concurrent appends can
+  // interleave into one corrupt line — queue them instead
+  const logOne = serialise(logProposal);
+
+  const variants = await mapPool(jobs, lanes(config).propose, async (source, vi) => {
     const parent = parents[vi % parents.length];
     const seed = seedBase + roundNum * 100000 + vi;
-    // assigned up front (not in a post-hoc pass) so logProposal can carry
-    // the same id proposals.jsonl needs to be joined back to its variant —
-    // vi already increments in lockstep with the eventual variants[] index
+    // derived from the job index rather than a running counter, so the id
+    // a proposal is logged under is the same whatever order jobs finish in
     const id = `r${roundNum}-var-${String(vi + 1).padStart(2, '0')}`;
-    vi++;
 
     let patch, intent, meta = { id, source, parentId: parent.id };
     if (source === 'mechanical') {
@@ -99,7 +136,7 @@ async function proposeRound({
       const models = config.models[source];
       const generators = roles.generators.filter(g => g.vendor === source);
       const gen = generators[Math.floor(mk(seed + 7)() * generators.length)];
-      const parentJpeg = await toTransmitJpeg(parent.png);
+      const parentImage = await parentJpeg(parent);
       let result = null, lastError = null;
       for (let attempt = 0; attempt < 1 + (config.limits?.retriesPerCall ?? 1); attempt++) {
         try {
@@ -108,7 +145,7 @@ async function proposeRound({
             rolePrompt: `${gen.prompt} ${canvasGuidance(brief.canvasFormat)}`,
             brief,
             parentState: parent.state,
-            parentRenderPng: parentJpeg,
+            parentRenderPng: parentImage,
             critiques: critiquesFor(parent.id),
           });
           break;
@@ -117,7 +154,7 @@ async function proposeRound({
         }
       }
       if (!result) {
-        logProposal({ id, source, generatorId: gen.id, parentId: parent.id, patch: null, intent: null, accepted: false, error: lastError?.message ?? 'unknown error' });
+        await logOne({ id, source, generatorId: gen.id, parentId: parent.id, patch: null, intent: null, accepted: false, error: lastError?.message ?? 'unknown error' });
         patch = mutate(parent.state, seed); // fill the slot mechanically rather than short the round
         intent = 'mechanical mutation (fallback after generator failure)';
         meta = { id, source: 'mechanical', parentId: parent.id, fallbackFrom: source };
@@ -130,29 +167,32 @@ async function proposeRound({
     }
 
     const { ok, patch: clean, errors } = validate(patch, { unlockedColours, canvasFormat: brief.canvasFormat });
-    logProposal({ ...meta, patch, intent, accepted: ok, errors });
+    await logOne({ ...meta, patch, intent, accepted: ok, errors });
     const finalPatch = ok ? clean : {}; // an invalid patch contributes no change rather than nothing at all
     const state = applyPatch(parent.state, finalPatch);
     // a new child has no rating of its own yet; inherit the parent's for
     // Swiss sort purposes only (SPEC 3.3 round 2+ pairing) — its own Elo
     // still starts at 1500 like every other variant this round
-    variants.push({ state, intent, patch: finalPatch, seedRating: parent.seedRating ?? 1500, ...meta });
-  }
+    return { state, intent, patch: finalPatch, seedRating: parent.seedRating ?? 1500, ...meta };
+  });
 
   return variants;
 }
 
-/** renderRound: every variant to a preview PNG + its transmission JPEG.
- *  onRendered(v), if given, fires right after each one — before the next
- *  variant even starts rendering — so a caller can write it to disk and
- *  sync it to Supabase one at a time instead of waiting for the whole
- *  round to finish (the same reason judgeRound has onComparisons). */
-async function renderRound(variants, refs, ovr, { onRendered } = {}) {
-  for (const v of variants) {
+/** renderRound: every variant to a preview PNG + its transmission JPEG,
+ *  `limits.concurrency.render` at a time.
+ *
+ *  onRendered(v), if given, still fires per variant, as soon as that one
+ *  is encoded — a viewer watching the feed sees posts arrive one by one,
+ *  which is the whole reason the hook exists. It just no longer blocks the
+ *  variants behind it: a slow Supabase upload used to hold up the next
+ *  render, which on 32 variants is most of the stage. */
+async function renderRound(variants, refs, ovr, { onRendered, config } = {}) {
+  await mapPool(variants, lanes(config).render, async (v) => {
     v.png = await renderToPng(v.state, refs, ovr, { quality: 'preview' });
     v.jpeg = await toTransmitJpeg(v.png);
     if (onRendered) await onRendered(v);
-  }
+  });
   return variants;
 }
 
@@ -162,20 +202,28 @@ async function renderRound(variants, refs, ovr, { onRendered } = {}) {
  * vendor that role lists, and returns { comparisons } — the flat list
  * elo.js/disagreement() expect.
  *
- * Calls are grouped by vendor. A vendor with a BATCH_ADAPTERS entry
- * (Anthropic, OpenAI) goes through its batch API, one batch for the whole
- * round (SPEC 3.5); anything else (xAI) goes one call at a time. In --dry
- * mode nothing is called at all — comparisons come back empty and every
- * variant keeps the Elo start rating, clearly marked as unjudged by the
- * caller.
+ * Live mode (the default): every (pair, role, vendor) call goes out on the
+ * ordinary endpoint, `limits.concurrency.judge` in flight, all three
+ * vendors mixed in the same pool — no vendor waits for another to finish.
  *
- * onComparisons(newOnes), if given, fires as soon as each vendor's results
- * are real — once for the whole batch when a vendor finishes (Anthropic,
- * OpenAI), or once per pair as they land for a sequential vendor (xAI) —
- * rather than only after every vendor in the round has finished. This is
- * what lets a live feed (run.js's incremental Supabase sync) show
- * judges' comments trickling in over the round instead of all at once
- * at the end.
+ * Night mode (config.judging.useBatchApi): the batch path, for unattended
+ * volume runs. Still one batch per vendor, but the three vendors' batches
+ * are now submitted and polled concurrently rather than one after another.
+ *
+ * In --dry mode nothing is called at all — comparisons come back empty and
+ * every variant keeps the Elo start rating, clearly marked as unjudged by
+ * the caller.
+ *
+ * onComparisons(newOnes), if given, fires as results land, so a live feed
+ * (run.js's incremental Supabase sync) shows judges' comments trickling in
+ * over the round instead of all at once at the end. In live mode they are
+ * flushed in groups of config.judging.streamEvery: one Supabase round-trip
+ * per verdict would put a network call on the critical path of every
+ * worker in the pool, which is the thing this rewrite exists to remove.
+ *
+ * The returned `comparisons` array is always in call order, never in
+ * completion order — eloRound() applies K-factor updates sequentially, so
+ * the array's order is part of the shift's reproducibility.
  */
 async function judgeRound({
   variants, roundNum, config, roles, brief, referenceJpeg,
@@ -211,76 +259,118 @@ async function judgeRound({
     callsByVendor.get(c.vendor).push(c);
   }
 
-  const comparisons = [];
-  for (const [vendor, vendorCalls] of callsByVendor) {
-    if (!vendorCalls.length || costTracker.capped()) continue;
+  const logOne = serialise(logComparison);
+  const judgePayload = (c) => ({
+    model: config.models[c.vendor]?.judge,
+    rolePrompt: c.role.prompt,
+    brief,
+    maxWords: config.judging.maxWords,
+    imageA: byId.get(c.slotA).jpeg,
+    imageB: byId.get(c.slotB).jpeg,
+    referenceImage: referenceJpeg,
+  });
+
+  if (config.judging?.useBatchApi === true) {
+    return { comparisons: await judgeViaBatches({ callsByVendor, judgePayload, config, clients, costTracker, logOne, onComparisons }) };
+  }
+
+  // ---- live path -------------------------------------------------------
+  // results are flushed to the feed in groups: awaiting a Supabase push
+  // inside a worker would put a network round-trip on the critical path of
+  // every single verdict
+  const streamEvery = config.judging?.streamEvery ?? 16;
+  let pending = [];
+  let feed = Promise.resolve();
+  const flush = (force) => {
+    if (!onComparisons || !pending.length) return;
+    if (!force && pending.length < streamEvery) return;
+    const batch = pending;
+    pending = [];
+    feed = feed.then(() => onComparisons(batch)).catch(() => {});
+  };
+
+  const results = await mapPool(calls, lanes(config).judge, async (c) => {
+    if (costTracker.capped()) return null;
+    const model = config.models[c.vendor]?.judge;
+    let r;
+    try {
+      r = await VENDOR_MODULES[c.vendor].judge(clients[c.vendor], judgePayload(c));
+    } catch (e) {
+      r = { error: e.message };
+    }
+    const rec = await recordComparison(c, r, c.vendor, model, costTracker, logOne, false);
+    if (rec) { pending.push(rec); flush(false); }
+    return rec;
+  });
+  flush(true);
+  await feed;
+
+  return { comparisons: results.filter(Boolean) };
+}
+
+/** Night mode. One batch per vendor as before, but the vendors run
+ *  concurrently — three queues that each take up to an hour should cost an
+ *  hour, not three. Results are still assembled in vendor-then-call order
+ *  so the comparisons array stays reproducible. */
+async function judgeViaBatches({ callsByVendor, judgePayload, config, clients, costTracker, logOne, onComparisons }) {
+  const vendors = [...callsByVendor.keys()];
+  const perVendor = new Map();
+
+  await Promise.all(vendors.map(async (vendor) => {
+    const vendorCalls = callsByVendor.get(vendor);
+    if (!vendorCalls.length || costTracker.capped()) return;
     const model = config.models[vendor]?.judge;
     const client = clients[vendor];
     const adapter = BATCH_ADAPTERS[vendor];
+    const out = [];
 
     if (adapter) {
-      const items = vendorCalls.map((c, i) => adapter.buildItem(`c${i}`, {
-        model,
-        rolePrompt: c.role.prompt,
-        brief,
-        maxWords: config.judging.maxWords,
-        imageA: byId.get(c.slotA).jpeg,
-        imageB: byId.get(c.slotB).jpeg,
-        referenceImage: referenceJpeg,
-      }));
+      const items = vendorCalls.map((c, i) => adapter.buildItem(`c${i}`, judgePayload(c)));
       const batchId = await adapter.submit(client, items);
       const batch = await adapter.poll(client, batchId);
       const results = await adapter.fetch(client, batch, { maxWords: config.judging.maxWords });
-      const vendorComparisons = [];
-      vendorCalls.forEach((c, i) => {
-        const r = results.get(`c${i}`);
-        recordComparison(c, r, vendor, model, costTracker, vendorComparisons, logComparison, true);
-      });
-      comparisons.push(...vendorComparisons);
-      // the whole batch landed at once — that's the natural "this vendor
-      // is done" boundary for a feed watching it happen
-      if (onComparisons && vendorComparisons.length) await onComparisons(vendorComparisons);
+      for (const [i, c] of vendorCalls.entries()) {
+        const rec = await recordComparison(c, results.get(`c${i}`), vendor, model, costTracker, logOne, true);
+        if (rec) out.push(rec);
+      }
     } else {
-      const vendorMod = VENDOR_MODULES[vendor];
-      for (const c of vendorCalls) {
-        if (costTracker.capped()) break;
+      // no batch API at this vendor (xAI): pool its calls instead of
+      // walking them one at a time — it has no queue to wait on
+      const recs = await mapPool(vendorCalls, lanes(config).judge, async (c) => {
+        if (costTracker.capped()) return null;
         let r;
         try {
-          r = await vendorMod.judge(client, {
-            model,
-            rolePrompt: c.role.prompt,
-            brief,
-            maxWords: config.judging.maxWords,
-            imageA: byId.get(c.slotA).jpeg,
-            imageB: byId.get(c.slotB).jpeg,
-            referenceImage: referenceJpeg,
-          });
+          r = await VENDOR_MODULES[vendor].judge(client, judgePayload(c));
         } catch (e) {
           r = { error: e.message };
         }
-        const before = comparisons.length;
-        recordComparison(c, r, vendor, model, costTracker, comparisons, logComparison, false);
-        // a sequential vendor really does produce one real result at a
-        // time — pass each one straight through as it lands, not batched
-        if (onComparisons && comparisons.length > before) await onComparisons(comparisons.slice(before));
-      }
+        return recordComparison(c, r, vendor, model, costTracker, logOne, false);
+      });
+      out.push(...recs.filter(Boolean));
     }
-  }
 
-  return { comparisons };
+    perVendor.set(vendor, out);
+    if (onComparisons && out.length) await onComparisons(out);
+  }));
+
+  return vendors.flatMap(v => perVendor.get(v) ?? []);
 }
 
-function recordComparison(c, r, vendor, model, costTracker, comparisons, logComparison, batch) {
+/** Records one comparison to the log and returns it, or returns null if the
+ *  call failed — a failed call is a recorded failure, never a fabricated
+ *  verdict (CLAUDE.md). The caller owns the comparisons array; this used to
+ *  push into it, which is not safe once callers are concurrent. */
+async function recordComparison(c, r, vendor, model, costTracker, logComparison, batch) {
   const base = { pairId: c.pairId, a: c.a, b: c.b, slotA: c.slotA, slotB: c.slotB, judgeId: c.role.id, vendor, model, at: new Date().toISOString() };
   if (!r || r.error) {
-    logComparison({ ...base, ok: false, error: r?.error ?? 'no result' });
-    return;
+    await logComparison({ ...base, ok: false, error: r?.error ?? 'no result' });
+    return null;
   }
   const winner = r.winner === 'A' ? c.slotA : c.slotB;
   const loser = winner === c.a ? c.b : c.a;
   if (r.usage) costTracker.add(vendor, model, r.usage, { tag: `judge:${c.role.id}`, batch });
-  logComparison({ ...base, ok: true, winner, loser, why: r.why, requestId: r.id });
-  comparisons.push({ pairId: c.pairId, a: c.a, b: c.b, slotA: c.slotA, vendor, model, winner, loser, why: r.why, judgeId: c.role.id, requestId: r.id, usage: r.usage });
+  await logComparison({ ...base, ok: true, winner, loser, why: r.why, requestId: r.id });
+  return { pairId: c.pairId, a: c.a, b: c.b, slotA: c.slotA, vendor, model, winner, loser, why: r.why, judgeId: c.role.id, requestId: r.id, usage: r.usage };
 }
 
 /** SPEC 3.3 Select: top `survivors` by rating + `wildcards` (default 1) —
