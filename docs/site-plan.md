@@ -39,11 +39,11 @@ on earlier ones actually working.
       row instead of inserting a new one. Dry mode only reads
       (`fetchBriefById`), never claims. 16 new tests, all against fake
       Supabase/fake clients (2026-08-18).
-- [ ] B6. GitHub Actions workflow file: on `workflow_dispatch`, claim the
-      pending brief (flip `status` to `running` — the race-condition lock),
-      run `node src/syndicate/run.js --brief-id <id> --publish`, then commit
-      `runs/<id>/` back to the repo (`runs/` is committed evidence, per
-      CLAUDE.md).
+- [x] B6. `.github/workflows/shift.yml`: `workflow_dispatch` with a
+      `brief_id` input, materialises `.env` from repo secrets, runs
+      `run.js --brief-id --publish`, commits `runs/<slug>/` back if
+      produced (2026-08-18). Not yet fired for real — needs a real pending
+      brief in Supabase, which needs A4 (or a hand-inserted test row) first.
 
 ## C — Display (the actual RubensJournal feed)
 
