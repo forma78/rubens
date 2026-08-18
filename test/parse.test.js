@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractJsonObject, parseGeneratorResponse, parseJudgeResponse } from '../src/syndicate/parse.js';
+import { extractJsonObject, parseGeneratorResponse, parseJudgeResponse, parseScreenResponse } from '../src/syndicate/parse.js';
 
 test('extractJsonObject parses clean JSON', () => {
   assert.deepEqual(extractJsonObject('{"a":1}'), { a: 1 });
@@ -63,4 +63,53 @@ test('parseJudgeResponse recovers from a fenced response too', () => {
   const text = '```json\n{"winner":"B","why":"Tighter."}\n```';
   const r = parseJudgeResponse(text, 25);
   assert.equal(r.winner, 'B');
+});
+
+test('parseScreenResponse accepts a well-formed keep list', () => {
+  const r = parseScreenResponse('{"keep":[3,1,2],"why":"These three read strongest."}', { tileCount: 5, keepCount: 3, maxWords: 25 });
+  assert.deepEqual(r.keep, [3, 1, 2]);
+  assert.equal(r.why, 'These three read strongest.');
+});
+
+test('parseScreenResponse rejects an out-of-range tile number', () => {
+  assert.throws(
+    () => parseScreenResponse('{"keep":[1,2,6],"why":"x"}', { tileCount: 5, keepCount: 3, maxWords: 25 }),
+    /not an integer in 1\.\.5/,
+  );
+});
+
+test('parseScreenResponse rejects a zero or negative tile number', () => {
+  assert.throws(
+    () => parseScreenResponse('{"keep":[0,1,2],"why":"x"}', { tileCount: 5, keepCount: 3, maxWords: 25 }),
+    /not an integer in 1\.\.5/,
+  );
+});
+
+test('parseScreenResponse rejects a duplicate tile number', () => {
+  assert.throws(
+    () => parseScreenResponse('{"keep":[1,1,2],"why":"x"}', { tileCount: 5, keepCount: 3, maxWords: 25 }),
+    /duplicate entry/,
+  );
+});
+
+test('parseScreenResponse rejects the wrong number of entries', () => {
+  assert.throws(
+    () => parseScreenResponse('{"keep":[1,2],"why":"x"}', { tileCount: 5, keepCount: 3, maxWords: 25 }),
+    /exactly 3 entries, got 2/,
+  );
+});
+
+test('parseScreenResponse rejects a missing "why"', () => {
+  assert.throws(
+    () => parseScreenResponse('{"keep":[1,2,3]}', { tileCount: 5, keepCount: 3, maxWords: 25 }),
+    /missing a string "why"/,
+  );
+});
+
+test('parseScreenResponse enforces the word limit on "why"', () => {
+  const why = Array.from({ length: 30 }, (_, i) => `word${i}`).join(' ');
+  assert.throws(
+    () => parseScreenResponse(`{"keep":[1,2,3],"why":"${why}"}`, { tileCount: 5, keepCount: 3, maxWords: 25 }),
+    /word limit/,
+  );
 });

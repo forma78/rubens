@@ -61,4 +61,31 @@ function judgeUserPrompt({ brief }) {
   return `Brief: ${brief.instruction}\n\nA is the first image, B is the second, the reference photograph is the third.`;
 }
 
-export { generatorSystemPrompt, generatorUserPrompt, judgeSystemPrompt, judgeUserPrompt };
+/**
+ * Screening (SPEC follow-up, 2026-08-18): before the pairwise tournament,
+ * each active judge role narrows one contact sheet of numbered renders down
+ * to the tiles worth taking to the floor. One call per (sheet, role,
+ * vendor); results are Borda-aggregated across all of them by screenRound.
+ */
+function screenSystemPrompt(rolePrompt, keepCount, maxWords) {
+  return [
+    rolePrompt,
+    '',
+    'You will see a contact sheet of numbered renders of a generative textile composition, each tile',
+    'labelled with its position number, and a photograph of the reference study this composition was',
+    'searched against — a tonal target for composition, not something to copy literally.',
+    '',
+    `Pick the ${keepCount} tiles you would keep for further judging, best first. Reply with exactly this shape:`,
+    `{"keep": [<${keepCount} distinct tile numbers, best first>], "why": "<one sentence, under ${maxWords} words>"}`,
+    JSON_ONLY,
+  ].join('\n');
+}
+
+function screenUserPrompt({ brief, tileCount }) {
+  return `Brief: ${brief.instruction}\n\nThe contact sheet has ${tileCount} numbered tiles.`;
+}
+
+export {
+  generatorSystemPrompt, generatorUserPrompt, judgeSystemPrompt, judgeUserPrompt,
+  screenSystemPrompt, screenUserPrompt,
+};

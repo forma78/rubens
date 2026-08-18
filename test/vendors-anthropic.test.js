@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  propose, judge, judgeBatchRequest, submitJudgeBatch, pollBatch, fetchBatchResults,
+  propose, judge, screen, judgeBatchRequest, submitJudgeBatch, pollBatch, fetchBatchResults,
 } from '../src/syndicate/vendors/anthropic.js';
 
 function textMessage(obj, extra = {}) {
@@ -51,6 +51,27 @@ test('judge() throws when winner is outside A/B', async () => {
   await assert.rejects(() => judge(client, {
     model: 'm', rolePrompt: 'p', brief: { instruction: 'x' }, maxWords: 25,
     imageA: Buffer.from(''), imageB: Buffer.from(''), referenceImage: Buffer.from(''),
+  }));
+});
+
+test('screen() sends the sheet + reference (two images) and parses the keep list', async () => {
+  let seen;
+  const client = { messages: { create: async (params) => { seen = params; return textMessage({ keep: [4, 2], why: 'Strongest pair.' }); } } };
+  const r = await screen(client, {
+    model: 'claude-sonnet-5', rolePrompt: 'You judge weight.', brief: { instruction: 'x' }, maxWords: 25,
+    tileCount: 6, keepCount: 2, sheetImage: Buffer.from('sheet'), referenceImage: Buffer.from('ref'),
+  });
+  const images = seen.messages[0].content.filter(c => c.type === 'image');
+  assert.equal(images.length, 2);
+  assert.deepEqual(r.keep, [4, 2]);
+  assert.equal(r.why, 'Strongest pair.');
+});
+
+test('screen() throws when the keep list has a duplicate', async () => {
+  const client = { messages: { create: async () => textMessage({ keep: [1, 1], why: 'x' }) } };
+  await assert.rejects(() => screen(client, {
+    model: 'm', rolePrompt: 'p', brief: { instruction: 'x' }, maxWords: 25,
+    tileCount: 6, keepCount: 2, sheetImage: Buffer.from(''), referenceImage: Buffer.from(''),
   }));
 });
 

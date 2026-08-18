@@ -3,8 +3,11 @@
    constructed here, so this module can be exercised with a fake client in
    tests without touching the network or needing an API key. */
 
-import { generatorSystemPrompt, generatorUserPrompt, judgeSystemPrompt, judgeUserPrompt } from '../prompts.js';
-import { parseGeneratorResponse, parseJudgeResponse } from '../parse.js';
+import {
+  generatorSystemPrompt, generatorUserPrompt, judgeSystemPrompt, judgeUserPrompt,
+  screenSystemPrompt, screenUserPrompt,
+} from '../prompts.js';
+import { parseGeneratorResponse, parseJudgeResponse, parseScreenResponse } from '../parse.js';
 
 function textOf(message) {
   const block = message.content.find(b => b.type === 'text');
@@ -53,6 +56,26 @@ async function judge(client, { model, rolePrompt, brief, maxWords, imageA, image
   });
   const { winner, why } = parseJudgeResponse(textOf(resp), maxWords);
   return { winner, why, usage: resp.usage, model, id: resp.id };
+}
+
+/** One screening call: one contact sheet + the reference, mirroring judge()
+ *  exactly but with a single sheet image instead of A/B. */
+async function screen(client, { model, rolePrompt, brief, maxWords, tileCount, keepCount, sheetImage, referenceImage }) {
+  const resp = await client.messages.create({
+    model,
+    max_tokens: 256,
+    system: screenSystemPrompt(rolePrompt, keepCount, maxWords),
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'text', text: screenUserPrompt({ brief, tileCount }) },
+        imageBlock(sheetImage),
+        imageBlock(referenceImage),
+      ],
+    }],
+  });
+  const { keep, why } = parseScreenResponse(textOf(resp), { tileCount, keepCount, maxWords });
+  return { keep, why, usage: resp.usage, model, id: resp.id };
 }
 
 function judgeBatchRequest(customId, { model, rolePrompt, brief, maxWords, imageA, imageB, referenceImage }) {
@@ -118,4 +141,4 @@ async function fetchBatchResults(client, batchId, { maxWords } = {}) {
   return out;
 }
 
-export { propose, judge, judgeBatchRequest, submitJudgeBatch, pollBatch, fetchBatchResults };
+export { propose, judge, screen, judgeBatchRequest, submitJudgeBatch, pollBatch, fetchBatchResults };

@@ -19,6 +19,15 @@
     "streamEvery": 16
   },
 
+  "screening": {
+    "enabled": false,
+    "finalists": 8,
+    "minHammingDistance": 4,
+    "tilePx": 512,
+    "cols": 4,
+    "maxTilesPerSheet": 12
+  },
+
   "elo": { "start": 1500, "k": 24, "applyAtEndOfRound": true },
 
   "models": {
@@ -35,5 +44,5 @@
     "concurrency": { "propose": 12, "render": 6, "judge": 24 }
   },
 
-  "note": "useBatchApi false is the live shift: ordinary endpoints, limits.concurrency.judge calls in flight, a round in seconds. Set it true only for an unattended volume run where the batch discount is worth a queue with a 24h SLA. limits.concurrency.judge is the one number to lower if a vendor starts returning 429s. Model ids and prices move. Verify against platform.claude.com/docs pricing, docs.x.ai, and platform.openai.com/docs/pricing before the first paid shift, and re-run the dry run (variantsPerRound 4, rounds 1, one judge) whenever a model id changes. anthropic's prices in src/syndicate/cost.js are still UNVERIFIED — check before real spend. openai.generator/judge (gpt-5.1 / gpt-5.4-mini) and their prices were confirmed live against the API and platform.openai.com/docs/pricing on 2026-08-17; gpt-5.1 has no mini sibling, so the judge deliberately runs a different generation than the generator. Three symmetric vendors (was two) means judging costs roughly 1.5x what it did per pair; the maxUsd cap below is unchanged from before that decision — raise it deliberately if you want a full shift to finish without hitting it."
+  "note": "screening.enabled is false: the dedupe + contact-sheet cut is tested against fake clients only (test/screen.test.js), never yet against real vendor responses — dry mode skips screening entirely (like judgeRound), so it can't be exercised there either. Run a small paid shift (variantsPerRound 4, rounds 1) with it flipped on and check round-N/screened.jsonl before trusting it on a full shift. useBatchApi false is the live shift: ordinary endpoints, limits.concurrency.judge calls in flight, a round in seconds. Set it true only for an unattended volume run where the batch discount is worth a queue with a 24h SLA. limits.concurrency.judge is the one number to lower if a vendor starts returning 429s. Model ids and prices move. Verify against platform.claude.com/docs pricing, docs.x.ai, and platform.openai.com/docs/pricing before the first paid shift, and re-run the dry run (variantsPerRound 4, rounds 1, one judge) whenever a model id changes. anthropic's prices in src/syndicate/cost.js are still UNVERIFIED — check before real spend. openai.generator/judge (gpt-5.1 / gpt-5.4-mini) and their prices were confirmed live against the API and platform.openai.com/docs/pricing on 2026-08-17; gpt-5.1 has no mini sibling, so the judge deliberately runs a different generation than the generator. Three symmetric vendors (was two) means judging costs roughly 1.5x what it did per pair; the maxUsd cap below is unchanged from before that decision — raise it deliberately if you want a full shift to finish without hitting it."
 }
