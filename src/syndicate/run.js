@@ -19,6 +19,7 @@ import { createCostTracker } from './cost.js';
 import { renderToPng } from './render-core.js';
 import { toTransmitJpeg } from './image.js';
 import { proposeRound, renderRound, judgeRound, selectRound } from './round.js';
+import { screenRound } from './screen.js';
 import { renderFinalMd } from './report.js';
 import { analyseFile } from '../analyse/decode.js';
 import { signIn, fetchBriefById, claimBrief, insertBrief, closeBrief, syncVariant, syncVariantResults, syncComparisons } from './sync.js';
@@ -250,10 +251,14 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
     await mkdir(variantsDir, { recursive: true });
     const proposalsPath = path.join(roundDir, 'proposals.jsonl');
     const comparisonsPath = path.join(roundDir, 'comparisons.jsonl');
+    const screenedPath = path.join(roundDir, 'screened.jsonl');
+    const screenCallsPath = path.join(roundDir, 'screen-calls.jsonl');
 
     const parents = roundNum === 1 ? [baseParent] : field;
     const logProposal = (entry) => appendFile(proposalsPath, jsonlLine({ round: roundNum, ...entry }));
     const logComparison = (entry) => appendFile(comparisonsPath, jsonlLine({ round: roundNum, ...entry }));
+    const logScreened = (entry) => appendFile(screenedPath, jsonlLine({ round: roundNum, ...entry }));
+    const logScreenCall = (entry) => appendFile(screenCallsPath, jsonlLine({ round: roundNum, ...entry }));
 
     const children = await proposeRound({
       parents, roundNum, config: syndicateConfig, roles, brief,
@@ -286,7 +291,20 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
       },
     });
 
-    const combinedField = roundNum === 1 ? children : [...field, ...children];
+    // screening (config.screening.enabled) cuts this round's *new* children
+    // down to `finalists` before they join the tournament — survivors
+    // carried forward in `field` already went through a tournament in an
+    // earlier round and aren't re-screened. Screening never feeds Elo: a
+    // screened-out variant already has its PNG/JSON/Supabase row from
+    // renderRound above (it rendered, so it's evidence) but never reaches
+    // judgeRound/selectRound, and is marked `screened: true` below instead
+    // of silently disappearing from the record.
+    const { kept: screenedChildren, dropped: screenedOut } = await screenRound({
+      variants: children, roundNum, config: syndicateConfig, roles, brief, referenceJpeg,
+      clients, costTracker, dry, logScreened, logScreenCall,
+    });
+
+    const combinedField = roundNum === 1 ? screenedChildren : [...field, ...screenedChildren];
 
     const { comparisons } = await judgeRound({
       variants: combinedField, roundNum, config: syndicateConfig, roles, brief,
@@ -309,7 +327,12 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
       ? { selected: combinedField.slice(0, survivorsCount + syndicateConfig.wildcards).map(v => v.id), ratings: {}, disagreements: {}, wildcard: null }
       : selectRound(combinedField, comparisons, survivorsCount, syndicateConfig.wildcards);
 
-    await writeFile(path.join(roundDir, 'ratings.json'), JSON.stringify({ dry, ratings, disagreements, selected, wildcard }, null, 2));
+    // screened-out variants have no rating — a judge never saw them, so
+    // recording one would be inventing a verdict nobody produced. `screened:
+    // true` says "not taken to the floor", which the site needs to tell
+    // apart from "lost the floor" (CLAUDE.md: screening never feeds Elo).
+    const screened = Object.fromEntries(screenedOut.map(d => [d.id, true]));
+    await writeFile(path.join(roundDir, 'ratings.json'), JSON.stringify({ dry, ratings, disagreements, selected, wildcard, screened }, null, 2));
 
     for (const [id, r] of Object.entries(ratings)) allRatings.set(id, r);
     for (const [id, d] of Object.entries(disagreements)) allDisagreements.set(id, d);
