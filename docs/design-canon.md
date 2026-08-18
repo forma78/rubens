@@ -34,9 +34,12 @@ through `color_04.jpg`, the same four `PRESETS` `src/engine/colour.js`
 ships with and the generator's own "Reference library" opens on. That is
 the whole colour system of this project. Nothing else gets invented
 alongside them: no accent swatch, no second brand colour, no seasonal
-variant. Each study lives in its own frame in the canon (a 5th, empty,
-dashed slot marks where a new one would go if a brief ever adds one),
-never cropped or recoloured to fit a UI mood.
+variant. Each study lives in its own frame in the canon; a 5th slot is
+the real **Add image** control (a dashed square, `+ Add image` in
+accent colour, filling with `--accent-soft` on hover) — same copy as
+`generator/index.html`'s own "Reference library" panel (`Add image`,
+its `#uplabel`), not an invented label. This is where the eventual
+brief-creation form's reference upload actually lives.
 
 Everything below is UI plumbing, not palette — it exists so text is
 legible and structure is visible, and stays out of the way of the actual
