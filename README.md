@@ -140,6 +140,28 @@ made cheaper. That is the screening stage, next.
 
 ---
 
+## Update 5 — a brief can carry up to four references
+
+Every shift so far has locked every one of the four colour layers to
+whichever single photo the brief supplied, because that's what this
+document said to build. It was a gap against the tool itself: the
+generator has always had a real "Reference library" — four studies, any
+layer free to show any one of them — and a shift never got to use it.
+
+A brief now carries `references`, 1–4 entries, one per colour layer it
+wants to override; a slot it leaves out keeps the generator's own built-in
+study for that layer, declared by name (`"color_02"`, not silently
+substituted) in `base-state.json`'s `refs[]`. `L[i].ref` — which of the
+four a layer shows — is patchable now too, the same as any other layer
+field: a generator agent can propose moving a study from one layer to
+another, which it never could before.
+
+Two of the shifts already in `runs/` predate this — see `runs/README.md`
+for which, and what to discount in their generator agents' reasoning about
+palettes as a result.
+
+---
+
 ## What is in this repository
 
 | | |
