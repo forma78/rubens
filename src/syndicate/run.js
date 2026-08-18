@@ -21,7 +21,7 @@ import { toTransmitJpeg } from './image.js';
 import { proposeRound, renderRound, judgeRound, selectRound } from './round.js';
 import { renderFinalMd } from './report.js';
 import { analyseFile } from '../analyse/decode.js';
-import { signIn, syncShift, fetchBriefById, claimBrief } from './sync.js';
+import { signIn, fetchBriefById, claimBrief, insertBrief, closeBrief, syncVariants, syncVariantResults, syncComparisons } from './sync.js';
 
 function parseArgs(argv) {
   const args = {};
@@ -133,7 +133,7 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
   // one injection point for the whole Supabase surface (sign-in, claiming
   // a site-created brief, publishing results) — same DI pattern as
   // `clients` below, so a test never touches the network for any of it
-  const syncFns = syncOverride ?? { signIn, syncShift, claimBrief, fetchBriefById };
+  const syncFns = syncOverride ?? { signIn, claimBrief, fetchBriefById, insertBrief, closeBrief, syncVariants, syncVariantResults, syncComparisons };
   const { brief, referencePath, existingBriefId, accessToken: claimAccessToken } = await resolveBriefSource({
     briefId, briefPath, cwd, fileConfig, env, fetchImpl, dry,
     signIn: syncFns.signIn, claimBrief: syncFns.claimBrief, fetchBriefById: syncFns.fetchBriefById,
@@ -158,6 +158,42 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
     xai: new OpenAI({ apiKey: env.XAI_API_KEY, baseURL: syndicateConfig.models.xai.base_url }),
     openai: new OpenAI({ apiKey: env.OPENAI_API_KEY }),
   };
+
+  // Incremental sync setup — a brief's Supabase row must exist *before* any
+  // variant is synced (variants reference it by brief_id), so this happens
+  // up front, not at the end like the old batch-sync model. A --brief-id
+  // shift already has a row (claimed in resolveBriefSource); a local-JSON
+  // shift with --publish gets one inserted here, as 'running', immediately.
+  // Failures here are reported, not thrown — the shift still runs and
+  // writes its local record either way (CLAUDE.md: publishing failing is
+  // never the same as the shift failing) — they just leave `syncCtx` null,
+  // which every sync call site below checks before doing anything.
+  let liveBriefId = existingBriefId;
+  let accessToken = claimAccessToken;
+  let publishError = null;
+  const wantsSync = (publish || !!existingBriefId) && !dry;
+  if (wantsSync) {
+    try {
+      if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY || !env.SUPABASE_EMAIL || !env.SUPABASE_PASSWORD) {
+        throw new Error('--publish requires SUPABASE_URL/SUPABASE_ANON_KEY/SUPABASE_EMAIL/SUPABASE_PASSWORD all set in .env');
+      }
+      if (!accessToken) {
+        accessToken = (await syncFns.signIn({
+          supabaseUrl: env.SUPABASE_URL, apikey: env.SUPABASE_ANON_KEY,
+          email: env.SUPABASE_EMAIL, password: env.SUPABASE_PASSWORD, fetchImpl,
+        })).accessToken;
+      }
+      if (!liveBriefId) {
+        const inserted = await syncFns.insertBrief({ supabaseUrl: env.SUPABASE_URL, apikey: env.SUPABASE_ANON_KEY, accessToken, brief, fetchImpl });
+        liveBriefId = inserted.briefId;
+      }
+    } catch (e) {
+      publishError = e.message;
+      console.error(`[syndicate] could not start Supabase sync: ${e.message}`);
+    }
+  }
+  const syncCtx = liveBriefId ? { supabaseUrl: env.SUPABASE_URL, apikey: env.SUPABASE_ANON_KEY, accessToken, briefId: liveBriefId, fetchImpl } : null;
+  const labelToUuid = new Map();
 
   const runDir = path.join(runsDir ?? path.join(cwd, 'runs'), brief.id);
   // proposals.jsonl/comparisons.jsonl are opened with appendFile below so a
@@ -233,11 +269,34 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
       allVariantsById.set(v.id, v);
     }
 
+    // synced now, right after rendering and before judging even starts —
+    // a "post" should appear on the feed before any "comment" does. Only
+    // `children` (this round's new variants), never survivors carried
+    // forward — their row already exists from an earlier round's call.
+    if (syncCtx) {
+      try {
+        await syncFns.syncVariants({ ...syncCtx, variants: children, labelToUuid });
+      } catch (e) {
+        publishError = e.message;
+        console.error(`[syndicate] syncing round ${roundNum}'s variants failed: ${e.message}`);
+      }
+    }
+
     const combinedField = roundNum === 1 ? children : [...field, ...children];
 
     const { comparisons } = await judgeRound({
       variants: combinedField, roundNum, config: syndicateConfig, roles, brief,
       referenceJpeg, clients, costTracker, dry, seedBase, logComparison,
+      // fires as each vendor's real results come back — see judgeRound's
+      // own comment for why this can't just be "after the round finishes"
+      onComparisons: syncCtx ? async (newOnes) => {
+        try {
+          await syncFns.syncComparisons({ ...syncCtx, comparisons: newOnes.map(c => ({ round: roundNum, ...c })), labelToUuid });
+        } catch (e) {
+          publishError = e.message;
+          console.error(`[syndicate] syncing round ${roundNum}'s comparisons failed: ${e.message}`);
+        }
+      } : undefined,
     });
     comparisons.forEach(c => allComparisons.push({ round: roundNum, ...c }));
 
@@ -251,6 +310,18 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
     for (const [id, r] of Object.entries(ratings)) allRatings.set(id, r);
     for (const [id, d] of Object.entries(disagreements)) allDisagreements.set(id, d);
     for (const id of selected) survivedIds.add(id);
+
+    // now that this round's ratings/disagreement/survival are known,
+    // patch them onto the rows syncVariants() already inserted — a viewer
+    // watching the feed sees a variant's rating settle, not just appear
+    if (syncCtx && !dry) {
+      try {
+        await syncFns.syncVariantResults({ ...syncCtx, variants: combinedField, labelToUuid, allRatings, allDisagreements, survivedIds });
+      } catch (e) {
+        publishError = e.message;
+        console.error(`[syndicate] syncing round ${roundNum}'s results failed: ${e.message}`);
+      }
+    }
 
     for (const id of selected) {
       const why = comparisons.filter(c => c.loser === id).map(c => c.why).filter(Boolean);
@@ -282,37 +353,26 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
   });
   await writeFile(path.join(runDir, 'FINAL.md'), md);
 
-  // Phase 4: batch-sync the finished shift to Supabase (metadata only, no
-  // image upload — see src/syndicate/sync.js). Everything up to this point
-  // is already durably on disk in runDir, which is the real record per
-  // CLAUDE.md; a publish failure here is reported, not thrown, so it never
-  // masquerades as the shift itself having failed.
-  // a --brief-id shift claimed a real row (pending -> running) in
+  // Everything above is already durably on disk in runDir, which is the
+  // real record per CLAUDE.md — variants and comparisons were already
+  // synced incrementally as the shift ran, so this is only the close-out:
+  // set the fields only known once it's over (final rating history is
+  // already in place; base_state/palette/status/cost are what's left). A
+  // --brief-id shift claimed a real row (pending -> running) in
   // resolveBriefSource; that row must be closed out to done/aborted no
   // matter what --publish was passed as, or it stays stuck at 'running'
-  // forever with nothing to ever flip it back
-  let published = false, publishError = null;
-  if ((publish || existingBriefId) && !dry) {
+  // forever with nothing to ever flip it back.
+  let published = false;
+  if (syncCtx) {
     try {
-      if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY || !env.SUPABASE_EMAIL || !env.SUPABASE_PASSWORD) {
-        throw new Error('--publish requires SUPABASE_URL/SUPABASE_ANON_KEY/SUPABASE_EMAIL/SUPABASE_PASSWORD all set in .env');
-      }
-      // reuse the token resolveBriefSource already signed in with for a
-      // --brief-id shift, rather than signing in a second time
-      const accessToken = claimAccessToken ?? (await syncFns.signIn({
-        supabaseUrl: env.SUPABASE_URL, apikey: env.SUPABASE_ANON_KEY,
-        email: env.SUPABASE_EMAIL, password: env.SUPABASE_PASSWORD, fetchImpl,
-      })).accessToken;
-      await syncFns.syncShift({
-        supabaseUrl: env.SUPABASE_URL, apikey: env.SUPABASE_ANON_KEY, accessToken,
-        brief, baseState, palette, variantsById: allVariantsById, comparisons: allComparisons,
-        allRatings, allDisagreements, survivedIds, roundsRun, costSpent: costTracker.spent, aborted,
-        briefId: existingBriefId,
-      }, { fetchImpl });
+      await syncFns.closeBrief({
+        ...syncCtx, baseState, palette, rounds: roundsRun,
+        status: aborted ? 'aborted' : 'done', costUsd: costTracker.spent,
+      });
       published = true;
     } catch (e) {
       publishError = e.message;
-      console.error(`[syndicate] publish to Supabase failed: ${e.message}`);
+      console.error(`[syndicate] closing the brief failed: ${e.message}`);
     }
   }
 

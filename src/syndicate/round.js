@@ -163,10 +163,18 @@ async function renderRound(variants, refs, ovr) {
  * mode nothing is called at all — comparisons come back empty and every
  * variant keeps the Elo start rating, clearly marked as unjudged by the
  * caller.
+ *
+ * onComparisons(newOnes), if given, fires as soon as each vendor's results
+ * are real — once for the whole batch when a vendor finishes (Anthropic,
+ * OpenAI), or once per pair as they land for a sequential vendor (xAI) —
+ * rather than only after every vendor in the round has finished. This is
+ * what lets a live feed (run.js's incremental Supabase sync) show
+ * judges' comments trickling in over the round instead of all at once
+ * at the end.
  */
 async function judgeRound({
   variants, roundNum, config, roles, brief, referenceJpeg,
-  clients, costTracker, dry, seedBase, logComparison,
+  clients, costTracker, dry, seedBase, logComparison, onComparisons,
 }) {
   if (dry) return { comparisons: [] };
 
@@ -218,10 +226,15 @@ async function judgeRound({
       const batchId = await adapter.submit(client, items);
       const batch = await adapter.poll(client, batchId);
       const results = await adapter.fetch(client, batch, { maxWords: config.judging.maxWords });
+      const vendorComparisons = [];
       vendorCalls.forEach((c, i) => {
         const r = results.get(`c${i}`);
-        recordComparison(c, r, vendor, model, costTracker, comparisons, logComparison, true);
+        recordComparison(c, r, vendor, model, costTracker, vendorComparisons, logComparison, true);
       });
+      comparisons.push(...vendorComparisons);
+      // the whole batch landed at once — that's the natural "this vendor
+      // is done" boundary for a feed watching it happen
+      if (onComparisons && vendorComparisons.length) await onComparisons(vendorComparisons);
     } else {
       const vendorMod = VENDOR_MODULES[vendor];
       for (const c of vendorCalls) {
@@ -240,7 +253,11 @@ async function judgeRound({
         } catch (e) {
           r = { error: e.message };
         }
+        const before = comparisons.length;
         recordComparison(c, r, vendor, model, costTracker, comparisons, logComparison, false);
+        // a sequential vendor really does produce one real result at a
+        // time — pass each one straight through as it lands, not batched
+        if (onComparisons && comparisons.length > before) await onComparisons(comparisons.slice(before));
       }
     }
   }

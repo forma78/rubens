@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { run, resolveBriefSource } from '../src/syndicate/run.js';
 import { makeFakeClients } from './helpers/fake-clients.js';
+import { makeFakeSync } from './helpers/fake-sync.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const briefPath = path.join(root, 'test/fixtures/brief.json');
@@ -148,22 +149,28 @@ test('run({ publish: true }) reports (not throws) a clear error when SUPABASE_* 
   }
 });
 
-test('run({ publish: true }) calls the injected sync functions with the shift\'s real data and reports success', async () => {
+test('run({ publish: true }) syncs incrementally — brief inserted up front, variants/comparisons during the loop, brief closed at the end', async () => {
   const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
   const fakeSupabaseEnv = { ...fakeEnv, SUPABASE_URL: 'https://x.supabase.co', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_EMAIL: 'owner@example.com', SUPABASE_PASSWORD: 'right-password' };
-  let seenSignIn, seenSync;
-  const fakeSync = {
-    signIn: async (args) => { seenSignIn = args; return { accessToken: 'jwt-abc' }; },
-    syncShift: async (args) => { seenSync = args; return { briefId: 'b1', variantCount: 4, comparisonCount: 2 }; },
-  };
+  const fakeSync = makeFakeSync();
   try {
     const result = await run({ briefPath, dry: false, cwd: root, runsDir, env: fakeSupabaseEnv, clients: makeFakeClients(), publish: true, sync: fakeSync });
-    assert.equal(result.published, true);
+    assert.equal(result.published, true, result.publishError);
     assert.equal(result.publishError, null);
-    assert.equal(seenSignIn.email, 'owner@example.com');
-    assert.equal(seenSync.accessToken, 'jwt-abc');
-    assert.equal(seenSync.brief.id, 'test-brief');
-    assert.ok(seenSync.variantsById.size > 0);
+
+    assert.equal(fakeSync.calls.signIn[0].email, 'owner@example.com');
+    assert.equal(fakeSync.calls.insertBrief.length, 1, 'a local-JSON brief with no existing row gets one inserted up front');
+    assert.equal(fakeSync.calls.insertBrief[0].brief.id, 'test-brief');
+    assert.ok(fakeSync.calls.syncVariants.length > 0, 'variants were synced during the round, not just at the end');
+    assert.ok(fakeSync.calls.syncComparisons.length > 0, 'comparisons were synced as vendors returned results');
+    assert.ok(fakeSync.calls.syncVariantResults.length > 0, 'ratings/disagreement were patched on once judging finished');
+    assert.equal(fakeSync.calls.closeBrief.length, 1);
+    assert.equal(fakeSync.calls.closeBrief[0].status, 'done');
+
+    // the same briefId insertBrief minted flows through every later call
+    const briefId = fakeSync.calls.insertBrief[0] && [...fakeSync.briefs.keys()][0];
+    assert.equal(fakeSync.calls.syncVariants[0].briefId, briefId);
+    assert.equal(fakeSync.calls.closeBrief[0].briefId, briefId);
   } finally {
     await rm(runsDir, { recursive: true, force: true });
   }
@@ -172,14 +179,11 @@ test('run({ publish: true }) calls the injected sync functions with the shift\'s
 test('run({ publish: true }) reports a sync failure without throwing or losing the local record', async () => {
   const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
   const fakeSupabaseEnv = { ...fakeEnv, SUPABASE_URL: 'https://x.supabase.co', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_EMAIL: 'owner@example.com', SUPABASE_PASSWORD: 'right-password' };
-  const failingSync = {
-    signIn: async () => ({ accessToken: 'jwt-abc' }),
-    syncShift: async () => { throw new Error('RLS: JWT expired'); },
-  };
+  const failingSync = makeFakeSync({ failAt: 'insertBrief' });
   try {
     const result = await run({ briefPath, dry: false, cwd: root, runsDir, env: fakeSupabaseEnv, clients: makeFakeClients(), publish: true, sync: failingSync });
     assert.equal(result.published, false);
-    assert.match(result.publishError, /RLS: JWT expired/);
+    assert.match(result.publishError, /insertBrief failed on purpose/);
     await assert.doesNotReject(readFile(path.join(runsDir, 'test-brief', 'FINAL.md')));
   } finally {
     await rm(runsDir, { recursive: true, force: true });
@@ -247,23 +251,21 @@ test('resolveBriefSource throws a clear error for an unknown canvas_format', asy
   );
 });
 
-test('run({ briefId }) claims the brief, runs the shift, and updates (not inserts) the same row on publish', async () => {
+test('run({ briefId }) claims the brief, syncs incrementally against the claimed row, and never inserts a new one', async () => {
   const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
-  let seenSync = null;
-  const fakeSync = {
-    signIn: async () => ({ accessToken: 'jwt-abc' }),
-    claimBrief: async () => ({ id: 'brief-uuid-9', slug: 'site-brief', instruction: 'Loosen the grid.', canvas_format: '70x100', rounds: 1, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' }),
-    fetchBriefById: async () => { throw new Error('should not be called for a non-dry run'); },
-    syncShift: async (args) => { seenSync = args; return { briefId: args.briefId, variantCount: 1, comparisonCount: 0 }; },
-  };
+  const fakeSync = makeFakeSync({
+    claimResult: { id: 'brief-uuid-9', slug: 'site-brief', instruction: 'Loosen the grid.', canvas_format: '70x100', rounds: 1, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' },
+  });
   try {
     const result = await run({
       briefId: 'brief-uuid-9', dry: false, cwd: root, runsDir,
       env: { ...fakeEnv, ...fakeSupabaseEnv }, clients: makeFakeClients(), sync: fakeSync, fetchImpl: studyJpegImpl,
     });
     assert.equal(result.published, true, result.publishError);
-    assert.equal(seenSync.briefId, 'brief-uuid-9', 'syncShift must update the existing row, not insert a new one');
-    assert.equal(seenSync.brief.id, 'site-brief');
+    assert.equal(fakeSync.calls.insertBrief.length, 0, 'a --brief-id shift already has a row — insertBrief must never run');
+    assert.ok(fakeSync.calls.syncVariants.length > 0);
+    assert.equal(fakeSync.calls.syncVariants[0].briefId, 'brief-uuid-9');
+    assert.equal(fakeSync.calls.closeBrief[0].briefId, 'brief-uuid-9', 'closeBrief must update the claimed row, not a new one');
 
     const runDir = path.join(runsDir, 'site-brief');
     await assert.doesNotReject(readFile(path.join(runDir, 'FINAL.md')));
@@ -274,18 +276,15 @@ test('run({ briefId }) claims the brief, runs the shift, and updates (not insert
 
 test('run({ briefId, publish: false }) still publishes — a claimed row must always be closed out', async () => {
   const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
-  let published = false;
-  const fakeSync = {
-    signIn: async () => ({ accessToken: 'jwt-abc' }),
-    claimBrief: async () => ({ id: 'brief-uuid-9', slug: 'site-brief', instruction: 'x', canvas_format: '70x100', rounds: 1, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' }),
-    syncShift: async () => { published = true; return { briefId: 'brief-uuid-9', variantCount: 1, comparisonCount: 0 }; },
-  };
+  const fakeSync = makeFakeSync({
+    claimResult: { id: 'brief-uuid-9', slug: 'site-brief', instruction: 'x', canvas_format: '70x100', rounds: 1, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' },
+  });
   try {
     const result = await run({
       briefId: 'brief-uuid-9', dry: false, cwd: root, runsDir, publish: false,
       env: { ...fakeEnv, ...fakeSupabaseEnv }, clients: makeFakeClients(), sync: fakeSync, fetchImpl: studyJpegImpl,
     });
-    assert.equal(published, true);
+    assert.equal(fakeSync.calls.closeBrief.length, 1);
     assert.equal(result.published, true);
   } finally {
     await rm(runsDir, { recursive: true, force: true });
