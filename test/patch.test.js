@@ -53,13 +53,19 @@ test('pattern is locked', () => {
   assert.match(errors[0].reason, /locked/);
 });
 
-test('L[i].ref is locked for every layer', () => {
+test('L[i].ref is patchable for every layer, including 4 (the ribbons)', () => {
   for (const i of [0, 1, 2, 3, 4]) {
-    const { ok, patch, errors } = validate({ [`L[${i}].ref`]: 1 });
-    assert.equal(ok, false, `L[${i}].ref should be locked`);
-    assert.deepEqual(patch, {});
-    assert.match(errors[0].reason, /locked/);
+    const { ok, patch, errors } = validate({ [`L[${i}].ref`]: 2 });
+    assert.equal(ok, true, `L[${i}].ref should be patchable`);
+    assert.deepEqual(errors, []);
+    assert.deepEqual(patch, { [`L[${i}].ref`]: 2 });
   }
+});
+
+test('L[i].ref clamps to 0-3 (a brief always has exactly 4 references) and rounds to an integer', () => {
+  assert.deepEqual(validate({ 'L[0].ref': -1 }).patch, { 'L[0].ref': 0 });
+  assert.deepEqual(validate({ 'L[0].ref': 9 }).patch, { 'L[0].ref': 3 });
+  assert.deepEqual(validate({ 'L[0].ref': 1.6 }).patch, { 'L[0].ref': 2 });
 });
 
 test('colour pickers are locked by default', () => {
