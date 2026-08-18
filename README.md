@@ -32,7 +32,7 @@ Hand teaches the algorithm. Algorithm proposes to the hand.
 
 ---
 
-## Update, 2026-08-17 — a third vendor
+## Update 1 — a third vendor
 
 The syndicate started with two model vendors, Anthropic and xAI, each judging
 the other's proposals so disagreement meant something. It is now three —
@@ -44,7 +44,7 @@ paint, and a canvas sold pays that back.
 
 ---
 
-## Update, 2026-08-18 — names, and cloth that behaves like cloth
+## Update 2 — names, and cloth that behaves like cloth
 
 Every judge and every generator now has a name instead of a role id — Ford,
 Maeve, Arnold and Angela judge; Bernard, Dolores, Akecheta, Akane, Clementine
@@ -69,10 +69,10 @@ on.
 
 ---
 
-## Update, 2026-08-18 — RubensJournal
+## Update 3 — RubensJournal
 
 A live shift runs in minutes; the batch mode it replaced took one to three
-hours. See "Update, 2026-08-18 — two speeds". Either way, judging used to be
+hours. See "Update 4 — two speeds". Either way, judging used to be
 treated as something to hide until it was finished — the whole record
 appeared at once, only once every vendor had finished. RubensJournal makes it
 the opposite: the point.
@@ -94,7 +94,7 @@ site can trigger but doesn't have to host.
 
 ---
 
-## Update, 2026-08-18 — two speeds
+## Update 4 — two speeds
 
 A shift used to take between one and three hours. The first real one hit the
 Actions 60-minute ceiling halfway through an OpenAI batch and died there; the
