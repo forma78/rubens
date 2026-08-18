@@ -41,6 +41,29 @@ accent colour, filling with `--accent-soft` on hover) — same copy as
 its `#uplabel`), not an invented label. This is where the eventual
 brief-creation form's reference upload actually lives.
 
+## Start a shift
+
+The rest of the brief-creation flow, in one row: a canvas-format picker
+(the 5 `CANVAS_PROFILES` keys from `canvas.js` — `60x80`, `70x100`,
+`90x120`, `100x100`, `120x90` — plain rectangular chips, the selected
+one in accent colour and weight, no dropdown) and a **Go** button.
+Unlike "Add image", `generator/index.html` has no precedent for this —
+it's a live, reactive tool with no submit step, so this control is
+this canon's own, not copied from anywhere.
+
+Go is solid `--ink` (the same weight as the black image-number badge),
+white text, turning `--accent` on hover — deliberately heavier than any
+other control on the page, because it's the one click that starts real
+spend, not a preview. A short note underneath says so
+("A real shift, real spend — not a preview. Confirms before it fires.")
+rather than letting the button imply it's free to press.
+
+Today, before A4 is built, a shift actually starts from the CLI
+(`node src/syndicate/run.js --brief <path> --publish`, or `--brief-id
+<uuid> --publish` for a site-created brief) or via the GitHub Actions
+`workflow_dispatch` the site will eventually trigger — this Go button
+is the target UI for that same action, not a new mechanism.
+
 Everything below is UI plumbing, not palette — it exists so text is
 legible and structure is visible, and stays out of the way of the actual
 colour, which is always whichever study a layer is showing.
