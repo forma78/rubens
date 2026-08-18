@@ -1,0 +1,11 @@
+{
+  "id": "smoke-test-1787012814672",
+  "instruction": "GitHub Actions smoke test — verifying the B5+B6 pipeline end to end.",
+  "ratio": 3,
+  "canvasFormat": "70x100",
+  "reference": "https://rpurwvnolttcwytujunj.supabase.co/storage/v1/object/public/references/smoke-test-1787012813779.jpg",
+  "rounds": 1,
+  "variantsPerRound": 32,
+  "survivors": 6,
+  "unlockedColours": []
+}
