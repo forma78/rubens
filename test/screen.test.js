@@ -187,6 +187,30 @@ test('screenRound with screening.enabled: false keeps every variant untouched (t
   assert.equal(dropped.length, 0);
 });
 
+test('screenRound skips the contact-sheet stage (zero calls) when the deduped field is already at or under `finalists`', async () => {
+  const pngs = await tinyPngs(4);
+  const variants = pngs.map((png, i) => ({ id: `r1-var-0${i + 1}`, png }));
+  const clientThatMustNotBeCalled = () => { throw new Error('screenRound must not call the vendor when the field already fits within finalists'); };
+  const clients = {
+    anthropic: { messages: { create: async () => clientThatMustNotBeCalled() } },
+    xai: { chat: { completions: { create: async () => clientThatMustNotBeCalled() } } },
+    openai: { chat: { completions: { create: async () => clientThatMustNotBeCalled() } } },
+  };
+  const config = { ...screenConfig, screening: { ...screenConfig.screening, finalists: 8 } }; // 4 variants <= 8 finalists
+  const calls = [];
+
+  const { kept, dropped } = await screenRound({
+    variants, roundNum: 1, config, roles, brief, referenceJpeg: Buffer.from('ref'),
+    clients, costTracker: createCostTracker(100), dry: false, logScreened: () => {}, logScreenCall: (e) => calls.push(e),
+  });
+
+  assert.equal(kept.length, 4);
+  assert.equal(dropped.length, 0);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].skipped, true);
+  assert.equal(calls[0].reason, 'field-at-or-under-finalists');
+});
+
 test('screenRound in --dry mode makes no calls and keeps every variant', async () => {
   const variants = await tenVariants();
   const clients = {

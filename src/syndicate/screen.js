@@ -160,12 +160,26 @@ async function screenRound({
   if (logScreened) for (const d of dupDropped) await logScreened(d);
   if (!deduped.length) return { kept: [], dropped: dupDropped };
 
+  // a field already at or under `finalists` can only ever be told to "keep
+  // everyone" — every keepCount below would clamp to the full tile count,
+  // so a contact-sheet call here spends real money to change nothing. Skip
+  // the whole sub-stage rather than pay for a no-op verdict; this is also
+  // exactly the shape a cheap smoke-test config takes (a few variants,
+  // finalists left at its production default), so it has to hold there.
+  const configuredFinalists = screening.finalists ?? 8;
+  if (deduped.length <= configuredFinalists) {
+    if (logScreenCall) {
+      await logScreenCall({ skipped: true, reason: 'field-at-or-under-finalists', count: deduped.length, finalists: configuredFinalists });
+    }
+    return { kept: deduped, dropped: dupDropped };
+  }
+
   // fixed once, used both for tile numbering and as the deterministic
   // tie-break ("lowest tile number") when two variants' Borda scores tie
   const ordered = [...deduped].sort(byId);
   const indexOf = new Map(ordered.map((v, i) => [v.id, i]));
 
-  const finalists = Math.min(screening.finalists ?? 8, ordered.length);
+  const finalists = configuredFinalists;
   const { sheets } = await buildContactSheet(ordered, {
     tilePx: screening.tilePx ?? 512,
     cols: screening.cols ?? 4,
