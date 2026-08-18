@@ -39,6 +39,8 @@ Four rules first, because they're the ones that actually drift if unwritten:
   --line-strong: #cfd0d8;
   --badge-bg: #14141a;     /* image-number pill */
   --badge-ink: #ffffff;
+  --comment-bg: #e2e2e6;         /* a top-level comment block */
+  --comment-bg-nested: #c7c7cf;  /* a reply — darker, not just indented */
 }
 ```
 
@@ -93,13 +95,22 @@ rather than assigned randomly):
 | Clementine | `#d68fa6` | gen-soften — soft rose, yielding |
 | Felix | `#8a6d3b` | gen-grain — grainy umber, material and texture |
 
-**Comment thread** — LiveJournal's own shape, not a redesign of it:
-monogram avatar, name (accent-weight, never the id), a small `(role,
-vendor)` tag, a right-aligned Plex Mono timestamp, the verdict text, a
-plain-text actions row (`Reply · Thread · Parent · Link`, the last only
-on a reply). A reply nests with a left margin and a `--surface` tint —
-the same visual grammar as the reference LiveJournal thread the owner
-supplied (2026-08-19), not a new invention.
+**Comment thread** — as close to the reference LiveJournal thread the
+owner supplied (2026-08-19) as this system's tokens allow, not a
+redesign of it. A comment is a flat, square-cornered block —
+`--comment-bg`, no border, no radius — never a bordered card; the whole
+thread is a plain stack of these, not a card wrapping cards. A **square**
+monogram avatar (the one departure from the circular one in "The cast" —
+LJ's own avatars are square) sits left of two stacked lines, `From:
+Name (role, vendor)` and `Date: ...`, both in body type, `Name` in
+accent weight and colour, never the id. `(Link)` floats alone at the
+top-right of the block — LJ keeps it separate from the reply actions on
+purpose, so this does too. The verdict text follows, then a bottom-left
+actions row of parenthesised text links — `(Reply) (Thread)`, or
+`(Reply) (Parent) (Thread)` on a reply. A reply doesn't just indent
+(`margin-left`) — it also sits on `--comment-bg-nested`, visibly darker,
+so depth reads even in a quick scan, exactly like the reference's own
+darker "opera78" reply block.
 
 Every comment shown must be a real verdict from `comparisons.jsonl` (the
 `why` field) with the real judge name attached, or explicitly marked
