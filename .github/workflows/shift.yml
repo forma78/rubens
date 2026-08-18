@@ -20,9 +20,15 @@ permissions:
 jobs:
   shift:
     runs-on: ubuntu-latest
-    # a shift's own maxMinutes cap (config/syndicate.json) is 45; this is a
-    # backstop above that, not the real limit
-    timeout-minutes: 60
+    # judgeRound() processes each vendor's batch sequentially, not in
+    # parallel (round.js), and each of the 3 vendors' batch APIs can take up
+    # to an hour on its own — a real 60-minute cap killed a live shift mid
+    # OpenAI batch after Anthropic and xAI had already finished (confirmed
+    # 2026-08-18, run 32084559547). config/syndicate.json's own maxMinutes
+    # (45) is the real per-shift budget; this is a generous backstop above
+    # the worst case of all three vendors running slow back to back, not a
+    # limit meant to bind in practice.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
 
