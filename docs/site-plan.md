@@ -6,12 +6,12 @@ on earlier ones actually working.
 
 ## A — Brief intake (site writes a brief, doesn't run anything yet)
 
-- [ ] A1. Supabase: add a `status` lifecycle to `briefs` — `pending` (site
-      created it, nothing has run yet) in addition to the existing
-      `running`/`done`/`aborted`. This is also the lock GitHub Actions uses
-      so two ticks can't pick up the same brief.
-- [ ] A2. Supabase Storage: new bucket for uploaded reference images, with a
-      policy (owner can upload, public read only if the brief is published).
+- [x] A1. Supabase: `status` lifecycle now includes `pending` (default),
+      `base_state` is nullable (a pending brief has no shift yet), and
+      `canvas_format` has a real column — done via schema.sql + a live
+      migration (2026-08-18).
+- [x] A2. Supabase Storage: `references` bucket, public read, owner-only
+      upload — done via schema.sql + a live migration (2026-08-18).
 - [ ] A3. Owner login on the site (Supabase Auth — the email/password
       already in `.env`, wired into the frontend). Only an authenticated
       owner can create a brief; anonymous visitors stay read-only.
@@ -23,20 +23,22 @@ on earlier ones actually working.
 ## B — Trigger and execution (GitHub Actions actually runs `run()`)
 
 - [x] B1. GitHub fine-grained token, `Actions: Read and write`, scoped to
-      `rubens` only. *(owner is creating this now)*
-- [ ] B2. Same token added to Vercel's own environment variables (Project →
-      Settings → Environment Variables) — separate from local `.env`.
+      `rubens` only.
+- [x] B2. Same token added to Vercel's own environment variables.
 - [ ] B3. Vercel trigger-proxy function: verifies the request is really the
       logged-in owner, then calls GitHub's `workflow_dispatch` API with the
       token from B2. The only server-side code the site has — everything
       else stays static.
-- [ ] B4. GitHub Actions repository secrets: `ANTHROPIC_API_KEY`,
+- [x] B4. GitHub Actions repository secrets: `ANTHROPIC_API_KEY`,
       `XAI_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
-      `SUPABASE_EMAIL`, `SUPABASE_PASSWORD` (Settings → Secrets and
-      variables → Actions in the repo). Separate from B2's token.
-- [ ] B5. `run.js`: teach it to load a brief from Supabase (by id) as an
-      alternative to a local JSON file, and to download the reference image
-      from Storage into a temp path first.
+      `SUPABASE_EMAIL`, `SUPABASE_PASSWORD` — set via `gh secret set`
+      (2026-08-18). Separate from B2's token.
+- [x] B5. `run.js --brief-id <uuid>`: signs in, atomically claims the row
+      (`sync.js`'s `claimBrief`, pending -> running), downloads the
+      reference image, runs the shift, and `syncShift` updates that same
+      row instead of inserting a new one. Dry mode only reads
+      (`fetchBriefById`), never claims. 16 new tests, all against fake
+      Supabase/fake clients (2026-08-18).
 - [ ] B6. GitHub Actions workflow file: on `workflow_dispatch`, claim the
       pending brief (flip `status` to `running` — the race-condition lock),
       run `node src/syndicate/run.js --brief-id <id> --publish`, then commit
