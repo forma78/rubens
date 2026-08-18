@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  propose, judge, judgeBatchLine, submitJudgeBatch, pollBatch, fetchBatchResults,
+  propose, judge, screen, judgeBatchLine, submitJudgeBatch, pollBatch, fetchBatchResults,
 } from '../src/syndicate/vendors/openai.js';
 
 function reply(obj) {
@@ -40,6 +40,26 @@ test('judge() sends three images and parses the verdict', async () => {
   const images = seen.messages[1].content.filter(c => c.type === 'image_url');
   assert.equal(images.length, 3);
   assert.equal(r.winner, 'B');
+});
+
+test('screen() sends the sheet + reference (two images) and parses the keep list', async () => {
+  let seen;
+  const client = { chat: { completions: { create: async (params) => { seen = params; return reply({ keep: [1, 3], why: 'Cleanest two.' }); } } } };
+  const r = await screen(client, {
+    model: 'gpt-5.4-mini', rolePrompt: 'p', brief: { instruction: 'x' }, maxWords: 25,
+    tileCount: 6, keepCount: 2, sheetImage: Buffer.from('sheet'), referenceImage: Buffer.from('r'),
+  });
+  const images = seen.messages[1].content.filter(c => c.type === 'image_url');
+  assert.equal(images.length, 2);
+  assert.deepEqual(r.keep, [1, 3]);
+});
+
+test('screen() throws when a tile number is out of range', async () => {
+  const client = { chat: { completions: { create: async () => reply({ keep: [1, 9], why: 'x' }) } } };
+  await assert.rejects(() => screen(client, {
+    model: 'm', rolePrompt: 'p', brief: { instruction: 'x' }, maxWords: 25,
+    tileCount: 6, keepCount: 2, sheetImage: Buffer.from(''), referenceImage: Buffer.from(''),
+  }));
 });
 
 test('judgeBatchLine builds a /v1/chat/completions batch input line with three images', () => {

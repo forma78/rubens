@@ -55,4 +55,38 @@ function parseJudgeResponse(text, maxWords) {
   return { winner: obj.winner, why };
 }
 
-export { extractJsonObject, parseGeneratorResponse, parseJudgeResponse };
+/** { keep: number[], why: string } — exactly keepCount distinct integers in
+ *  1..tileCount, best first. Same never-fabricate rule as parseJudgeResponse:
+ *  a malformed shortlist throws rather than being coerced into one. */
+function parseScreenResponse(text, { tileCount, keepCount, maxWords }) {
+  const obj = extractJsonObject(text);
+  if (!Array.isArray(obj.keep)) {
+    throw new Error('parse: screen response missing an array "keep"');
+  }
+  if (obj.keep.length !== keepCount) {
+    throw new Error(`parse: screen "keep" must have exactly ${keepCount} entries, got ${obj.keep.length}`);
+  }
+  const seen = new Set();
+  for (const n of obj.keep) {
+    if (!Number.isInteger(n) || n < 1 || n > tileCount) {
+      throw new Error(`parse: screen "keep" entry ${JSON.stringify(n)} is not an integer in 1..${tileCount}`);
+    }
+    if (seen.has(n)) {
+      throw new Error(`parse: screen "keep" has a duplicate entry ${n}`);
+    }
+    seen.add(n);
+  }
+  if (typeof obj.why !== 'string' || !obj.why.trim()) {
+    throw new Error('parse: screen response missing a string "why"');
+  }
+  const why = obj.why.trim();
+  if (maxWords) {
+    const words = why.split(/\s+/).filter(Boolean);
+    if (words.length > maxWords) {
+      throw new Error(`parse: screen "why" is ${words.length} words, over the ${maxWords}-word limit`);
+    }
+  }
+  return { keep: obj.keep, why };
+}
+
+export { extractJsonObject, parseGeneratorResponse, parseJudgeResponse, parseScreenResponse };

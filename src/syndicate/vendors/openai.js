@@ -11,8 +11,11 @@
    testable against a fake client — no network, no key, no spend. */
 
 import { toFile } from 'openai';
-import { generatorSystemPrompt, generatorUserPrompt, judgeSystemPrompt, judgeUserPrompt } from '../prompts.js';
-import { parseGeneratorResponse, parseJudgeResponse } from '../parse.js';
+import {
+  generatorSystemPrompt, generatorUserPrompt, judgeSystemPrompt, judgeUserPrompt,
+  screenSystemPrompt, screenUserPrompt,
+} from '../prompts.js';
+import { parseGeneratorResponse, parseJudgeResponse, parseScreenResponse } from '../parse.js';
 
 function dataUrl(buf, mediaType) {
   return `data:${mediaType};base64,${buf.toString('base64')}`;
@@ -60,6 +63,28 @@ async function judge(client, { model, rolePrompt, brief, maxWords, imageA, image
   const text = resp.choices[0]?.message?.content ?? '';
   const { winner, why } = parseJudgeResponse(text, maxWords);
   return { winner, why, usage: resp.usage, model, id: resp.id };
+}
+
+/** One screening call: one contact sheet + the reference, mirroring judge()
+ *  exactly but with a single sheet image instead of A/B. */
+async function screen(client, { model, rolePrompt, brief, maxWords, tileCount, keepCount, sheetImage, referenceImage }) {
+  const resp = await client.chat.completions.create({
+    model,
+    messages: [
+      { role: 'system', content: screenSystemPrompt(rolePrompt, keepCount, maxWords) },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: screenUserPrompt({ brief, tileCount }) },
+          imagePart(sheetImage),
+          imagePart(referenceImage),
+        ],
+      },
+    ],
+  });
+  const text = resp.choices[0]?.message?.content ?? '';
+  const { keep, why } = parseScreenResponse(text, { tileCount, keepCount, maxWords });
+  return { keep, why, usage: resp.usage, model, id: resp.id };
 }
 
 /** One line of the batch input .jsonl file (SPEC: /v1/chat/completions batch shape). */
@@ -148,4 +173,4 @@ async function fetchBatchResults(client, batch, { maxWords } = {}) {
   return out;
 }
 
-export { propose, judge, judgeBatchLine, submitJudgeBatch, pollBatch, fetchBatchResults };
+export { propose, judge, screen, judgeBatchLine, submitJudgeBatch, pollBatch, fetchBatchResults };

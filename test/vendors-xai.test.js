@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { propose, judge } from '../src/syndicate/vendors/xai.js';
+import { propose, judge, screen } from '../src/syndicate/vendors/xai.js';
 
 function reply(obj) {
   return { choices: [{ message: { content: JSON.stringify(obj) } }], usage: { prompt_tokens: 50, completion_tokens: 10 }, id: 'chatcmpl_1' };
@@ -48,5 +48,26 @@ test('judge() throws when the word limit is exceeded', async () => {
   await assert.rejects(() => judge(client, {
     model: 'm', rolePrompt: 'p', brief: { instruction: 'x' }, maxWords: 25,
     imageA: Buffer.from(''), imageB: Buffer.from(''), referenceImage: Buffer.from(''),
+  }));
+});
+
+test('screen() sends the sheet + reference (two images) and parses the keep list', async () => {
+  let seen;
+  const client = { chat: { completions: { create: async (params) => { seen = params; return reply({ keep: [2, 1], why: 'These two stand out.' }); } } } };
+  const r = await screen(client, {
+    model: 'grok-4.6', rolePrompt: 'p', brief: { instruction: 'x' }, maxWords: 25,
+    tileCount: 6, keepCount: 2, sheetImage: Buffer.from('sheet'), referenceImage: Buffer.from('r'),
+  });
+  const images = seen.messages[1].content.filter(c => c.type === 'image_url');
+  assert.equal(images.length, 2);
+  assert.deepEqual(r.keep, [2, 1]);
+  assert.equal(r.why, 'These two stand out.');
+});
+
+test('screen() throws when the reply has the wrong number of picks', async () => {
+  const client = { chat: { completions: { create: async () => reply({ keep: [1], why: 'x' }) } } };
+  await assert.rejects(() => screen(client, {
+    model: 'm', rolePrompt: 'p', brief: { instruction: 'x' }, maxWords: 25,
+    tileCount: 6, keepCount: 2, sheetImage: Buffer.from(''), referenceImage: Buffer.from(''),
   }));
 });
