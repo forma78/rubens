@@ -22,31 +22,27 @@ just does so at reading speed instead of overnight.
 - [ ] A3. Owner login on the site (Supabase Auth — the email/password
       already in `.env`, wired into the frontend). Only an authenticated
       owner can create a brief; anonymous visitors stay read-only.
-- [ ] A4. Brief-creation form. **Blocked on two things, discovered
-      2026-08-18 — do not build the form until both land:**
-      1. **No approved design canon exists yet.** An early mockup got
-         verbal approval (different fonts, white ground) but nothing was
-         ever written down as the reference. The Contact Sheet artifact
-         built this session was designed blind, with no canon to check
-         against, and it showed — wrong fonts, wrong ground, arbitrary
-         choices. Before any more site UI gets built: pin down and write
-         down the actual approved look (palette, type, layout) somewhere
-         durable in this repo, not just "approved in a chat that scrolled
-         away."
-      2. **The form's actual shape depends on the SPEC 3.1/3.2 fix.**
-         `docs/SPEC.md` currently locks a brief to one reference photo,
-         applied to every layer — but the generator itself (the frozen
-         hand-tool, `generator/index.html`) has always had a real
-         "Reference library": up to four distinct studies, freely assigned
-         per layer. The site's form has to mirror that actual capability,
-         not the artificially narrowed one SPEC currently describes: the
-         owner picks the canvas format themself (that's the seed of the
-         round, a real decision, not a default), attaches 1-4 reference
-         images the way the generator's own "Attach reference" +
-         per-layer library already works, then Go. See the
-         `wip/multireference` branch and SPEC 3.1/3.2 for the underlying
-         fix this form needs to sit on top of — building A4 before that
-         lands means rebuilding it once it does.
+- [ ] A4. Brief-creation form. Both of the blockers noted 2026-08-18 are
+      now cleared (2026-08-19):
+      1. ~~No approved design canon~~ — written down in
+         `docs/design-canon.md`: white ground (committed, not
+         theme-adaptive), Inter + IBM Plex Mono, one blue accent used only
+         for the wordmark and live links, no icon glyphs anywhere (text
+         actions, LiveJournal-style), monogram avatars, name-never-id on
+         every visitor-facing surface. Rendered with real project data as
+         an artifact the same session — ask the owner for the link, or
+         treat the markdown file as the source of truth if it's gone.
+      2. ~~SPEC 3.1/3.2 locking a brief to one reference~~ — fixed on
+         `wip/multireference` (not yet merged to `main`): a brief carries
+         `references[]` (1-4 entries), missing slots fall back to the
+         engine's own PRESETS library declared by name, and `L[i].ref` is
+         patchable so a generator can actually move a reference between
+         layers.
+      Still true: the owner picks the canvas format themself (a real
+      decision, not a default), attaches 1-4 reference images the way the
+      generator's own "Attach reference" + per-layer library already
+      works, then Go — mirroring `generator/index.html`'s actual
+      "Reference library" UI, not a narrowed version of it.
 
 ## B — Trigger and execution (GitHub Actions actually runs `run()`)
 
