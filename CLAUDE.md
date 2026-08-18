@@ -24,6 +24,16 @@ inside the engine — the seeded hash `h3` and the xorshift `mk` are there for
 this. A run that cannot be reproduced cannot be published, and publishing the
 runs is the entire point of the project.
 
+**Concurrency must not cost determinism.** Stages are pooled
+(`src/syndicate/pool.js`), but nothing that reaches `runs/` may depend on
+completion order. Variant ids and seeds come from the job index, never a
+running counter. `mapPool` is order-preserving and the `comparisons` array is
+assembled in call order — `eloRound()` applies K-factor updates sequentially,
+so reordering that array silently changes every rating in the shift. Any
+`appendFile` reached from inside a pool goes through `serialise()`: two
+concurrent appends of a long jsonl line can interleave, and half a line in
+`runs/` is a corrupted record, not a cosmetic problem.
+
 **Never invent numbers into the record.** Anything written to `runs/` or to the
 database must have actually happened: a real API response, a real render. No
 placeholder verdicts, no synthetic scores while a provider is down, no
@@ -31,17 +41,23 @@ back-filling a missing judge. If a call fails, record the failure.
 
 **Incremental sync is load-bearing, not an implementation detail.**
 `src/syndicate/sync.js` writes to Supabase as a shift happens — a variant
-right after it renders, a vendor's comparisons the moment that vendor
-returns them, ratings patched on once a round's judging finishes — not once
-in a batch after the whole shift is done. This is not an optimisation to
-simplify away. A real shift genuinely takes 60-180 minutes, because real
-vendor batch APIs take that long, and RubensJournal (the live site) is
-built to make that wait the point: a visitor watches the feed fill in, sees
-named judges disagree in something close to real time, instead of staring
-at nothing and then seeing a wall of results appear at once. Collapsing
-sync back into one end-of-shift call would look like a cleanup and would
-quietly kill the reason the site exists. If you touch `sync.js` or the sync
-call sites in `run.js`, keep the fill-in-as-it-happens shape.
+right after it renders, comparisons as they land, ratings patched on once a
+round's judging finishes — not once in a batch after the shift is done. This
+is not an optimisation to simplify away: RubensJournal is a feed, and a feed
+that fills in as it happens is the reason the site exists.
+
+**A shift is fast because it is watched, not slow because it is watched.**
+Shifts used to take 60-180 minutes. That was never a property of the work —
+it was the vendors' batch APIs, which are queues with a 24-hour SLA, polled
+one vendor after another. The wait was a bug wearing the costume of a
+feature. The live path (`config.judging.useBatchApi: false`) puts every call
+on the ordinary endpoint with `limits.concurrency.judge` in flight. Target
+for a round is **tens of seconds**, and the feed still fills in as it goes —
+it just fills in at reading speed instead of overnight.
+
+The batch path is kept, behind `useBatchApi: true`, for unattended volume
+runs where the 50% discount is worth the queue. Do not delete
+`BATCH_ADAPTERS` or `judgeViaBatches()`. Do not make it the default again.
 
 **The canvas-format constraints are physical, not arbitrary.**
 `src/syndicate/canvas.js` and the tightened ranges in `patch.js` (angle,

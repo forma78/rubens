@@ -15,7 +15,8 @@
     "imageLongestSide": 768,
     "imageFormat": "jpeg",
     "imageQuality": 80,
-    "useBatchApi": true
+    "useBatchApi": false,
+    "streamEvery": 16
   },
 
   "elo": { "start": 1500, "k": 24, "applyAtEndOfRound": true },
@@ -30,8 +31,9 @@
     "maxUsd": 12,
     "maxMinutes": 45,
     "retriesPerCall": 1,
-    "abortOnCapAndWriteWhatExists": true
+    "abortOnCapAndWriteWhatExists": true,
+    "concurrency": { "propose": 12, "render": 6, "judge": 24 }
   },
 
-  "note": "Model ids and prices move. Verify against platform.claude.com/docs pricing, docs.x.ai, and platform.openai.com/docs/pricing before the first paid shift, and re-run the dry run (variantsPerRound 4, rounds 1, one judge) whenever a model id changes. anthropic's prices in src/syndicate/cost.js are still UNVERIFIED — check before real spend. openai.generator/judge (gpt-5.1 / gpt-5.4-mini) and their prices were confirmed live against the API and platform.openai.com/docs/pricing on 2026-08-17; gpt-5.1 has no mini sibling, so the judge deliberately runs a different generation than the generator. Three symmetric vendors (was two) means judging costs roughly 1.5x what it did per pair; the maxUsd cap below is unchanged from before that decision — raise it deliberately if you want a full shift to finish without hitting it."
+  "note": "useBatchApi false is the live shift: ordinary endpoints, limits.concurrency.judge calls in flight, a round in seconds. Set it true only for an unattended volume run where the batch discount is worth a queue with a 24h SLA. limits.concurrency.judge is the one number to lower if a vendor starts returning 429s. Model ids and prices move. Verify against platform.claude.com/docs pricing, docs.x.ai, and platform.openai.com/docs/pricing before the first paid shift, and re-run the dry run (variantsPerRound 4, rounds 1, one judge) whenever a model id changes. anthropic's prices in src/syndicate/cost.js are still UNVERIFIED — check before real spend. openai.generator/judge (gpt-5.1 / gpt-5.4-mini) and their prices were confirmed live against the API and platform.openai.com/docs/pricing on 2026-08-17; gpt-5.1 has no mini sibling, so the judge deliberately runs a different generation than the generator. Three symmetric vendors (was two) means judging costs roughly 1.5x what it did per pair; the maxUsd cap below is unchanged from before that decision — raise it deliberately if you want a full shift to finish without hitting it."
 }

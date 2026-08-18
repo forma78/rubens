@@ -32,7 +32,7 @@ Hand teaches the algorithm. Algorithm proposes to the hand.
 
 ---
 
-## Update, 2026-08-17 — a third vendor
+## Update 1 — a third vendor
 
 The syndicate started with two model vendors, Anthropic and xAI, each judging
 the other's proposals so disagreement meant something. It is now three —
@@ -44,7 +44,7 @@ paint, and a canvas sold pays that back.
 
 ---
 
-## Update, 2026-08-18 — names, and cloth that behaves like cloth
+## Update 2 — names, and cloth that behaves like cloth
 
 Every judge and every generator now has a name instead of a role id — Ford,
 Maeve, Arnold and Angela judge; Bernard, Dolores, Akecheta, Akane, Clementine
@@ -69,12 +69,13 @@ on.
 
 ---
 
-## Update, 2026-08-18 — RubensJournal
+## Update 3 — RubensJournal
 
-A shift is not fast. Judging runs against real vendor batch APIs and can
-take sixty to a hundred and eighty minutes, and that used to be treated as
-a cost to hide — the whole record appeared at once, only once every vendor
-had finished. It is now the opposite: the point.
+A live shift runs in minutes; the batch mode it replaced took one to three
+hours. See "Update 4 — two speeds". Either way, judging used to be
+treated as something to hide until it was finished — the whole record
+appeared at once, only once every vendor had finished. RubensJournal makes it
+the opposite: the point.
 
 RubensJournal is a public feed. A brief is created on the site — pick a
 canvas size, attach a reference photograph, write the instruction — and a
@@ -90,6 +91,52 @@ compute against real, slow APIs, so it runs in GitHub Actions, dispatched
 by the site, writing to Supabase as it goes. The static/no-secrets shape
 SPEC.md always asked for is unchanged; a shift just happens somewhere the
 site can trigger but doesn't have to host.
+
+---
+
+## Update 4 — two speeds
+
+A shift used to take between one and three hours. The first real one hit the
+Actions 60-minute ceiling halfway through an OpenAI batch and died there; the
+ceiling went up to 180 minutes, which fixed the symptom and admitted the
+problem.
+
+None of that time was work. Every judge call went through the vendors' **batch
+APIs** — queues with a 24-hour SLA and a 50% discount, polled every 15 seconds
+— and the three vendors were polled one after another, so a round cost the sum
+of three queues rather than the length of the longest call. Batch is the right
+tool for ten thousand calls nobody is waiting on. It is the wrong tool for a
+composition search someone is watching happen.
+
+There are now two modes, set by `judging.useBatchApi` in
+`config/syndicate.json`.
+
+**Live shift** (`false`, the default). Every call goes out on the ordinary
+endpoint. Proposals, renders and judgments are each pooled —
+`limits.concurrency` sets how many of each run at once — and all three vendors
+share one pool, so nobody waits for anybody. A round is the slowest call times
+the number of waves. Verdicts still stream to the feed as they land, in groups
+of `judging.streamEvery`.
+
+**Night shift** (`true`). The original batch path, kept intact, for large
+unattended runs where the discount is worth the queue. The three vendors' batches
+are now submitted and polled concurrently instead of in series, so even this
+mode costs one queue rather than three.
+
+Determinism survived the change. Variant ids and seeds are derived from the job
+index rather than a running counter, `mapPool` returns results in input order,
+and the comparisons array is assembled in call order — Elo applies its
+K-factor updates sequentially, so that ordering is part of what makes a shift
+reproducible. Log writes reached from inside a pool are serialised: two
+concurrent appends to `runs/<slug>/round-N/comparisons.jsonl` can interleave
+into one corrupt line, and everything under `runs/` is evidence.
+
+What this does not do is reduce the number of calls. A late round still issues
+around nine hundred judgments, because the pairwise tournament grows with the
+field, the number of active roles and the number of vendors all at once.
+Parallelism turns that from hours into minutes; getting a round under thirty
+seconds needs the field cut before the tournament rather than the tournament
+made cheaper. That is the screening stage, next.
 
 ---
 
@@ -117,6 +164,18 @@ The generator alone needs nothing. Open `generator/index.html` in a browser.
 
 The syndicate needs Node 20+, an Anthropic key, an xAI key, an OpenAI key and
 a Supabase project. See `docs/SPEC.md`.
+
+```bash
+# live shift (default): ordinary endpoints, pooled, minutes
+node src/syndicate/run.js --brief-id <uuid> --publish
+
+# night shift: batch APIs, cheaper, hours — set judging.useBatchApi true first
+```
+
+`limits.concurrency` in `config/syndicate.json` controls how many calls are in
+flight per stage — `{ propose: 12, render: 6, judge: 24 }` by default. Lower
+`judge` first if a vendor starts returning 429s; `render` is synchronous CPU
+work and gains nothing above a handful of cores.
 
 ---
 
