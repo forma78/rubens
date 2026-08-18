@@ -77,6 +77,17 @@ a single ordering until `selectRound` runs.
 them in Plex Mono, no card chrome around the pair itself. This is
 literally what a judge is shown (`judgeUserPrompt` in `prompts.js`).
 
+Every rendered variant is 525×700px, exactly 3:4 — fixed by the engine
+(`canvasFormat`/`ratio`), not something a layout should guess at. Size
+both the `<img>` and its frame with **explicit matching pixel
+width/height** (e.g. 150×200 for a gallery tile, 300×400 for a pairwise
+tile — any multiple of 3:4), never a fluid `width: 100%` paired with an
+HTML `height` attribute left to apply on its own. That combination is
+exactly how the gallery grid distorted during this session: CSS `width:
+100%` overrode the `width` attribute, nothing overrode `height`, so a
+narrow flex/grid column squeezed the image horizontally while its height
+stayed pinned to the attribute's px value.
+
 **The cast** — a two-column reference (judges, generators), each row a
 monogram avatar + name + id (small, muted, Plex Mono) + a right-aligned
 detail (active rounds for a judge, vendor for a generator). This table is
