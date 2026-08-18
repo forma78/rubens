@@ -5,7 +5,7 @@ with real project data at the artifact linked from the 2026-08-19 session
 (ask the owner for the link if it's not at hand — this file is the
 source of truth for the tokens either way, the artifact is the preview).
 
-Four rules first, because they're the ones that actually drift if unwritten:
+Five rules first, because they're the ones that actually drift if unwritten:
 
 1. **White ground, committed.** Not theme-adaptive. RubensJournal reads as
    a print-like editorial page, not a tool — it stays light regardless of
@@ -22,6 +22,10 @@ Four rules first, because they're the ones that actually drift if unwritten:
 4. **One accent, used functionally.** The blue marks the "Journal"
    wordmark and live links only — never a decorative rail, never a
    gradient, never applied to something that isn't actually a link.
+5. **Square corners everywhere.** No `border-radius` on cards, tiles,
+   badges, or the comment blocks — flat rectangles throughout. The
+   monogram avatar's circle is the one shape exception in the whole
+   canon, same as it's the one icon-like exception to rule 2.
 
 ## Tokens
 
