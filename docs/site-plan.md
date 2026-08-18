@@ -4,10 +4,12 @@ Working checklist for "create a brief on the site, GitHub Actions runs the
 shift, the site shows it live." Move through in order — later parts depend
 on earlier ones actually working.
 
-The wait (60-180 minutes, real vendor batch APIs) is not a cost to hide —
-it's the show, once C1 exists: a real shift's variants and judges' comments
-land in Supabase incrementally as they happen (2026-08-18), not in one
-batch at the end. See sync.js's own comment for the shape.
+Once C1 exists, a real shift's variants and judges' comments land in
+Supabase incrementally as they happen, not in one batch at the end — see
+sync.js's own comment for the shape. A shift itself now runs in minutes,
+not 60-180 (2026-08-18, "two speeds" — pooled live judging replaced walking
+the vendors' batch queues one at a time); the feed still fills in live, it
+just does so at reading speed instead of overnight.
 
 ## A — Brief intake (site writes a brief, doesn't run anything yet)
 
@@ -20,10 +22,31 @@ batch at the end. See sync.js's own comment for the shape.
 - [ ] A3. Owner login on the site (Supabase Auth — the email/password
       already in `.env`, wired into the frontend). Only an authenticated
       owner can create a brief; anonymous visitors stay read-only.
-- [ ] A4. Brief-creation form: canvas format picker (60x80 / 70x100 / 90x120
-      / 120x90 / 100x100), reference image upload, instruction text,
-      rounds/variantsPerRound. Writes one `briefs` row with `status:
-      'pending'` plus the uploaded image's Storage URL.
+- [ ] A4. Brief-creation form. **Blocked on two things, discovered
+      2026-08-18 — do not build the form until both land:**
+      1. **No approved design canon exists yet.** An early mockup got
+         verbal approval (different fonts, white ground) but nothing was
+         ever written down as the reference. The Contact Sheet artifact
+         built this session was designed blind, with no canon to check
+         against, and it showed — wrong fonts, wrong ground, arbitrary
+         choices. Before any more site UI gets built: pin down and write
+         down the actual approved look (palette, type, layout) somewhere
+         durable in this repo, not just "approved in a chat that scrolled
+         away."
+      2. **The form's actual shape depends on the SPEC 3.1/3.2 fix.**
+         `docs/SPEC.md` currently locks a brief to one reference photo,
+         applied to every layer — but the generator itself (the frozen
+         hand-tool, `generator/index.html`) has always had a real
+         "Reference library": up to four distinct studies, freely assigned
+         per layer. The site's form has to mirror that actual capability,
+         not the artificially narrowed one SPEC currently describes: the
+         owner picks the canvas format themself (that's the seed of the
+         round, a real decision, not a default), attaches 1-4 reference
+         images the way the generator's own "Attach reference" +
+         per-layer library already works, then Go. See the
+         `wip/multireference` branch and SPEC 3.1/3.2 for the underlying
+         fix this form needs to sit on top of — building A4 before that
+         lands means rebuilding it once it does.
 
 ## B — Trigger and execution (GitHub Actions actually runs `run()`)
 
