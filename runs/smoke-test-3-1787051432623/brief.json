@@ -1,0 +1,11 @@
+{
+  "id": "smoke-test-3-1787051432623",
+  "instruction": "GitHub Actions smoke test #3 — verifying per-variant image streaming to Storage.",
+  "ratio": 0,
+  "canvasFormat": "100x100",
+  "reference": "https://rpurwvnolttcwytujunj.supabase.co/storage/v1/object/public/references/smoke-test-1787051431519.jpg",
+  "rounds": 1,
+  "variantsPerRound": 32,
+  "survivors": 6,
+  "unlockedColours": []
+}
