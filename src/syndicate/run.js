@@ -21,7 +21,7 @@ import { toTransmitJpeg } from './image.js';
 import { proposeRound, renderRound, judgeRound, selectRound } from './round.js';
 import { renderFinalMd } from './report.js';
 import { analyseFile } from '../analyse/decode.js';
-import { signIn, fetchBriefById, claimBrief, insertBrief, closeBrief, syncVariants, syncVariantResults, syncComparisons } from './sync.js';
+import { signIn, fetchBriefById, claimBrief, insertBrief, closeBrief, syncVariant, syncVariantResults, syncComparisons } from './sync.js';
 
 function parseArgs(argv) {
   const args = {};
@@ -133,7 +133,7 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
   // one injection point for the whole Supabase surface (sign-in, claiming
   // a site-created brief, publishing results) — same DI pattern as
   // `clients` below, so a test never touches the network for any of it
-  const syncFns = syncOverride ?? { signIn, claimBrief, fetchBriefById, insertBrief, closeBrief, syncVariants, syncVariantResults, syncComparisons };
+  const syncFns = syncOverride ?? { signIn, claimBrief, fetchBriefById, insertBrief, closeBrief, syncVariant, syncVariantResults, syncComparisons };
   const { brief, referencePath, existingBriefId, accessToken: claimAccessToken } = await resolveBriefSource({
     briefId, briefPath, cwd, fileConfig, env, fetchImpl, dry,
     signIn: syncFns.signIn, claimBrief: syncFns.claimBrief, fetchBriefById: syncFns.fetchBriefById,
@@ -260,27 +260,30 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
       unlockedColours: brief.unlockedColours, clients, costTracker, dry, seedBase,
       logProposal, critiquesFor: (id) => critiquesByVariant.get(id) ?? [],
     });
-    await renderRound(children, refs, ovr);
-    children.forEach(v => { v.roundNum = `round-${roundNum}`; });
 
-    for (const v of children) {
-      await writeFile(path.join(variantsDir, `${v.id}.png`), v.png);
-      await writeFile(path.join(variantsDir, `${v.id}.json`), JSON.stringify({ v: 1, S: v.state, ovr, refs }, null, 2));
-      allVariantsById.set(v.id, v);
-    }
-
-    // synced now, right after rendering and before judging even starts —
-    // a "post" should appear on the feed before any "comment" does. Only
-    // `children` (this round's new variants), never survivors carried
-    // forward — their row already exists from an earlier round's call.
-    if (syncCtx) {
-      try {
-        await syncFns.syncVariants({ ...syncCtx, variants: children, labelToUuid });
-      } catch (e) {
-        publishError = e.message;
-        console.error(`[syndicate] syncing round ${roundNum}'s variants failed: ${e.message}`);
-      }
-    }
+    // one variant at a time: rendered, written to disk, and synced to
+    // Supabase (image uploaded, then the row) before the next one even
+    // starts rendering — a viewer watching the feed sees posts arrive one
+    // by one, not all 32 in the same instant. Only `children` (this
+    // round's new variants) are ever synced here; survivors carried
+    // forward from an earlier round already have a row from that round's
+    // own pass through this same loop.
+    await renderRound(children, refs, ovr, {
+      onRendered: async (v) => {
+        v.roundNum = `round-${roundNum}`;
+        await writeFile(path.join(variantsDir, `${v.id}.png`), v.png);
+        await writeFile(path.join(variantsDir, `${v.id}.json`), JSON.stringify({ v: 1, S: v.state, ovr, refs }, null, 2));
+        allVariantsById.set(v.id, v);
+        if (syncCtx) {
+          try {
+            await syncFns.syncVariant({ ...syncCtx, variant: v, labelToUuid });
+          } catch (e) {
+            publishError = e.message;
+            console.error(`[syndicate] syncing variant ${v.id} failed: ${e.message}`);
+          }
+        }
+      },
+    });
 
     const combinedField = roundNum === 1 ? children : [...field, ...children];
 
@@ -312,7 +315,7 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
     for (const id of selected) survivedIds.add(id);
 
     // now that this round's ratings/disagreement/survival are known,
-    // patch them onto the rows syncVariants() already inserted — a viewer
+    // patch them onto the rows syncVariant() already inserted — a viewer
     // watching the feed sees a variant's rating settle, not just appear
     if (syncCtx && !dry) {
       try {

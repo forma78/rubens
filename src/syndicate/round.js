@@ -142,11 +142,16 @@ async function proposeRound({
   return variants;
 }
 
-/** renderRound: every variant to a preview PNG + its transmission JPEG. */
-async function renderRound(variants, refs, ovr) {
+/** renderRound: every variant to a preview PNG + its transmission JPEG.
+ *  onRendered(v), if given, fires right after each one — before the next
+ *  variant even starts rendering — so a caller can write it to disk and
+ *  sync it to Supabase one at a time instead of waiting for the whole
+ *  round to finish (the same reason judgeRound has onComparisons). */
+async function renderRound(variants, refs, ovr, { onRendered } = {}) {
   for (const v of variants) {
     v.png = await renderToPng(v.state, refs, ovr, { quality: 'preview' });
     v.jpeg = await toTransmitJpeg(v.png);
+    if (onRendered) await onRendered(v);
   }
   return variants;
 }

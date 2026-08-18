@@ -171,6 +171,25 @@ create policy references_public_read on storage.objects
   for select to public
   using (bucket_id = 'references');
 
+-- variant renders (the 768px transmission JPEG every variant already gets,
+-- for the judges) — a separate bucket from references on purpose: these
+-- are generated output headed for the public feed, not the owner's own
+-- study photographs, and keeping them apart makes it easy to point a
+-- retention/size policy at one without touching the other later.
+insert into storage.buckets (id, name, public)
+values ('renders', 'renders', true)
+on conflict (id) do nothing;
+
+drop policy if exists renders_owner_upload on storage.objects;
+create policy renders_owner_upload on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'renders');
+
+drop policy if exists renders_public_read on storage.objects;
+create policy renders_public_read on storage.objects
+  for select to public
+  using (bucket_id = 'renders');
+
 -- ---------------------------------------------------------------- housekeeping
 create or replace function public.touch_updated_at()
 returns trigger language plpgsql as $$

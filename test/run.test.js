@@ -161,7 +161,7 @@ test('run({ publish: true }) syncs incrementally — brief inserted up front, va
     assert.equal(fakeSync.calls.signIn[0].email, 'owner@example.com');
     assert.equal(fakeSync.calls.insertBrief.length, 1, 'a local-JSON brief with no existing row gets one inserted up front');
     assert.equal(fakeSync.calls.insertBrief[0].brief.id, 'test-brief');
-    assert.ok(fakeSync.calls.syncVariants.length > 0, 'variants were synced during the round, not just at the end');
+    assert.equal(fakeSync.calls.syncVariant.length, 12, 'one call per variant (fixture brief sets variantsPerRound:12), not one per round');
     assert.ok(fakeSync.calls.syncComparisons.length > 0, 'comparisons were synced as vendors returned results');
     assert.ok(fakeSync.calls.syncVariantResults.length > 0, 'ratings/disagreement were patched on once judging finished');
     assert.equal(fakeSync.calls.closeBrief.length, 1);
@@ -169,7 +169,7 @@ test('run({ publish: true }) syncs incrementally — brief inserted up front, va
 
     // the same briefId insertBrief minted flows through every later call
     const briefId = fakeSync.calls.insertBrief[0] && [...fakeSync.briefs.keys()][0];
-    assert.equal(fakeSync.calls.syncVariants[0].briefId, briefId);
+    assert.equal(fakeSync.calls.syncVariant[0].briefId, briefId);
     assert.equal(fakeSync.calls.closeBrief[0].briefId, briefId);
   } finally {
     await rm(runsDir, { recursive: true, force: true });
@@ -263,8 +263,10 @@ test('run({ briefId }) claims the brief, syncs incrementally against the claimed
     });
     assert.equal(result.published, true, result.publishError);
     assert.equal(fakeSync.calls.insertBrief.length, 0, 'a --brief-id shift already has a row — insertBrief must never run');
-    assert.ok(fakeSync.calls.syncVariants.length > 0);
-    assert.equal(fakeSync.calls.syncVariants[0].briefId, 'brief-uuid-9');
+    // a --brief-id row carries no variantsPerRound of its own, so this
+    // falls back to the real config/syndicate.json default (32)
+    assert.equal(fakeSync.calls.syncVariant.length, 32, 'one call per variant, not one per round');
+    assert.equal(fakeSync.calls.syncVariant[0].briefId, 'brief-uuid-9');
     assert.equal(fakeSync.calls.closeBrief[0].briefId, 'brief-uuid-9', 'closeBrief must update the claimed row, not a new one');
 
     const runDir = path.join(runsDir, 'site-brief');

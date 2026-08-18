@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   signIn, fetchBriefById, claimBrief,
-  insertBrief, closeBrief, syncVariants, syncVariantResults, syncComparisons,
+  insertBrief, closeBrief, syncVariant, syncVariantResults, syncComparisons,
 } from '../src/syndicate/sync.js';
 
-// A fake PostgREST + GoTrue endpoint. Never touches the network — this is
+// A fake PostgREST + GoTrue + Storage endpoint. Never touches the network —
 // the same dependency-injection pattern as clients/env in run.js, and for
 // the same reason: a test must not be able to fire a real Supabase call.
 function makeFakeSupabase({ seedBriefs = [] } = {}) {
@@ -13,11 +13,22 @@ function makeFakeSupabase({ seedBriefs = [] } = {}) {
   const nextId = () => `uuid-${++n}`;
   const calls = [];
   const tables = { briefs: [...seedBriefs], variants: [], comparisons: [] };
+  const uploadedRenders = new Map(); // objectPath -> bytes
 
   const fetchImpl = async (url, opts = {}) => {
+    const u = new URL(url);
+
+    // Storage upload: a raw byte body, not JSON — must be handled before
+    // any JSON.parse is attempted on opts.body below
+    if (u.pathname.startsWith('/storage/v1/object/renders/')) {
+      const objectPath = u.pathname.replace('/storage/v1/object/renders/', '');
+      uploadedRenders.set(objectPath, opts.body);
+      calls.push({ url, method: opts.method, headers: opts.headers, body: '<jpeg bytes>' });
+      return { ok: true, status: 200, json: async () => ({ Key: objectPath }) };
+    }
+
     const body = opts.body ? JSON.parse(opts.body) : undefined;
     calls.push({ url, method: opts.method, headers: opts.headers, body });
-    const u = new URL(url);
 
     if (url.includes('/auth/v1/token')) {
       if (body.email !== 'owner@example.com' || body.password !== 'right-password') {
@@ -79,7 +90,7 @@ function makeFakeSupabase({ seedBriefs = [] } = {}) {
     throw new Error(`fake supabase: unexpected url ${url}`);
   };
 
-  return { fetchImpl, calls, tables };
+  return { fetchImpl, calls, tables, uploadedRenders };
 }
 
 const ctx = (fetchImpl, extra = {}) => ({ supabaseUrl: 'https://x.supabase.co', apikey: 'anon-key', accessToken: 'jwt-abc', fetchImpl, ...extra });
@@ -155,40 +166,72 @@ test('closeBrief throws when it matches no row', async () => {
   );
 });
 
-test('syncVariants inserts only round variants (skips the base pseudo-variant) and extends labelToUuid', async () => {
-  const { fetchImpl } = makeFakeSupabase();
-  const labelToUuid = new Map();
-  const variants = [
-    { id: 'base', roundNum: 'base', state: {}, source: 'base' },
-    { id: 'r1-var-01', roundNum: 'round-1', source: 'mechanical', parentId: 'base', patch: { cols: 5 }, state: { cols: 5 }, intent: 'mechanical mutation' },
-  ];
-  const { count } = await syncVariants({ ...ctx(fetchImpl), briefId: 'brief-uuid-1', variants, labelToUuid });
-  assert.equal(count, 1, 'the base pseudo-variant is never synced');
-  assert.ok(labelToUuid.get('r1-var-01')?.startsWith('uuid-'));
+test('syncVariant uploads the render before inserting the row, with render_url already set', async () => {
+  const { fetchImpl, calls, uploadedRenders } = makeFakeSupabase();
+  const jpeg = Buffer.from('fake-jpeg-bytes');
+  const inserted = await syncVariant({
+    ...ctx(fetchImpl), briefId: 'brief-uuid-1', labelToUuid: new Map(),
+    variant: { id: 'r1-var-01', roundNum: 'round-1', source: 'mechanical', parentId: 'base', patch: { cols: 5 }, state: { cols: 5 }, intent: 'mechanical mutation', jpeg },
+  });
+  assert.ok(inserted.id?.startsWith('uuid-'));
+
+  const uploadCallIdx = calls.findIndex(c => c.url.includes('/storage/v1/object/renders/'));
+  const insertCallIdx = calls.findIndex(c => c.url.endsWith('/rest/v1/variants') && c.method === 'POST');
+  assert.ok(uploadCallIdx >= 0 && insertCallIdx >= 0);
+  assert.ok(uploadCallIdx < insertCallIdx, 'the image must be uploaded before the row is inserted');
+  assert.equal(uploadedRenders.get('brief-uuid-1/r1-var-01.jpg'), jpeg);
+
+  const insertedRow = calls[insertCallIdx].body[0];
+  assert.match(insertedRow.render_url, /\/storage\/v1\/object\/public\/renders\/brief-uuid-1\/r1-var-01\.jpg$/);
 });
 
-test('syncVariants resolves parent_id from an already-synced label (a survivor from an earlier round)', async () => {
+test('syncVariant returns null for the base pseudo-variant without touching the network', async () => {
+  const { fetchImpl, calls } = makeFakeSupabase();
+  const result = await syncVariant({
+    ...ctx(fetchImpl), briefId: 'brief-uuid-1', labelToUuid: new Map(),
+    variant: { id: 'base', roundNum: 'base', state: {}, source: 'base', jpeg: Buffer.from('x') },
+  });
+  assert.equal(result, null);
+  assert.equal(calls.length, 0);
+});
+
+test('syncVariant resolves parent_id from an already-synced label (a survivor from an earlier round) and extends labelToUuid', async () => {
   const { fetchImpl, calls } = makeFakeSupabase();
   const labelToUuid = new Map([['r1-var-01', 'uuid-parent']]);
-  await syncVariants({
+  await syncVariant({
     ...ctx(fetchImpl), briefId: 'brief-uuid-1', labelToUuid,
-    variants: [{ id: 'r2-var-01', roundNum: 'round-2', source: 'anthropic', generatorId: 'gen-tight', parentId: 'r1-var-01', patch: {}, state: {}, intent: 'x' }],
+    variant: { id: 'r2-var-01', roundNum: 'round-2', source: 'anthropic', generatorId: 'gen-tight', parentId: 'r1-var-01', patch: {}, state: {}, intent: 'x', jpeg: Buffer.from('x') },
   });
   const insertCall = calls.find(c => c.url.endsWith('/rest/v1/variants') && c.method === 'POST');
   assert.equal(insertCall.body[0].parent_id, 'uuid-parent');
   assert.equal(insertCall.body[0].agent_id, 'gen-tight');
+  assert.ok(labelToUuid.get('r2-var-01')?.startsWith('uuid-'));
 });
 
-test('syncVariants leaves rating/disagreement/survived unset — not known until judging happens', async () => {
+test('syncVariant leaves rating/disagreement/survived unset — not known until judging happens', async () => {
   const { fetchImpl, calls } = makeFakeSupabase();
-  await syncVariants({
+  await syncVariant({
     ...ctx(fetchImpl), briefId: 'brief-uuid-1', labelToUuid: new Map(),
-    variants: [{ id: 'r1-var-01', roundNum: 'round-1', source: 'mechanical', parentId: 'base', patch: {}, state: {} }],
+    variant: { id: 'r1-var-01', roundNum: 'round-1', source: 'mechanical', parentId: 'base', patch: {}, state: {}, jpeg: Buffer.from('x') },
   });
   const insertCall = calls.find(c => c.url.endsWith('/rest/v1/variants') && c.method === 'POST');
   assert.equal('rating' in insertCall.body[0], false);
   assert.equal('disagreement' in insertCall.body[0], false);
   assert.equal('survived' in insertCall.body[0], false);
+});
+
+test('syncVariant throws with the response body when the Storage upload fails', async () => {
+  const fetchImpl = async (url) => {
+    if (url.includes('/storage/v1/object/renders/')) return { ok: false, status: 403, text: async () => 'permission denied' };
+    throw new Error('should not reach the row insert if the upload failed');
+  };
+  await assert.rejects(
+    () => syncVariant({
+      ...ctx(fetchImpl), briefId: 'brief-uuid-1', labelToUuid: new Map(),
+      variant: { id: 'r1-var-01', roundNum: 'round-1', source: 'mechanical', parentId: 'base', patch: {}, state: {}, jpeg: Buffer.from('x') },
+    }),
+    /render upload failed.*permission denied/,
+  );
 });
 
 test('syncVariantResults upserts rating/disagreement/survived onto already-synced rows by their known id', async () => {

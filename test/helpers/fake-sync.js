@@ -1,7 +1,7 @@
 /* A fake for src/syndicate/sync.js's whole exported surface — every
    function run.js can call, backed by a tiny in-memory store instead of a
    real Supabase project. Default behaviour is realistic enough (labelToUuid
-   really gets extended by syncVariants, closeBrief really merges onto the
+   really gets extended by syncVariant, closeBrief really merges onto the
    row insertBrief created) that a test exercising the full incremental
    flow doesn't have to hand-roll it — override individual functions on
    the returned object for a specific failure case instead. */
@@ -10,7 +10,7 @@ function makeFakeSync({ claimResult, failAt } = {}) {
   const nextId = () => `synced-uuid-${++n}`;
   const briefs = new Map();
   const variants = new Map();
-  const calls = { signIn: [], claimBrief: [], fetchBriefById: [], insertBrief: [], closeBrief: [], syncVariants: [], syncVariantResults: [], syncComparisons: [] };
+  const calls = { signIn: [], claimBrief: [], fetchBriefById: [], insertBrief: [], closeBrief: [], syncVariant: [], syncVariantResults: [], syncComparisons: [] };
 
   function maybeFail(name) {
     if (failAt === name) throw new Error(`fake sync: ${name} failed on purpose`);
@@ -34,18 +34,15 @@ function makeFakeSync({ claimResult, failAt } = {}) {
       const b = briefs.get(args.briefId);
       if (b) Object.assign(b, { status: args.status, cost_usd: args.costUsd, rounds: args.rounds });
     },
-    syncVariants: async (args) => {
-      calls.syncVariants.push(args);
-      maybeFail('syncVariants');
-      let count = 0;
-      for (const v of args.variants) {
-        if (!/^round-\d+$/.test(v.roundNum ?? '')) continue;
-        const id = nextId();
-        variants.set(id, { id, label: v.id });
-        args.labelToUuid.set(v.id, id);
-        count++;
-      }
-      return { count };
+    syncVariant: async (args) => {
+      calls.syncVariant.push(args);
+      maybeFail('syncVariant');
+      if (!/^round-\d+$/.test(args.variant.roundNum ?? '')) return null; // the base pseudo-variant
+      const id = nextId();
+      const row = { id, label: args.variant.id, render_url: `https://fake.test/renders/${args.variant.id}.jpg` };
+      variants.set(id, row);
+      args.labelToUuid.set(args.variant.id, id);
+      return row;
     },
     syncVariantResults: async (args) => { calls.syncVariantResults.push(args); maybeFail('syncVariantResults'); return { count: args.variants.length }; },
     syncComparisons: async (args) => { calls.syncComparisons.push(args); maybeFail('syncComparisons'); return { count: args.comparisons.length }; },

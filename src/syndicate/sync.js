@@ -1,13 +1,18 @@
 /* SPEC 4 — the archive. Incremental sync: a brief's row exists in Supabase
-   from the moment a shift starts (not just at the end), and each round's
-   variants and each vendor's comparisons land as soon as they're real,
-   not batched into one push after everything finishes. The point isn't
-   just archival — a public RubensJournal feed reading straight off this
-   table only feels alive if posts and comments actually trickle in while
-   a shift runs (a shift can legitimately take 60-180 minutes; that wait
-   is the show, not a cost to hide). No image upload yet (Storage, wired
-   up for brief-creation references, not variant renders); render_url is
-   left unset here.
+   from the moment a shift starts (not just at the end), and each variant —
+   image included — and each vendor's comparisons land as soon as they're
+   real, not batched into one push after everything finishes. The point
+   isn't just archival — a public RubensJournal feed reading straight off
+   this table only feels alive if posts and comments actually trickle in
+   while a shift runs (a shift can legitimately take 60-180 minutes; that
+   wait is the show, not a cost to hide).
+
+   A variant's render is uploaded to Storage *before* its row is inserted,
+   with render_url already set — a variants row with no image should be
+   impossible to observe, not just a convention placeholders happen to
+   follow. Comparisons stay batched through the vendors' own Batch APIs
+   (half price, SPEC 3.5) and land per-vendor or per-pair as they actually
+   return — variants stream one at a time, verdicts are allowed to catch up.
 
    RLS ties every row to auth.uid() via a `default auth.uid()` column, so
    writing requires a signed-in user, not just the anon key — signIn() does
@@ -125,46 +130,72 @@ function roundNumOf(v) {
   return m ? Number(m[1]) : null;
 }
 
-/**
- * syncVariants({ supabaseUrl, apikey, accessToken, briefId, variants,
- * labelToUuid, fetchImpl }) -> { count }
+/** uploadRender({ supabaseUrl, apikey, accessToken, briefId, label, jpeg,
+ *  fetchImpl }) -> the public URL it now lives at.
  *
- * Inserts freshly-rendered variants (typically one round's worth, called
- * right after renderRound — before judging even starts, so a variant's
- * "post" can appear on the feed before any "comment" does) and extends
- * `labelToUuid` *in place* with label -> Supabase-id for each one, so a
- * later syncComparisons() or syncVariantResults() call can resolve FKs —
- * including a parent from an earlier round, already in the map from a
- * previous syncVariants() call this same shift.
+ *  The 768px transmission JPEG every variant already gets rendered for the
+ *  judges (round.js's renderRound) — reused here as-is, no separate
+ *  higher-res asset. Uploaded to the `renders` bucket (public read, owner
+ *  upload only — see schema.sql), one object per variant. */
+async function uploadRender({ supabaseUrl, apikey, accessToken, briefId, label, jpeg, fetchImpl = fetch }) {
+  const objectPath = `${briefId}/${label}.jpg`;
+  const res = await fetchImpl(`${supabaseUrl}/storage/v1/object/renders/${objectPath}`, {
+    method: 'POST',
+    headers: { apikey, Authorization: `Bearer ${accessToken}`, 'Content-Type': 'image/jpeg' },
+    body: jpeg,
+  });
+  if (!res.ok) throw new Error(`sync: render upload failed for ${label}: ${res.status} ${await res.text()}`);
+  return `${supabaseUrl}/storage/v1/object/public/renders/${objectPath}`;
+}
+
+/**
+ * syncVariant({ supabaseUrl, apikey, accessToken, briefId, variant,
+ * labelToUuid, fetchImpl }) -> the inserted row, or null (the base
+ * pseudo-variant, never synced)
+ *
+ * One variant at a time — called from renderRound's onRendered callback,
+ * so a variant's "post" appears on the feed the moment it's ready, not
+ * batched with the rest of the round, and definitely not after judging.
+ * The image is uploaded *before* the row is inserted, deliberately: a
+ * variants row with no render_url should be impossible to observe, not
+ * just a convention "pending" placeholders happen to follow.
+ *
+ * Extends `labelToUuid` *in place* with label -> Supabase-id, so a later
+ * syncComparisons() or syncVariantResults() call can resolve FKs —
+ * including a parent from an earlier round, already in the map from that
+ * round's own syncVariant() calls.
  *
  * rating/disagreement/survived aren't known yet at this point (judging
- * hasn't happened) — they're left at their DB defaults (1500 / 0 / false)
- * here and updated later by syncVariantResults() once selectRound() has run.
+ * hasn't happened) — left at their DB defaults (1500 / 0 / false) here,
+ * updated later by syncVariantResults() once selectRound() has run.
  */
-async function syncVariants({ supabaseUrl, apikey, accessToken, briefId, variants, labelToUuid, fetchImpl = fetch }) {
+async function syncVariant({ supabaseUrl, apikey, accessToken, briefId, variant, labelToUuid, fetchImpl = fetch }) {
+  const round = roundNumOf(variant);
+  if (round == null) return null; // the base pseudo-variant is never synced
+
+  const renderUrl = await uploadRender({ supabaseUrl, apikey, accessToken, briefId, label: variant.id, jpeg: variant.jpeg, fetchImpl });
+
   const headers = {
     apikey, Authorization: `Bearer ${accessToken}`,
     'Content-Type': 'application/json', Prefer: 'return=representation',
   };
-  const synced = variants.filter(v => roundNumOf(v) != null); // the base pseudo-variant is never synced
-  if (!synced.length) return { count: 0 };
-
-  const rows = synced.map(v => ({
+  const row = {
     brief_id: briefId,
-    round: roundNumOf(v),
-    label: v.id,
-    source: v.source,
-    agent_id: v.generatorId ?? null,
-    parent_id: labelToUuid.get(v.parentId) ?? null,
-    patch: v.patch ?? {},
-    state: v.state,
-    intent: v.intent ?? null,
-  }));
-  const res = await fetchImpl(`${supabaseUrl}/rest/v1/variants`, { method: 'POST', headers, body: JSON.stringify(rows) });
-  if (!res.ok) throw new Error(`sync: variants insert failed: ${res.status} ${await res.text()}`);
-  const inserted = await res.json();
-  for (const row of inserted) labelToUuid.set(row.label, row.id);
-  return { count: inserted.length };
+    round,
+    label: variant.id,
+    source: variant.source,
+    agent_id: variant.generatorId ?? null,
+    parent_id: labelToUuid.get(variant.parentId) ?? null,
+    patch: variant.patch ?? {},
+    state: variant.state,
+    intent: variant.intent ?? null,
+    render_url: renderUrl,
+  };
+  const res = await fetchImpl(`${supabaseUrl}/rest/v1/variants`, { method: 'POST', headers, body: JSON.stringify([row]) });
+  if (!res.ok) throw new Error(`sync: variant insert failed for ${variant.id}: ${res.status} ${await res.text()}`);
+  const [inserted] = await res.json();
+  labelToUuid.set(inserted.label, inserted.id);
+  return inserted;
 }
 
 /**
@@ -248,5 +279,5 @@ async function syncComparisons({ supabaseUrl, apikey, accessToken, briefId, comp
 export {
   signIn, fetchBriefById, claimBrief,
   insertBrief, closeBrief,
-  syncVariants, syncVariantResults, syncComparisons,
+  syncVariant, syncVariantResults, syncComparisons,
 };
