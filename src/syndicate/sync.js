@@ -23,6 +23,40 @@ async function signIn({ supabaseUrl, apikey, email, password, fetchImpl = fetch 
   return { accessToken: body.access_token, userId: body.user?.id };
 }
 
+/** fetchBriefById({ supabaseUrl, apikey, accessToken, briefId, fetchImpl })
+ *  -> the briefs row, or throws if none exists (or RLS hides it — the
+ *  caller must already be signed in as the row's owner). */
+async function fetchBriefById({ supabaseUrl, apikey, accessToken, briefId, fetchImpl = fetch }) {
+  const headers = { apikey, Authorization: `Bearer ${accessToken}` };
+  const res = await fetchImpl(`${supabaseUrl}/rest/v1/briefs?id=eq.${briefId}&select=*`, { headers });
+  if (!res.ok) throw new Error(`sync: fetching brief ${briefId} failed: ${res.status} ${await res.text()}`);
+  const rows = await res.json();
+  if (!rows.length) throw new Error(`sync: no brief found with id ${briefId}`);
+  return rows[0];
+}
+
+/** claimBrief({ supabaseUrl, apikey, accessToken, briefId, fetchImpl }) ->
+ *  the claimed row, or null.
+ *
+ *  Atomically flips status pending -> running: the WHERE clause carries
+ *  both the id and status:eq.pending, so PostgREST only touches the row
+ *  if it is still pending at the moment this UPDATE executes. Two workers
+ *  racing for the same brief is expected (a scheduled GitHub Actions tick
+ *  firing while another is mid-run), not exceptional — the loser gets an
+ *  empty result and should treat that as "nothing to do," not an error. */
+async function claimBrief({ supabaseUrl, apikey, accessToken, briefId, fetchImpl = fetch }) {
+  const headers = {
+    apikey, Authorization: `Bearer ${accessToken}`,
+    'Content-Type': 'application/json', Prefer: 'return=representation',
+  };
+  const res = await fetchImpl(`${supabaseUrl}/rest/v1/briefs?id=eq.${briefId}&status=eq.pending`, {
+    method: 'PATCH', headers, body: JSON.stringify({ status: 'running' }),
+  });
+  if (!res.ok) throw new Error(`sync: claiming brief ${briefId} failed: ${res.status} ${await res.text()}`);
+  const rows = await res.json();
+  return rows[0] ?? null;
+}
+
 function tokensFromUsage(usage) {
   if (!usage) return { in: null, out: null };
   // Anthropic-shaped usage has input_tokens/output_tokens; xAI/OpenAI (both
@@ -117,44 +151,68 @@ async function insertComparisons(fetchImpl, supabaseUrl, headers, briefId, compa
 /**
  * syncShift({ supabaseUrl, apikey, accessToken, brief, baseState, palette,
  * variantsById, comparisons, allRatings, allDisagreements, survivedIds,
- * roundsRun, costSpent, aborted }, { fetchImpl }) -> { briefId, variantCount, comparisonCount }
+ * roundsRun, costSpent, aborted, briefId }, { fetchImpl }) ->
+ * { briefId, variantCount, comparisonCount }
+ *
+ * briefId: pass the Supabase id of an *existing* row (site-created,
+ * already claimed via claimBrief) to update it in place with the finished
+ * shift's results. Omit it for the original flow — a shift that started
+ * from a local JSON brief has no existing row, so one is inserted fresh.
  */
 async function syncShift({
   supabaseUrl, apikey, accessToken, brief, baseState, palette,
   variantsById, comparisons, allRatings, allDisagreements, survivedIds,
-  roundsRun, costSpent, aborted,
+  roundsRun, costSpent, aborted, briefId,
 }, { fetchImpl = fetch } = {}) {
   const headers = {
     apikey, Authorization: `Bearer ${accessToken}`,
     'Content-Type': 'application/json', Prefer: 'return=representation',
   };
 
-  const briefRes = await fetchImpl(`${supabaseUrl}/rest/v1/briefs`, {
-    method: 'POST', headers,
-    body: JSON.stringify({
-      slug: brief.id,
-      instruction: brief.instruction,
-      base_state: baseState,
-      palette: palette ?? null,
-      reference: brief.reference ?? null,
-      rounds: roundsRun,
-      status: aborted ? 'aborted' : 'done',
-      cost_usd: costSpent,
-    }),
-  });
-  if (!briefRes.ok) throw new Error(`sync: briefs insert failed: ${briefRes.status} ${await briefRes.text()}`);
-  const [briefRow] = await briefRes.json();
-  const briefId = briefRow.id;
+  let resolvedBriefId = briefId;
+  if (resolvedBriefId) {
+    const res = await fetchImpl(`${supabaseUrl}/rest/v1/briefs?id=eq.${resolvedBriefId}`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({
+        base_state: baseState,
+        palette: palette ?? null,
+        rounds: roundsRun,
+        status: aborted ? 'aborted' : 'done',
+        cost_usd: costSpent,
+      }),
+    });
+    if (!res.ok) throw new Error(`sync: briefs update failed: ${res.status} ${await res.text()}`);
+    const rows = await res.json();
+    if (!rows.length) throw new Error(`sync: briefs update matched no row for id ${resolvedBriefId}`);
+  } else {
+    const briefRes = await fetchImpl(`${supabaseUrl}/rest/v1/briefs`, {
+      method: 'POST', headers,
+      body: JSON.stringify({
+        slug: brief.id,
+        instruction: brief.instruction,
+        canvas_format: brief.canvasFormat ?? null,
+        base_state: baseState,
+        palette: palette ?? null,
+        reference: brief.reference ?? null,
+        rounds: roundsRun,
+        status: aborted ? 'aborted' : 'done',
+        cost_usd: costSpent,
+      }),
+    });
+    if (!briefRes.ok) throw new Error(`sync: briefs insert failed: ${briefRes.status} ${await briefRes.text()}`);
+    const [briefRow] = await briefRes.json();
+    resolvedBriefId = briefRow.id;
+  }
 
   const variants = [...variantsById.values()];
   const { labelToUuid, count: variantCount } = await insertVariants(
-    fetchImpl, supabaseUrl, headers, briefId, variants, allRatings, allDisagreements, survivedIds,
+    fetchImpl, supabaseUrl, headers, resolvedBriefId, variants, allRatings, allDisagreements, survivedIds,
   );
   const { count: comparisonCount } = await insertComparisons(
-    fetchImpl, supabaseUrl, headers, briefId, comparisons, labelToUuid,
+    fetchImpl, supabaseUrl, headers, resolvedBriefId, comparisons, labelToUuid,
   );
 
-  return { briefId, variantCount, comparisonCount };
+  return { briefId: resolvedBriefId, variantCount, comparisonCount };
 }
 
-export { signIn, syncShift };
+export { signIn, syncShift, fetchBriefById, claimBrief };

@@ -5,13 +5,26 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { run } from '../src/syndicate/run.js';
+import { run, resolveBriefSource } from '../src/syndicate/run.js';
 import { makeFakeClients } from './helpers/fake-clients.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const briefPath = path.join(root, 'test/fixtures/brief.json');
 const runScript = path.join(root, 'src/syndicate/run.js');
 const fakeEnv = { ANTHROPIC_API_KEY: 'fake', XAI_API_KEY: 'fake', OPENAI_API_KEY: 'fake' }; // run() only checks these are present, not that they're real
+const fakeSupabaseEnv = { SUPABASE_URL: 'https://x.supabase.co', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_EMAIL: 'owner@example.com', SUPABASE_PASSWORD: 'right-password' };
+const fileConfig = JSON.parse(await readFile(path.join(root, 'config/syndicate.json'), 'utf8'));
+
+// resolveBriefSource's Supabase path downloads its reference image with
+// plain fetch — a real study photo's bytes stand in for "whatever Storage
+// would have served," so analyseFile() downstream gets a real image
+const studyJpegImpl = async (url) => {
+  if (url !== 'https://x.supabase.co/storage/v1/object/public/references/study.jpg') {
+    throw new Error(`fake fetch: unexpected url ${url}`);
+  }
+  const bytes = await readFile(path.join(root, 'studies/color_01.jpg'));
+  return { ok: true, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) };
+};
 
 test('run({ dry: true }) completes a full shift with no model calls, writing the documented layout', async () => {
   const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
@@ -168,6 +181,112 @@ test('run({ publish: true }) reports a sync failure without throwing or losing t
     assert.equal(result.published, false);
     assert.match(result.publishError, /RLS: JWT expired/);
     await assert.doesNotReject(readFile(path.join(runsDir, 'test-brief', 'FINAL.md')));
+  } finally {
+    await rm(runsDir, { recursive: true, force: true });
+  }
+});
+
+test('resolveBriefSource with no briefId loads from the local file, untouched by env', async () => {
+  const { brief, referencePath, existingBriefId, accessToken } = await resolveBriefSource({
+    briefPath, cwd: root, fileConfig, env: {}, dry: false,
+  });
+  assert.equal(brief.id, 'test-brief');
+  assert.equal(existingBriefId, null);
+  assert.equal(accessToken, null);
+  assert.equal(referencePath, path.join(root, 'studies/color_01.jpg'));
+});
+
+test('resolveBriefSource with a briefId claims (not fetches) the row when not dry, and maps canvas_format to a ratio', async () => {
+  let seenClaim = null;
+  const brief = await resolveBriefSource({
+    briefId: 'brief-uuid-9', cwd: root, fileConfig, env: fakeSupabaseEnv, dry: false, fetchImpl: studyJpegImpl,
+    signIn: async () => ({ accessToken: 'jwt-abc' }),
+    claimBrief: async (args) => { seenClaim = args; return { id: 'brief-uuid-9', slug: 'site-brief', instruction: 'Loosen.', canvas_format: '60x80', rounds: 2, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' }; },
+    fetchBriefById: async () => { throw new Error('should not be called when not dry'); },
+  });
+  assert.equal(seenClaim.briefId, 'brief-uuid-9');
+  assert.equal(brief.brief.id, 'site-brief');
+  assert.equal(brief.brief.ratio, 2, 'ratio is derived from canvas.js\'s CANVAS_PROFILES, not stored on the row');
+  assert.equal(brief.brief.canvasFormat, '60x80');
+  assert.equal(brief.existingBriefId, 'brief-uuid-9');
+  assert.equal(brief.accessToken, 'jwt-abc');
+  await assert.doesNotReject(readFile(brief.referencePath), 'the reference image should have been downloaded to a real local file');
+});
+
+test('resolveBriefSource with a briefId only reads (fetchBriefById) when dry, never claims', async () => {
+  let claimCalled = false;
+  const { existingBriefId } = await resolveBriefSource({
+    briefId: 'brief-uuid-9', cwd: root, fileConfig, env: fakeSupabaseEnv, dry: true, fetchImpl: studyJpegImpl,
+    signIn: async () => ({ accessToken: 'jwt-abc' }),
+    claimBrief: async () => { claimCalled = true; return null; },
+    fetchBriefById: async () => ({ id: 'brief-uuid-9', slug: 'site-brief', instruction: 'x', canvas_format: '70x100', rounds: 1, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' }),
+  });
+  assert.equal(claimCalled, false, 'a dry run must never flip a real brief to running — see the comment in resolveBriefSource');
+  assert.equal(existingBriefId, 'brief-uuid-9');
+});
+
+test('resolveBriefSource throws a clear error when the brief is already claimed (or does not exist)', async () => {
+  await assert.rejects(
+    () => resolveBriefSource({
+      briefId: 'brief-uuid-9', cwd: root, fileConfig, env: fakeSupabaseEnv, dry: false, fetchImpl: studyJpegImpl,
+      signIn: async () => ({ accessToken: 'jwt-abc' }),
+      claimBrief: async () => null,
+    }),
+    /is not pending/,
+  );
+});
+
+test('resolveBriefSource throws a clear error for an unknown canvas_format', async () => {
+  await assert.rejects(
+    () => resolveBriefSource({
+      briefId: 'brief-uuid-9', cwd: root, fileConfig, env: fakeSupabaseEnv, dry: false, fetchImpl: studyJpegImpl,
+      signIn: async () => ({ accessToken: 'jwt-abc' }),
+      claimBrief: async () => ({ id: 'brief-uuid-9', slug: 'x', instruction: 'x', canvas_format: '50x50', rounds: 1, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' }),
+    }),
+    /unknown canvas_format/,
+  );
+});
+
+test('run({ briefId }) claims the brief, runs the shift, and updates (not inserts) the same row on publish', async () => {
+  const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
+  let seenSync = null;
+  const fakeSync = {
+    signIn: async () => ({ accessToken: 'jwt-abc' }),
+    claimBrief: async () => ({ id: 'brief-uuid-9', slug: 'site-brief', instruction: 'Loosen the grid.', canvas_format: '70x100', rounds: 1, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' }),
+    fetchBriefById: async () => { throw new Error('should not be called for a non-dry run'); },
+    syncShift: async (args) => { seenSync = args; return { briefId: args.briefId, variantCount: 1, comparisonCount: 0 }; },
+  };
+  try {
+    const result = await run({
+      briefId: 'brief-uuid-9', dry: false, cwd: root, runsDir,
+      env: { ...fakeEnv, ...fakeSupabaseEnv }, clients: makeFakeClients(), sync: fakeSync, fetchImpl: studyJpegImpl,
+    });
+    assert.equal(result.published, true, result.publishError);
+    assert.equal(seenSync.briefId, 'brief-uuid-9', 'syncShift must update the existing row, not insert a new one');
+    assert.equal(seenSync.brief.id, 'site-brief');
+
+    const runDir = path.join(runsDir, 'site-brief');
+    await assert.doesNotReject(readFile(path.join(runDir, 'FINAL.md')));
+  } finally {
+    await rm(runsDir, { recursive: true, force: true });
+  }
+});
+
+test('run({ briefId, publish: false }) still publishes — a claimed row must always be closed out', async () => {
+  const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
+  let published = false;
+  const fakeSync = {
+    signIn: async () => ({ accessToken: 'jwt-abc' }),
+    claimBrief: async () => ({ id: 'brief-uuid-9', slug: 'site-brief', instruction: 'x', canvas_format: '70x100', rounds: 1, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' }),
+    syncShift: async () => { published = true; return { briefId: 'brief-uuid-9', variantCount: 1, comparisonCount: 0 }; },
+  };
+  try {
+    const result = await run({
+      briefId: 'brief-uuid-9', dry: false, cwd: root, runsDir, publish: false,
+      env: { ...fakeEnv, ...fakeSupabaseEnv }, clients: makeFakeClients(), sync: fakeSync, fetchImpl: studyJpegImpl,
+    });
+    assert.equal(published, true);
+    assert.equal(result.published, true);
   } finally {
     await rm(runsDir, { recursive: true, force: true });
   }

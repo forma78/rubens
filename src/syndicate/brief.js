@@ -5,21 +5,19 @@ import { CANVAS_PROFILES } from './canvas.js';
 const REQUIRED = ['id', 'instruction', 'ratio', 'reference'];
 
 /**
- * loadBrief(path, syndicateConfig) -> normalised brief
+ * normaliseBrief(raw, syndicateConfig, label) -> normalised brief
+ *
+ * Shared by loadBrief (a local JSON file) and run.js's Supabase brief path
+ * (a `briefs` row, mapped to this same raw shape first) — one validator, so
+ * a site-created brief can't drift from what a hand-written one accepts.
  *
  * rounds/variantsPerRound/survivors fall back to config/syndicate.json when
  * the brief doesn't set them itself — the brief overrides, the config is
  * the default. `reference` is left as written (a path resolved relative to
- * the process cwd, same as render.js and analyse's cli.js already do).
+ * the process cwd for a local brief; run.js resolves a Supabase brief's
+ * reference as a URL instead — normaliseBrief doesn't care which).
  */
-async function loadBrief(briefPath, syndicateConfig) {
-  let raw;
-  try {
-    raw = JSON.parse(await readFile(briefPath, 'utf8'));
-  } catch (e) {
-    throw new Error(`could not read brief ${briefPath}: ${e.message}`);
-  }
-
+function normaliseBrief(raw, syndicateConfig, label = 'brief') {
   const errors = [];
   for (const key of REQUIRED) {
     if (raw[key] === undefined) errors.push(`missing required field "${key}"`);
@@ -44,7 +42,7 @@ async function loadBrief(briefPath, syndicateConfig) {
     errors.push(`canvasFormat "${raw.canvasFormat}" is not a known format (${Object.keys(CANVAS_PROFILES).join(', ')})`);
   }
   if (errors.length) {
-    throw new Error(`invalid brief ${briefPath}:\n  ${errors.join('\n  ')}`);
+    throw new Error(`invalid ${label}:\n  ${errors.join('\n  ')}`);
   }
 
   return {
@@ -60,4 +58,15 @@ async function loadBrief(briefPath, syndicateConfig) {
   };
 }
 
-export { loadBrief };
+/** loadBrief(path, syndicateConfig) -> normalised brief, read from a local JSON file. */
+async function loadBrief(briefPath, syndicateConfig) {
+  let raw;
+  try {
+    raw = JSON.parse(await readFile(briefPath, 'utf8'));
+  } catch (e) {
+    throw new Error(`could not read brief ${briefPath}: ${e.message}`);
+  }
+  return normaliseBrief(raw, syndicateConfig, `brief ${briefPath}`);
+}
+
+export { loadBrief, normaliseBrief };

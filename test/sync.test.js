@@ -1,25 +1,47 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { signIn, syncShift } from '../src/syndicate/sync.js';
+import { signIn, syncShift, fetchBriefById, claimBrief } from '../src/syndicate/sync.js';
 
 // A fake PostgREST + GoTrue endpoint. Never touches the network — this is
 // the same dependency-injection pattern as clients/env in run.js, and for
 // the same reason: a test must not be able to fire a real Supabase call.
-function makeFakeSupabase() {
+function makeFakeSupabase({ seedBriefs = [] } = {}) {
   let n = 0;
   const nextId = () => `uuid-${++n}`;
   const calls = [];
-  const tables = { briefs: [], variants: [], comparisons: [] };
+  const tables = { briefs: [...seedBriefs], variants: [], comparisons: [] };
 
-  const fetchImpl = async (url, opts) => {
+  const fetchImpl = async (url, opts = {}) => {
     const body = opts.body ? JSON.parse(opts.body) : undefined;
     calls.push({ url, method: opts.method, headers: opts.headers, body });
+    const u = new URL(url);
 
     if (url.includes('/auth/v1/token')) {
       if (body.email !== 'owner@example.com' || body.password !== 'right-password') {
         return { ok: false, status: 400, text: async () => 'invalid_grant' };
       }
       return { ok: true, status: 200, json: async () => ({ access_token: 'jwt-abc', user: { id: 'user-1' } }) };
+    }
+
+    if (u.pathname === '/rest/v1/briefs' && (!opts.method || opts.method === 'GET')) {
+      // GET /rest/v1/briefs?id=eq.<id>&select=* — fetchBriefById
+      const idFilter = u.searchParams.get('id'); // 'eq.<uuid>'
+      const id = idFilter?.startsWith('eq.') ? idFilter.slice(3) : null;
+      const rows = tables.briefs.filter(r => r.id === id);
+      return { ok: true, status: 200, json: async () => rows };
+    }
+
+    if (u.pathname === '/rest/v1/briefs' && opts.method === 'PATCH') {
+      // claimBrief (id + status=eq.pending) or syncShift's update-existing
+      // path (id only) — both are PATCH .../briefs?id=eq.<id>[&status=eq.X]
+      const idFilter = u.searchParams.get('id');
+      const id = idFilter?.startsWith('eq.') ? idFilter.slice(3) : null;
+      const statusFilter = u.searchParams.get('status'); // 'eq.pending' or null
+      const requiredStatus = statusFilter?.startsWith('eq.') ? statusFilter.slice(3) : null;
+      const row = tables.briefs.find(r => r.id === id && (!requiredStatus || r.status === requiredStatus));
+      if (!row) return { ok: true, status: 200, json: async () => [] };
+      Object.assign(row, body);
+      return { ok: true, status: 200, json: async () => [row] };
     }
 
     if (url.endsWith('/rest/v1/briefs')) {
@@ -63,6 +85,33 @@ test('signIn throws with the response body on a failed sign-in', async () => {
     () => signIn({ supabaseUrl: 'https://x.supabase.co', apikey: 'anon-key', email: 'owner@example.com', password: 'wrong', fetchImpl }),
     /sign-in failed/,
   );
+});
+
+test('fetchBriefById returns the row for a known id', async () => {
+  const { fetchImpl } = makeFakeSupabase({ seedBriefs: [{ id: 'brief-uuid-1', slug: 'x', status: 'pending' }] });
+  const row = await fetchBriefById({ supabaseUrl: 'https://x.supabase.co', apikey: 'anon-key', accessToken: 'jwt-abc', briefId: 'brief-uuid-1', fetchImpl });
+  assert.equal(row.slug, 'x');
+});
+
+test('fetchBriefById throws when no row matches', async () => {
+  const { fetchImpl } = makeFakeSupabase();
+  await assert.rejects(
+    () => fetchBriefById({ supabaseUrl: 'https://x.supabase.co', apikey: 'anon-key', accessToken: 'jwt-abc', briefId: 'nope', fetchImpl }),
+    /no brief found/,
+  );
+});
+
+test('claimBrief flips a pending brief to running and returns it', async () => {
+  const { fetchImpl, tables } = makeFakeSupabase({ seedBriefs: [{ id: 'brief-uuid-1', slug: 'x', status: 'pending' }] });
+  const row = await claimBrief({ supabaseUrl: 'https://x.supabase.co', apikey: 'anon-key', accessToken: 'jwt-abc', briefId: 'brief-uuid-1', fetchImpl });
+  assert.equal(row.status, 'running');
+  assert.equal(tables.briefs[0].status, 'running', 'the underlying row is actually updated, not just the response');
+});
+
+test('claimBrief returns null instead of throwing when the brief is already claimed', async () => {
+  const { fetchImpl } = makeFakeSupabase({ seedBriefs: [{ id: 'brief-uuid-1', slug: 'x', status: 'running' }] });
+  const row = await claimBrief({ supabaseUrl: 'https://x.supabase.co', apikey: 'anon-key', accessToken: 'jwt-abc', briefId: 'brief-uuid-1', fetchImpl });
+  assert.equal(row, null, 'two workers racing for the same brief is expected, not exceptional');
 });
 
 function baseArgs(fetchImpl) {
@@ -147,6 +196,33 @@ test('syncShift skips a comparison that references an unsynced variant instead o
     allRatings: new Map(), allDisagreements: new Map(), survivedIds: new Set(),
   }, { fetchImpl });
   assert.equal(result.comparisonCount, 0);
+});
+
+test('syncShift includes canvas_format when inserting a fresh brief row', async () => {
+  const { fetchImpl, calls } = makeFakeSupabase();
+  await syncShift({
+    ...baseArgs(fetchImpl), brief: { ...baseArgs(fetchImpl).brief, canvasFormat: '60x80' },
+    variantsById: new Map(), comparisons: [], allRatings: new Map(), allDisagreements: new Map(), survivedIds: new Set(),
+  }, { fetchImpl });
+  const insertCall = calls.find(c => c.url.endsWith('/rest/v1/briefs') && c.method === 'POST');
+  assert.equal(insertCall.body.canvas_format, '60x80');
+});
+
+test('syncShift updates an existing brief row in place when briefId is given, instead of inserting a new one', async () => {
+  const { fetchImpl, calls, tables } = makeFakeSupabase({
+    seedBriefs: [{ id: 'brief-uuid-1', slug: 'site-brief', instruction: 'from the site', canvas_format: '60x80', status: 'running' }],
+  });
+  const result = await syncShift({
+    ...baseArgs(fetchImpl), briefId: 'brief-uuid-1',
+    variantsById: new Map(), comparisons: [], allRatings: new Map(), allDisagreements: new Map(), survivedIds: new Set(),
+  }, { fetchImpl });
+
+  assert.equal(result.briefId, 'brief-uuid-1');
+  const briefCalls = calls.filter(c => c.url.includes('/rest/v1/briefs'));
+  assert.equal(briefCalls.some(c => c.method === 'POST'), false, 'no new row should be inserted');
+  assert.equal(tables.briefs.length, 1, 'still exactly the one seeded row');
+  assert.equal(tables.briefs[0].status, 'done');
+  assert.equal(tables.briefs[0].slug, 'site-brief', 'fields set at creation time are left alone');
 });
 
 test('syncShift throws with the response body when the briefs insert is rejected (e.g. RLS)', async () => {
