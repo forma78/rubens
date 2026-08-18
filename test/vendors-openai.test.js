@@ -18,7 +18,10 @@ test('propose() sends temperature/system/image as a data URL and parses the repl
   assert.equal(seen.model, 'gpt-5.1');
   assert.equal(seen.temperature, 1.0);
   const imagePart = seen.messages[1].content.find(c => c.type === 'image_url');
-  assert.match(imagePart.image_url.url, /^data:image\/png;base64,/);
+  // parentRenderPng is always round.js's toTransmitJpeg() output despite
+  // the param name — real bytes, not just a label choice (see anthropic's
+  // propose(), which 400s on exactly this mismatch)
+  assert.match(imagePart.image_url.url, /^data:image\/jpeg;base64,/);
   assert.deepEqual(r.patch, { grain: 40 });
   assert.equal(r.intent, 'Add texture.');
 });

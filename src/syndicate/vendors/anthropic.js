@@ -30,7 +30,14 @@ async function propose(client, { model, rolePrompt, brief, parentState, parentRe
       role: 'user',
       content: [
         { type: 'text', text: generatorUserPrompt({ brief, parentState, critiques }) },
-        imageBlock(parentRenderPng, 'image/png'),
+        // parentRenderPng is round.js's toTransmitJpeg() output despite the
+        // name (kept for signature symmetry with the other two vendors) —
+        // it has always been JPEG bytes, and Anthropic checks media_type
+        // against the actual bytes and 400s on a mismatch (found 2026-08-19
+        // via a 100% real-shift failure rate on every Anthropic proposal).
+        // imageBlock's own default is already 'image/jpeg' — just don't
+        // override it.
+        imageBlock(parentRenderPng),
       ],
     }],
   });

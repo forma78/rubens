@@ -20,7 +20,11 @@ test('propose() sends model/temperature/system/image and parses the reply', asyn
   assert.equal(seen.temperature, 1.0);
   assert.match(seen.system, /You compose by tightening/);
   assert.equal(seen.messages[0].content[1].type, 'image');
-  assert.equal(seen.messages[0].content[1].source.media_type, 'image/png');
+  // parentRenderPng is always round.js's toTransmitJpeg() output despite
+  // the param name — asserting image/jpeg here is what catches a real
+  // regression (Anthropic 400s on a media_type/bytes mismatch; found
+  // 2026-08-19 via a 100% real-shift failure rate on this exact call)
+  assert.equal(seen.messages[0].content[1].source.media_type, 'image/jpeg');
   assert.deepEqual(r.patch, { cols: 9 });
   assert.equal(r.intent, 'Tighten it.');
   assert.deepEqual(r.usage, { input_tokens: 100, output_tokens: 20 });

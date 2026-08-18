@@ -17,7 +17,10 @@ test('propose() sends temperature/system/image as a data URL and parses the repl
   assert.equal(seen.temperature, 1.0);
   assert.equal(seen.messages[0].role, 'system');
   const imagePart = seen.messages[1].content.find(c => c.type === 'image_url');
-  assert.match(imagePart.image_url.url, /^data:image\/png;base64,/);
+  // parentRenderPng is always round.js's toTransmitJpeg() output despite
+  // the param name — real bytes, not just a label choice (see anthropic's
+  // propose(), which 400s on exactly this mismatch)
+  assert.match(imagePart.image_url.url, /^data:image\/jpeg;base64,/);
   assert.deepEqual(r.patch, { scatter: 20 });
   assert.equal(r.intent, 'Break it up.');
   assert.deepEqual(r.usage, { prompt_tokens: 50, completion_tokens: 10 });

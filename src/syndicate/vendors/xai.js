@@ -27,7 +27,12 @@ async function propose(client, { model, rolePrompt, brief, parentState, parentRe
         role: 'user',
         content: [
           { type: 'text', text: generatorUserPrompt({ brief, parentState, critiques }) },
-          imagePart(parentRenderPng, 'image/png'),
+          // parentRenderPng is round.js's toTransmitJpeg() output despite
+          // the name — always JPEG bytes. Anthropic's API 400s on this
+          // exact mismatch (found 2026-08-19); xAI's has been lenient
+          // about it so far, but the label was wrong here too — don't
+          // override imagePart's correct 'image/jpeg' default.
+          imagePart(parentRenderPng),
         ],
       },
     ],
