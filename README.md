@@ -69,6 +69,30 @@ on.
 
 ---
 
+## Update, 2026-08-18 — RubensJournal
+
+A shift is not fast. Judging runs against real vendor batch APIs and can
+take sixty to a hundred and eighty minutes, and that used to be treated as
+a cost to hide — the whole record appeared at once, only once every vendor
+had finished. It is now the opposite: the point.
+
+RubensJournal is a public feed. A brief is created on the site — pick a
+canvas size, attach a reference photograph, write the instruction — and a
+shift runs, live: each variant appears the moment it renders, and the
+named judges' verdicts trickle in underneath it as each vendor actually
+returns them, not batched at the end of the round. Watching three juries
+argue in something close to real time is more interesting than a table of
+final scores, and this project has always been about publishing the
+process, not just the result.
+
+The site itself stays static — it never runs the shift. A shift is real
+compute against real, slow APIs, so it runs in GitHub Actions, dispatched
+by the site, writing to Supabase as it goes. The static/no-secrets shape
+SPEC.md always asked for is unchanged; a shift just happens somewhere the
+site can trigger but doesn't have to host.
+
+---
+
 ## What is in this repository
 
 | | |
