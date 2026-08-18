@@ -4,6 +4,11 @@ Working checklist for "create a brief on the site, GitHub Actions runs the
 shift, the site shows it live." Move through in order — later parts depend
 on earlier ones actually working.
 
+The wait (60-180 minutes, real vendor batch APIs) is not a cost to hide —
+it's the show, once C1 exists: a real shift's variants and judges' comments
+land in Supabase incrementally as they happen (2026-08-18), not in one
+batch at the end. See sync.js's own comment for the shape.
+
 ## A — Brief intake (site writes a brief, doesn't run anything yet)
 
 - [x] A1. Supabase: `status` lifecycle now includes `pending` (default),
@@ -35,15 +40,21 @@ on earlier ones actually working.
       (2026-08-18). Separate from B2's token.
 - [x] B5. `run.js --brief-id <uuid>`: signs in, atomically claims the row
       (`sync.js`'s `claimBrief`, pending -> running), downloads the
-      reference image, runs the shift, and `syncShift` updates that same
-      row instead of inserting a new one. Dry mode only reads
-      (`fetchBriefById`), never claims. 16 new tests, all against fake
-      Supabase/fake clients (2026-08-18).
+      reference image, runs the shift syncing incrementally throughout
+      (see the note above), closes the brief out at the end. Dry mode only
+      reads (`fetchBriefById`), never claims. 2026-08-18.
 - [x] B6. `.github/workflows/shift.yml`: `workflow_dispatch` with a
       `brief_id` input, materialises `.env` from repo secrets, runs
       `run.js --brief-id --publish`, commits `runs/<slug>/` back if
-      produced (2026-08-18). Not yet fired for real — needs a real pending
-      brief in Supabase, which needs A4 (or a hand-inserted test row) first.
+      produced. **Fired for real** (2026-08-18, run 32084559547): a
+      hand-inserted test brief + hand-uploaded Storage image, 32 real
+      variants proposed/rendered, 192 real comparisons judged before the
+      original 60-minute job timeout killed it mid-OpenAI-batch — timeout
+      raised to 180. Confirmed runs/ still gets committed correctly even
+      when the job is killed. Full completion not yet re-verified after
+      raising the timeout, and the incremental-sync rewrite (this same
+      commit) hasn't had its own real end-to-end test yet — A4 (or another
+      hand-inserted row) is the natural next real check.
 
 ## C — Display (the actual RubensJournal feed)
 
