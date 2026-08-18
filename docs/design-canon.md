@@ -27,6 +27,21 @@ Five rules first, because they're the ones that actually drift if unwritten:
    monogram avatar's circle is the one shape exception in the whole
    canon, same as it's the one icon-like exception to rule 2.
 
+## Colour
+
+The palette is the four hand-painted studies — `studies/color_01.jpg`
+through `color_04.jpg`, the same four `PRESETS` `src/engine/colour.js`
+ships with and the generator's own "Reference library" opens on. That is
+the whole colour system of this project. Nothing else gets invented
+alongside them: no accent swatch, no second brand colour, no seasonal
+variant. Each study lives in its own frame in the canon (a 5th, empty,
+dashed slot marks where a new one would go if a brief ever adds one),
+never cropped or recoloured to fit a UI mood.
+
+Everything below is UI plumbing, not palette — it exists so text is
+legible and structure is visible, and stays out of the way of the actual
+colour, which is always whichever study a layer is showing.
+
 ## Tokens
 
 ```css
@@ -37,7 +52,7 @@ Five rules first, because they're the ones that actually drift if unwritten:
   --ink: #14141a;          /* body text, headings */
   --ink-dim: #55565f;      /* secondary text */
   --ink-faint: #8b8c96;    /* meta, timestamps, ids */
-  --accent: #2451c9;       /* "Journal" wordmark + live links — the one colour */
+  --accent: #2451c9;       /* "Journal" wordmark + live links — UI only, not part of the palette above */
   --accent-soft: #eaf0ff;
   --line: #e4e4ea;         /* card borders, dividers */
   --line-strong: #cfd0d8;
