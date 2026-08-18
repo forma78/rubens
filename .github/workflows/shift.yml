@@ -1,0 +1,75 @@
+name: Run a shift
+
+# Triggered by the site's trigger-proxy function (docs/site-plan.md, B3)
+# calling GitHub's workflow_dispatch API with the Supabase briefs.id the
+# owner just created. Can also be fired by hand: `gh workflow run shift.yml
+# -f brief_id=<uuid>`.
+on:
+  workflow_dispatch:
+    inputs:
+      brief_id:
+        description: 'Supabase briefs.id (uuid) of the pending brief to run'
+        required: true
+        type: string
+
+# so the job can commit runs/<slug>/ back to the repo at the end — runs/ is
+# committed evidence (CLAUDE.md), not just a Supabase row
+permissions:
+  contents: write
+
+jobs:
+  shift:
+    runs-on: ubuntu-latest
+    # a shift's own maxMinutes cap (config/syndicate.json) is 45; this is a
+    # backstop above that, not the real limit
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      # run.js's loadEnv() reads a literal .env file, not process.env —
+      # materialise one from the repo secrets for this ephemeral runner.
+      # .env is already gitignored, so it can never end up in a commit even
+      # if a later step fails before the cleanup step runs.
+      - name: Write .env from repository secrets
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_EMAIL: ${{ secrets.SUPABASE_EMAIL }}
+          SUPABASE_PASSWORD: ${{ secrets.SUPABASE_PASSWORD }}
+        run: |
+          cat > .env <<EOF
+          ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY
+          XAI_API_KEY=$XAI_API_KEY
+          OPENAI_API_KEY=$OPENAI_API_KEY
+          SUPABASE_URL=$SUPABASE_URL
+          SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
+          SUPABASE_EMAIL=$SUPABASE_EMAIL
+          SUPABASE_PASSWORD=$SUPABASE_PASSWORD
+          EOF
+
+      - name: Run the shift and publish it
+        run: node src/syndicate/run.js --brief-id "${{ inputs.brief_id }}" --publish
+
+      - name: Remove the materialised .env
+        if: always()
+        run: rm -f .env
+
+      - name: Commit the shift's output
+        if: always()
+        run: |
+          git config user.name "rubens-syndicate-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add runs/
+          if ! git diff --cached --quiet; then
+            git commit -m "Shift ${{ inputs.brief_id }}: run via GitHub Actions"
+            git push
+          fi
