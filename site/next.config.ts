@@ -1,14 +1,14 @@
 import type { NextConfig } from "next";
-import path from "node:path";
 
-const nextConfig: NextConfig = {
-  // The repo root (one level up) has its own package-lock.json for the
-  // plain-JS engine/syndicate code — pin Turbopack's root to this
-  // directory so it doesn't try to treat the whole monorepo as one
-  // workspace.
-  turbopack: {
-    root: path.join(__dirname),
-  },
-};
+// Deliberately no turbopack.root override here. A local build warned about
+// the repo root's sibling package-lock.json and setting turbopack.root
+// silenced it — but Vercel's own build logs (2026-08-20) never showed that
+// warning at all, meaning Vercel's build environment doesn't have that
+// sibling-lockfile situation to begin with (Root Directory already scopes
+// it to this folder). The override was solving a problem that only
+// existed locally, and having it in place turned every production
+// deployment into an edge-level 404 despite a "successful" Next.js build —
+// so it's gone rather than fought with further.
+const nextConfig: NextConfig = {};
 
 export default nextConfig;
