@@ -23,9 +23,11 @@ Five rules first, because they're the ones that actually drift if unwritten:
    wordmark and live links only — never a decorative rail, never a
    gradient, never applied to something that isn't actually a link.
 5. **Square corners everywhere.** No `border-radius` on cards, tiles,
-   badges, or the comment blocks — flat rectangles throughout. The
-   monogram avatar's circle is the one shape exception in the whole
-   canon, same as it's the one icon-like exception to rule 2.
+   badges, or the comment blocks — flat rectangles throughout. Circles
+   are reserved for a portrait standing in for a person: the monogram
+   avatar (an AI persona) and the Go button (Rubens's own self-portrait)
+   — the only two exceptions in the whole canon, and the same category
+   as rule 2's one icon-like exception.
 
 ## Colour
 
@@ -43,20 +45,35 @@ brief-creation form's reference upload actually lives.
 
 ## Start a shift
 
-The rest of the brief-creation flow, in one row: a canvas-format picker
-(the 5 `CANVAS_PROFILES` keys from `canvas.js` — `60x80`, `70x100`,
-`90x120`, `100x100`, `120x90` — plain rectangular chips, the selected
-one in accent colour and weight, no dropdown) and a **Go** button.
-Unlike "Add image", `generator/index.html` has no precedent for this —
-it's a live, reactive tool with no submit step, so this control is
-this canon's own, not copied from anywhere.
+The canvas-format picker sits at the very top of the page, above
+Colour — it's the first real decision in a brief, the seed of the
+round, not a footnote. The 5 `CANVAS_PROFILES` keys from `canvas.js`
+(`60x80`, `70x100`, `90x120`, `100x100`, `120x90`) as plain rectangular
+chips, the selected one in accent colour and weight, no dropdown.
 
-Go is solid `--ink` (the same weight as the black image-number badge),
-white text, turning `--accent` on hover — deliberately heavier than any
-other control on the page, because it's the one click that starts real
-spend, not a preview. A short note underneath says so
-("A real shift, real spend — not a preview. Confirms before it fires.")
-rather than letting the button imply it's free to press.
+**Go** lives at the far right of the studies row (`margin-left: auto`
+in that flex row) — after the four studies and the Add image control,
+so the reading order is genuinely format → references → Go. It's
+Peter Paul Rubens's own self-portrait (`studies/rubens.jpeg`), circular,
+150px — the same size as a study card, `background-position: center
+30%` to keep the face rather than crop into the hat. This is a second,
+deliberate exception to rule 5's "square corners everywhere," alongside
+the monogram avatar — both are portraits standing in for a person (an
+AI persona there, the project's own namesake here), and a circle is
+what marks that category on this page. `generator/index.html` has no
+precedent for a submit control at all (it's live and reactive, no
+submit step), so Go is this canon's own design, not a copy of anything.
+
+A short note underneath — "A real shift, real spend — not a preview.
+Confirms before it fires." — keeps the button from implying it's free
+to press; CLAUDE.md's "costs are real" applies to the UI too, not just
+the runner.
+
+`studies/rubens.jpeg` sits alongside `color_01.jpg`–`color_04.jpg` in
+the repo but isn't one of them — it never feeds `analyseFile()` or
+`PRESETS`, it's a design asset for this one control. Worth a folder of
+its own if `studies/` ever needs to stay strictly "what the engine
+reads photographically."
 
 Today, before A4 is built, a shift actually starts from the CLI
 (`node src/syndicate/run.js --brief <path> --publish`, or `--brief-id
