@@ -19,40 +19,63 @@ just does so at reading speed instead of overnight.
       migration (2026-08-18).
 - [x] A2. Supabase Storage: `references` bucket, public read, owner-only
       upload — done via schema.sql + a live migration (2026-08-18).
-- [ ] A3. Owner login on the site (Supabase Auth — the email/password
-      already in `.env`, wired into the frontend). Only an authenticated
-      owner can create a brief; anonymous visitors stay read-only.
-- [ ] A4. Brief-creation form. Both of the blockers noted 2026-08-18 are
-      now cleared (2026-08-19):
-      1. ~~No approved design canon~~ — written down in
-         `docs/design-canon.md`: white ground (committed, not
-         theme-adaptive), Inter + IBM Plex Mono, one blue accent used only
-         for the wordmark and live links, no icon glyphs anywhere (text
-         actions, LiveJournal-style), monogram avatars, name-never-id on
-         every visitor-facing surface. Rendered with real project data as
-         an artifact the same session — ask the owner for the link, or
-         treat the markdown file as the source of truth if it's gone.
-      2. ~~SPEC 3.1/3.2 locking a brief to one reference~~ — fixed, merged
-         to `main` (2026-08-19): a brief carries
-         `references[]` (1-4 entries), missing slots fall back to the
-         engine's own PRESETS library declared by name, and `L[i].ref` is
-         patchable so a generator can actually move a reference between
-         layers.
-      Still true: the owner picks the canvas format themself (a real
-      decision, not a default), attaches 1-4 reference images the way the
-      generator's own "Attach reference" + per-layer library already
-      works, then Go — mirroring `generator/index.html`'s actual
-      "Reference library" UI, not a narrowed version of it.
+- [x] A3. Owner login on the site — `site/app/login/page.tsx`, Supabase
+      Auth email/password (the same account `SUPABASE_EMAIL`/`PASSWORD` in
+      `.env` already sign in as), no signup flow — there's only ever one
+      owner. `site/proxy.ts` (Next.js 16 renamed `middleware.ts`) refreshes
+      the session cookie on every request and redirects `/new` to `/login`
+      when signed out; `site/app/new/page.tsx` checks again server-side as
+      defence in depth. 2026-08-20.
+- [x] A4. Brief-creation form — `site/app/new/brief-form.tsx`. Canvas
+      format picker (the 5 real `CANVAS_PROFILES`, nothing pre-selected —
+      "a real decision, not a default"), up to 4 reference images
+      (uploaded straight to Storage's `references` bucket from the
+      browser, matching `design-canon.md`'s "4 studies + Add image" row),
+      instruction text, and the circular Rubens-self-portrait **Go**
+      button — disabled until a format and at least one reference are set,
+      and a real `window.confirm()` before it fires (a real shift, real
+      spend). Built on `docs/design-canon.md`'s tokens directly (copied
+      into `site/app/globals.css`, not reinterpreted). 2026-08-20.
+
+      Required `reference_urls` jsonb column and migration on `briefs`
+      (`schema.sql`, additive — `reference` untouched for old rows) plus a
+      matching change to `run.js`'s `resolveBriefSource` (downloads every
+      real URL now, not just one) and `sync.js`'s `insertBrief`. 199 tests
+      still green.
 
 ## B — Trigger and execution (GitHub Actions actually runs `run()`)
 
 - [x] B1. GitHub fine-grained token, `Actions: Read and write`, scoped to
       `rubens` only.
 - [x] B2. Same token added to Vercel's own environment variables.
-- [ ] B3. Vercel trigger-proxy function: verifies the request is really the
-      logged-in owner, then calls GitHub's `workflow_dispatch` API with the
-      token from B2. The only server-side code the site has — everything
-      else stays static.
+- [x] B3. `site/app/api/shift/route.ts`: verifies the caller has a real
+      Supabase session and that the brief is actually `pending` (fail
+      fast — the real atomic guard against a double dispatch is still
+      `claimBrief`'s pending->running swap inside `run.js`), then calls
+      GitHub's `workflow_dispatch` on `shift.yml` with B2's token. The
+      only server-side code the site has — everything else is static
+      Next.js output. 2026-08-20. **Not fired for real from the site
+      yet** — deliberately: verified the 401/409 paths respond correctly
+      without ever completing a real dispatch during this build, to
+      avoid triggering a real paid shift as a side effect of testing the
+      wiring. The owner's own first real click is the actual first test.
+
+      **Manual steps still needed before any of A3/A4/B3 can deploy**
+      (none of these are things I can do from here):
+      - Paste the `reference_urls` migration (top of `schema.sql`) into
+        the Supabase SQL Editor — additive, safe to run alongside the
+        existing schema.
+      - Vercel project → Settings → General → **Root Directory** → `site`
+        (the Next.js app is a subproject, not the repo root — the plain
+        ES module `src/engine`/`src/syndicate` code stays untouched at
+        the root).
+      - Vercel project → Settings → Environment Variables:
+        `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (new —
+        the site needs these itself, separate from B2's
+        `GITHUB_TRIGGER_TOKEN`, which is already there).
+      - `npm install` inside `site/` was run locally as part of building
+        this; `site/package-lock.json` is committed so Vercel's install
+        is reproducible.
 - [x] B4. GitHub Actions repository secrets: `ANTHROPIC_API_KEY`,
       `XAI_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
       `SUPABASE_EMAIL`, `SUPABASE_PASSWORD` — set via `gh secret set`
