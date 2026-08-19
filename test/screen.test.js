@@ -8,10 +8,9 @@ import { S as DEFAULT_STATE, PRESETS } from '../src/engine/index.js';
 
 const ovr = [{}, {}, {}, {}, {}];
 // two genuinely different real renders (not flat colour swatches — a flat
-// colour image has every pixel exactly at its own mean, so aHash can't
-// tell two of them apart, and geometry tweaks alone barely move the coarse
-// 8x8 luminance grid aHash reads) — a different reference study's palette
-// shifts the average brightness pattern enough to actually separate them
+// colour image has every pixel exactly at its own channel mean, so aHash
+// can't tell two of them apart regardless of hue) — a different reference
+// study's palette shifts the per-channel averages enough to separate them
 const pngA = await renderToPng(DEFAULT_STATE, PRESETS.slice(0, 1), ovr, { quality: 'preview' });
 const pngB = await renderToPng(DEFAULT_STATE, [PRESETS[1] ?? PRESETS[0]], ovr, { quality: 'preview' });
 
@@ -20,6 +19,16 @@ test('aHash/hammingDistance: identical images hash to distance 0', async () => {
   const h2 = await aHash(pngA);
   assert.equal(h1, h2);
   assert.equal(hammingDistance(h1, h2), 0);
+});
+
+test('aHash is colour-sensitive, not just luminance (regression: a real round collapsed to 1 survivor on 2026-08-19 under a greyscale-only version)', async () => {
+  const hA = await aHash(pngA);
+  const hB = await aHash(pngB);
+  assert.equal(hA.length, 48, 'per-channel hash is 192 bits (48 hex chars), not the old 64-bit greyscale one');
+  // two different reference studies, same geometry — a greyscale hash of
+  // this exact pair measured 8/64 bits apart (12.5%) before this fix; the
+  // per-channel version should read as at least as separated proportionally
+  assert.ok(hammingDistance(hA, hB) >= 20, `expected >= 20/192 bits apart, got ${hammingDistance(hA, hB)}`);
 });
 
 test('dedupe drops byte-identical renders, keeps visibly different ones', async () => {

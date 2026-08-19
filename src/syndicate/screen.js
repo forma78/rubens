@@ -26,26 +26,44 @@ const VENDOR_MODULES = { anthropic, xai, openai };
 
 /**
  * aHash(pngBuffer) -> Promise<string>
- * Average hash: greyscale, resize to 8x8 (fit 'fill', so aspect ratio is
- * deliberately ignored — two renders of the same canvas ratio are always
- * compared like-for-like), threshold each of the 64 pixels at the frame
- * mean, pack into 16 hex characters (64 bits).
+ * Average hash, per RGB channel: resize to 8x8 (fit 'fill', so aspect
+ * ratio is deliberately ignored — two renders of the same canvas ratio
+ * are always compared like-for-like), threshold each of the 64 pixels'
+ * R, G and B against that channel's own frame mean, pack into 48 hex
+ * characters (192 bits).
+ *
+ * A first version of this did the threshold on a single greyscale
+ * channel (64 bits) — cheaper, but blind to exactly the variation this
+ * engine actually produces: two panels with the same coarse light/dark
+ * banding but different hue read as near-identical, because grayscale
+ * throws hue away before the hash ever sees it. Checked against a real
+ * paid round (2026-08-19): 12 genuinely different real proposals across
+ * three vendors, max greyscale-hash distance across all pairs was 4 out
+ * of 64 bits, several pairs at 0 — no threshold could have separated
+ * real duplicates from real variety, because the descriptor carried
+ * almost no colour signal to begin with. Per-channel thresholding is
+ * the fix CLAUDE.md's review flagged ahead of time; this is it.
  */
 async function aHash(pngBuffer) {
-  const { data } = await sharp(pngBuffer)
-    .greyscale()
+  const { data, info } = await sharp(pngBuffer)
+    .removeAlpha()
     .resize(8, 8, { fit: 'fill' })
     .raw()
     .toBuffer({ resolveWithObject: true });
-  let sum = 0;
-  for (const v of data) sum += v;
-  const mean = sum / data.length;
-  let hex = '';
-  for (let i = 0; i < data.length; i += 4) {
-    let nibble = 0;
-    for (let b = 0; b < 4; b++) nibble = (nibble << 1) | (data[i + b] >= mean ? 1 : 0);
-    hex += nibble.toString(16);
+  const channels = info.channels; // 3 (RGB) once alpha is removed
+  const pixelCount = data.length / channels;
+  const means = new Array(channels).fill(0);
+  for (let i = 0; i < data.length; i += channels) {
+    for (let c = 0; c < channels; c++) means[c] += data[i + c];
   }
+  for (let c = 0; c < channels; c++) means[c] /= pixelCount;
+
+  let bits = '';
+  for (let i = 0; i < data.length; i += channels) {
+    for (let c = 0; c < channels; c++) bits += data[i + c] >= means[c] ? '1' : '0';
+  }
+  let hex = '';
+  for (let i = 0; i < bits.length; i += 4) hex += parseInt(bits.slice(i, i + 4), 2).toString(16);
   return hex;
 }
 
@@ -63,13 +81,13 @@ function byId(a, b) {
 }
 
 /**
- * dedupe(variants, minDistance = 4) -> Promise<{ kept, dropped }>
+ * dedupe(variants, minDistance = 3) -> Promise<{ kept, dropped }>
  * Always walks in id order regardless of the array's given order, so the
  * result never depends on caller/completion order — only on which variants
  * are actually there. A variant is dropped in favour of the earliest
  * (lowest id) already-kept variant within minDistance of it.
  */
-async function dedupe(variants, minDistance = 4) {
+async function dedupe(variants, minDistance = 3) {
   const ordered = [...variants].sort(byId);
   const hashes = new Map();
   for (const v of ordered) hashes.set(v.id, await aHash(v.png));
@@ -156,7 +174,7 @@ async function screenRound({
   const screening = config.screening ?? {};
   if (!screening.enabled || dry) return { kept: variants, dropped: [] };
 
-  const { kept: deduped, dropped: dupDropped } = await dedupe(variants, screening.minHammingDistance ?? 4);
+  const { kept: deduped, dropped: dupDropped } = await dedupe(variants, screening.minHammingDistance ?? 3);
   if (logScreened) for (const d of dupDropped) await logScreened(d);
   if (!deduped.length) return { kept: [], dropped: dupDropped };
 
