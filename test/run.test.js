@@ -214,7 +214,7 @@ test('resolveBriefSource with a briefId claims (not fetches) the row when not dr
   const brief = await resolveBriefSource({
     briefId: 'brief-uuid-9', cwd: root, fileConfig, env: fakeSupabaseEnv, dry: false, fetchImpl: studyJpegImpl,
     signIn: async () => ({ accessToken: 'jwt-abc' }),
-    claimBrief: async (args) => { seenClaim = args; return { id: 'brief-uuid-9', slug: 'site-brief', instruction: 'Loosen.', canvas_format: '60x80', rounds: 2, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' }; },
+    claimBrief: async (args) => { seenClaim = args; return { id: 'brief-uuid-9', slug: 'site-brief', instruction: 'Loosen.', canvas_format: '60x80', rounds: 2, reference_urls: ['https://x.supabase.co/storage/v1/object/public/references/study.jpg'] }; },
     fetchBriefById: async () => { throw new Error('should not be called when not dry'); },
   });
   assert.equal(seenClaim.briefId, 'brief-uuid-9');
@@ -232,7 +232,7 @@ test('resolveBriefSource with a briefId only reads (fetchBriefById) when dry, ne
     briefId: 'brief-uuid-9', cwd: root, fileConfig, env: fakeSupabaseEnv, dry: true, fetchImpl: studyJpegImpl,
     signIn: async () => ({ accessToken: 'jwt-abc' }),
     claimBrief: async () => { claimCalled = true; return null; },
-    fetchBriefById: async () => ({ id: 'brief-uuid-9', slug: 'site-brief', instruction: 'x', canvas_format: '70x100', rounds: 1, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' }),
+    fetchBriefById: async () => ({ id: 'brief-uuid-9', slug: 'site-brief', instruction: 'x', canvas_format: '70x100', rounds: 1, reference_urls: ['https://x.supabase.co/storage/v1/object/public/references/study.jpg'] }),
   });
   assert.equal(claimCalled, false, 'a dry run must never flip a real brief to running — see the comment in resolveBriefSource');
   assert.equal(existingBriefId, 'brief-uuid-9');
@@ -254,7 +254,7 @@ test('resolveBriefSource throws a clear error for an unknown canvas_format', asy
     () => resolveBriefSource({
       briefId: 'brief-uuid-9', cwd: root, fileConfig, env: fakeSupabaseEnv, dry: false, fetchImpl: studyJpegImpl,
       signIn: async () => ({ accessToken: 'jwt-abc' }),
-      claimBrief: async () => ({ id: 'brief-uuid-9', slug: 'x', instruction: 'x', canvas_format: '50x50', rounds: 1, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' }),
+      claimBrief: async () => ({ id: 'brief-uuid-9', slug: 'x', instruction: 'x', canvas_format: '50x50', rounds: 1, reference_urls: ['https://x.supabase.co/storage/v1/object/public/references/study.jpg'] }),
     }),
     /unknown canvas_format/,
   );
@@ -263,7 +263,7 @@ test('resolveBriefSource throws a clear error for an unknown canvas_format', asy
 test('run({ briefId }) claims the brief, syncs incrementally against the claimed row, and never inserts a new one', async () => {
   const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
   const fakeSync = makeFakeSync({
-    claimResult: { id: 'brief-uuid-9', slug: 'site-brief', instruction: 'Loosen the grid.', canvas_format: '70x100', rounds: 1, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' },
+    claimResult: { id: 'brief-uuid-9', slug: 'site-brief', instruction: 'Loosen the grid.', canvas_format: '70x100', rounds: 1, reference_urls: ['https://x.supabase.co/storage/v1/object/public/references/study.jpg'] },
   });
   try {
     const result = await run({
@@ -288,7 +288,7 @@ test('run({ briefId }) claims the brief, syncs incrementally against the claimed
 test('run({ briefId, publish: false }) still publishes — a claimed row must always be closed out', async () => {
   const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-run-'));
   const fakeSync = makeFakeSync({
-    claimResult: { id: 'brief-uuid-9', slug: 'site-brief', instruction: 'x', canvas_format: '70x100', rounds: 1, reference: 'https://x.supabase.co/storage/v1/object/public/references/study.jpg' },
+    claimResult: { id: 'brief-uuid-9', slug: 'site-brief', instruction: 'x', canvas_format: '70x100', rounds: 1, reference_urls: ['https://x.supabase.co/storage/v1/object/public/references/study.jpg'] },
   });
   try {
     const result = await run({

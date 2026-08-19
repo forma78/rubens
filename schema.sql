@@ -3,6 +3,12 @@
 
 create extension if not exists pgcrypto;
 
+-- 2026-08-20: multireference briefs. Additive — the old `reference` column
+-- and any rows that only have it (e.g. smoke-test-3) are untouched; this
+-- is only for a table created before this column existed.
+alter table if exists public.briefs
+  add column if not exists reference_urls jsonb not null default '[]'::jsonb;
+
 -- ---------------------------------------------------------------- sketches
 -- states saved by hand from the generator's Archive panel
 create table if not exists public.sketches (
@@ -27,7 +33,8 @@ create table if not exists public.briefs (
   canvas_format text,               -- e.g. '60x80' (src/syndicate/canvas.js) — set at creation, before a run exists
   base_state   jsonb,               -- palettes already locked in — null until the shift actually runs
   palette      jsonb,               -- what the analyser read from the reference
-  reference    text,                -- path or url of the hand-painted study
+  reference    text,                -- deprecated 2026-08-20, superseded by reference_urls below — kept for old rows, nothing writes it any more
+  reference_urls jsonb not null default '[]'::jsonb, -- up to 4 entries (site's A4 form / a local brief's references[]), position = the colour layer it overrides. Named `reference_urls`, not `references` — the latter is a reserved SQL word (foreign-key syntax)
   rounds       int  not null default 5,
   published    boolean not null default false,
   status       text not null default 'pending',   -- pending | running | done | aborted

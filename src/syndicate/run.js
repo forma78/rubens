@@ -52,10 +52,9 @@ function parseArgs(argv) {
  *
  * referencePaths is always an array (1-4 entries, sparse — a null keeps
  * that layer on the engine's own built-in PRESETS default; see
- * buildBaseState). The `briefs` table's `reference` column is still a
- * single URL — the site's brief-creation form (docs/site-plan.md, A4)
- * only uploads one image today — so a --brief-id shift always produces a
- * 1-entry array; only a local JSON brief can specify up to 4 today.
+ * buildBaseState). A --brief-id shift downloads every real URL in the
+ * `briefs` table's `reference_urls` column (site's A4 form, up to 4);
+ * a local JSON brief supplies up to 4 local paths the same shape.
  */
 async function resolveBriefSource({
   briefId, briefPath, cwd, fileConfig, env, fetchImpl, dry,
@@ -94,23 +93,30 @@ async function resolveBriefSource({
     instruction: claimed.instruction,
     ratio: profile.ratio,
     canvasFormat: claimed.canvas_format,
-    references: [claimed.reference],
+    references: claimed.reference_urls,
     rounds: claimed.rounds,
   }, fileConfig, `brief ${briefId} (from Supabase)`);
 
-  // claimed.reference is a Storage URL, not a local path — analyseFile()
-  // needs a real file. Downloaded to the OS temp dir, not under runs/: the
-  // runDir this brief.id maps to gets rm-and-recreated a few lines below
-  // (in run()), which would delete an image parked there first, and
-  // runs/ is committed evidence — a scratch download doesn't belong in it
-  // regardless.
-  const imgRes = await (fetchImpl ?? fetch)(claimed.reference);
-  if (!imgRes.ok) throw new Error(`run: could not download reference image ${claimed.reference}: ${imgRes.status}`);
-  const ext = path.extname(new URL(claimed.reference).pathname) || '.jpg';
-  const referencePath = path.join(tmpdir(), `rubens-reference-${brief.id}${ext}`);
-  await writeFile(referencePath, Buffer.from(await imgRes.arrayBuffer()));
+  // Each real entry in reference_urls is a Storage URL, not a local path —
+  // analyseFile() needs a real file. Downloaded to the OS temp dir, not
+  // under runs/: the runDir this brief.id maps to gets rm-and-recreated a
+  // few lines below (in run()), which would delete an image parked there
+  // first, and runs/ is committed evidence — a scratch download doesn't
+  // belong in it regardless. A null entry (a layer this brief left on the
+  // engine's PRESETS default) stays null, same shape a local brief's
+  // referencePaths already has.
+  const referencePaths = [];
+  for (const url of claimed.reference_urls ?? []) {
+    if (!url) { referencePaths.push(null); continue; }
+    const imgRes = await (fetchImpl ?? fetch)(url);
+    if (!imgRes.ok) throw new Error(`run: could not download reference image ${url}: ${imgRes.status}`);
+    const ext = path.extname(new URL(url).pathname) || '.jpg';
+    const referencePath = path.join(tmpdir(), `rubens-reference-${brief.id}-${referencePaths.length}${ext}`);
+    await writeFile(referencePath, Buffer.from(await imgRes.arrayBuffer()));
+    referencePaths.push(referencePath);
+  }
 
-  return { brief, referencePaths: [referencePath], existingBriefId: claimed.id, accessToken };
+  return { brief, referencePaths, existingBriefId: claimed.id, accessToken };
 }
 
 function jsonlLine(obj) {

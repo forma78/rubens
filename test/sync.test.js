@@ -141,12 +141,13 @@ test('claimBrief returns null instead of throwing when the brief is already clai
 test('insertBrief creates a running row and includes canvas_format', async () => {
   const { fetchImpl, calls } = makeFakeSupabase();
   const { briefId } = await insertBrief({
-    ...ctx(fetchImpl), brief: { id: 'brief-07', instruction: 'Anxious.', canvasFormat: '60x80', reference: 'studies/x.jpg', rounds: 5 },
+    ...ctx(fetchImpl), brief: { id: 'brief-07', instruction: 'Anxious.', canvasFormat: '60x80', references: ['studies/x.jpg'], rounds: 5 },
   });
   assert.ok(briefId);
   const insertCall = calls.find(c => c.url.endsWith('/rest/v1/briefs') && c.method === 'POST');
   assert.equal(insertCall.body.slug, 'brief-07');
   assert.equal(insertCall.body.canvas_format, '60x80');
+  assert.deepEqual(insertCall.body.reference_urls, ['studies/x.jpg']);
   assert.equal(insertCall.body.status, 'running', 'inserted as running immediately, not done at the end');
 });
 

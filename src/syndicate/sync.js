@@ -81,18 +81,18 @@ async function insertBrief({ supabaseUrl, apikey, accessToken, brief, fetchImpl 
     apikey, Authorization: `Bearer ${accessToken}`,
     'Content-Type': 'application/json', Prefer: 'return=representation',
   };
-  // the briefs table's `reference` column is still a single URL (the site's
-  // brief-creation form only uploads one image today — see the note on
-  // resolveBriefSource in run.js) — a local brief that gave up to 4 is
-  // recorded here by its first real one, same as what judges are shown
-  const primaryReference = brief.references?.find(r => r) ?? null;
+  // `reference_urls` (jsonb, up to 4 entries, sparse) — `references` itself
+  // can't be a column name, it's a reserved SQL word (foreign-key syntax).
+  // A local brief's entries are filesystem paths, not fetchable URLs from
+  // anywhere else — recorded as-is anyway, same as this table's own prior
+  // single-`reference` column did, rather than silently dropped.
   const res = await fetchImpl(`${supabaseUrl}/rest/v1/briefs`, {
     method: 'POST', headers,
     body: JSON.stringify({
       slug: brief.id,
       instruction: brief.instruction,
       canvas_format: brief.canvasFormat ?? null,
-      reference: primaryReference,
+      reference_urls: brief.references ?? [],
       rounds: brief.rounds,
       status: 'running',
     }),
