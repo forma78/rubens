@@ -32,8 +32,8 @@ just does so at reading speed instead of overnight.
          every visitor-facing surface. Rendered with real project data as
          an artifact the same session — ask the owner for the link, or
          treat the markdown file as the source of truth if it's gone.
-      2. ~~SPEC 3.1/3.2 locking a brief to one reference~~ — fixed on
-         `wip/multireference` (not yet merged to `main`): a brief carries
+      2. ~~SPEC 3.1/3.2 locking a brief to one reference~~ — fixed, merged
+         to `main` (2026-08-19): a brief carries
          `references[]` (1-4 entries), missing slots fall back to the
          engine's own PRESETS library declared by name, and `L[i].ref` is
          patchable so a generator can actually move a reference between
