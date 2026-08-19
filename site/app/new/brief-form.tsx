@@ -11,7 +11,7 @@ type CanvasFormat = (typeof CANVAS_FORMATS)[number];
 type Slot =
   | { status: "empty" }
   | { status: "uploading"; previewUrl: string }
-  | { status: "done"; url: string; previewUrl: string }
+  | { status: "done"; url: string; previewUrl: string; path: string }
   | { status: "error"; message: string };
 
 const emptySlots: Slot[] = [{ status: "empty" }, { status: "empty" }, { status: "empty" }, { status: "empty" }];
@@ -43,10 +43,21 @@ export function BriefForm({ userId }: { userId: string }) {
     }
 
     const { data } = supabase.storage.from("references").getPublicUrl(path);
-    setSlots((prev) => prev.map((s, i) => (i === index ? { status: "done", url: data.publicUrl, previewUrl } : s)));
+    setSlots((prev) => prev.map((s, i) => (i === index ? { status: "done", url: data.publicUrl, previewUrl, path } : s)));
   }
 
-  function removeSlot(index: number) {
+  // "Remove" has to actually remove the upload, not just clear the form
+  // field — otherwise every reconsidered choice leaves an orphaned object
+  // in the references bucket forever. Best-effort: if the delete call
+  // fails, the slot still clears (an unused object floating in storage
+  // beats a form the owner can't move past).
+  async function removeSlot(index: number) {
+    const slot = slots[index];
+    if (slot.status === "done") {
+      URL.revokeObjectURL(slot.previewUrl);
+      const supabase = createClient();
+      await supabase.storage.from("references").remove([slot.path]);
+    }
     setSlots((prev) => prev.map((s, i) => (i === index ? { status: "empty" } : s)));
   }
 
