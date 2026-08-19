@@ -60,22 +60,18 @@ just does so at reading speed instead of overnight.
       avoid triggering a real paid shift as a side effect of testing the
       wiring. The owner's own first real click is the actual first test.
 
-      **Manual steps still needed before any of A3/A4/B3 can deploy**
-      (none of these are things I can do from here):
-      - Paste the `reference_urls` migration (top of `schema.sql`) into
-        the Supabase SQL Editor — additive, safe to run alongside the
-        existing schema.
-      - Vercel project → Settings → General → **Root Directory** → `site`
-        (the Next.js app is a subproject, not the repo root — the plain
-        ES module `src/engine`/`src/syndicate` code stays untouched at
-        the root).
-      - Vercel project → Settings → Environment Variables:
-        `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` (new —
-        the site needs these itself, separate from B2's
-        `GITHUB_TRIGGER_TOKEN`, which is already there).
-      - `npm install` inside `site/` was run locally as part of building
-        this; `site/package-lock.json` is committed so Vercel's install
-        is reproducible.
+      **Manual steps — all done by the owner, 2026-08-20:**
+      - [x] `reference_urls` migration pasted into the Supabase SQL Editor
+        and run ("Success. No rows returned").
+      - [x] Vercel project → Settings → General → **Root Directory** →
+        `site`.
+      - [x] Vercel project → Settings → Environment Variables:
+        `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` added.
+      - `site/package-lock.json` is committed, so Vercel's own
+        `npm install` is reproducible.
+      Not yet done: a real deploy hasn't been confirmed working, and B3
+      has never actually fired `workflow_dispatch` for real — see B3's own
+      note below.
 - [x] B4. GitHub Actions repository secrets: `ANTHROPIC_API_KEY`,
       `XAI_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
       `SUPABASE_EMAIL`, `SUPABASE_PASSWORD` — set via `gh secret set`
