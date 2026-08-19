@@ -45,8 +45,9 @@ brief-creation form's reference upload actually lives.
 
 ## Start a shift
 
-The canvas-format picker sits at the very top of the page, above
-Colour — it's the first real decision in a brief, the seed of the
+The canvas-format picker gets its own section, **"Canvas size,"** at
+the very top of the page, above Colour — it's the first real decision
+in a brief, the seed of the
 round, not a footnote. The 5 `CANVAS_PROFILES` keys from `canvas.js`
 (`60x80`, `70x100`, `90x120`, `100x100`, `120x90`) as plain rectangular
 chips, the selected one in accent colour and weight, no dropdown.
