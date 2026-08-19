@@ -51,8 +51,17 @@ test('run({ dry: true }) completes a full shift with no model calls, writing the
 
     const baseState = JSON.parse(await readFile(path.join(runDir, 'base-state.json'), 'utf8'));
     assert.equal(baseState.S.ratio, 3); // fixture brief sets ratio:3
-    assert.ok(baseState.S.L.every(l => l.ref === 0), 'every layer should be locked to the one analysed reference');
-    assert.equal(baseState.refs.length, 1);
+    // multireference (2026-08-18): the fixture brief gives one real photo
+    // (references[0]), so refs[0] is that analysed image and refs[1..3]
+    // stay on the engine's own PRESETS defaults — declared by name, not a
+    // silent substitution. state.L keeps DEFAULT_STATE's own [0,1,2,3,3]
+    // rather than being collapsed onto a single index.
+    assert.deepEqual(baseState.S.L.map(l => l.ref), [0, 1, 2, 3, 3]);
+    assert.equal(baseState.refs.length, 4);
+    assert.equal(baseState.refs[0].name, path.join(root, 'studies/color_01.jpg'));
+    assert.equal(baseState.refs[1].name, 'color_02');
+    assert.equal(baseState.refs[2].name, 'color_03');
+    assert.equal(baseState.refs[3].name, 'color_04');
 
     const finalMd = await readFile(path.join(runDir, 'FINAL.md'), 'utf8');
     assert.match(finalMd, /# test-brief/);
@@ -191,13 +200,13 @@ test('run({ publish: true }) reports a sync failure without throwing or losing t
 });
 
 test('resolveBriefSource with no briefId loads from the local file, untouched by env', async () => {
-  const { brief, referencePath, existingBriefId, accessToken } = await resolveBriefSource({
+  const { brief, referencePaths, existingBriefId, accessToken } = await resolveBriefSource({
     briefPath, cwd: root, fileConfig, env: {}, dry: false,
   });
   assert.equal(brief.id, 'test-brief');
   assert.equal(existingBriefId, null);
   assert.equal(accessToken, null);
-  assert.equal(referencePath, path.join(root, 'studies/color_01.jpg'));
+  assert.deepEqual(referencePaths, [path.join(root, 'studies/color_01.jpg')]);
 });
 
 test('resolveBriefSource with a briefId claims (not fetches) the row when not dry, and maps canvas_format to a ratio', async () => {
@@ -214,7 +223,7 @@ test('resolveBriefSource with a briefId claims (not fetches) the row when not dr
   assert.equal(brief.brief.canvasFormat, '60x80');
   assert.equal(brief.existingBriefId, 'brief-uuid-9');
   assert.equal(brief.accessToken, 'jwt-abc');
-  await assert.doesNotReject(readFile(brief.referencePath), 'the reference image should have been downloaded to a real local file');
+  await assert.doesNotReject(readFile(brief.referencePaths[0]), 'the reference image should have been downloaded to a real local file');
 });
 
 test('resolveBriefSource with a briefId only reads (fetchBriefById) when dry, never claims', async () => {

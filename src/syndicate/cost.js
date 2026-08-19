@@ -20,6 +20,18 @@ const PRICING = {
   xai: {
     // confirmed against the docs.x.ai pricing page, 2026-08-17
     'grok-4.6': { input: 2.00, cachedInput: 0.50, output: 6.00, verified: true },
+    // confirmed against docs.x.ai (model page + pricing table) and two
+    // independent aggregators (OpenRouter, Vercel AI Gateway), 2026-08-19.
+    // <200k-token tier — every call this project makes is far under that.
+    // Genuinely cheaper than grok-4.6 (37.5% less input, 58% less output),
+    // and does support image input (checked specifically: propose/judge/
+    // screen all attach at least one image, and that was the one real risk
+    // in switching). Whether it also reasons less on short JSON tasks than
+    // grok-4.6 — the actual complaint that motivated the switch, per the
+    // xAI usage dashboard showing $2.04 of $2.28 text spend as reasoning
+    // tokens — isn't stated anywhere in the docs; only real spend data
+    // after the switch will confirm that part.
+    'grok-4.3': { input: 1.25, cachedInput: 0.20, output: 2.50, verified: true },
   },
   openai: {
     // confirmed against platform.openai.com/docs/pricing, 2026-08-17.

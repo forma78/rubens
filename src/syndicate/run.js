@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 
-import { S as DEFAULT_STATE } from '../engine/index.js';
+import { S as DEFAULT_STATE, PRESETS } from '../engine/index.js';
 import { loadEnv } from './env.js';
 import { loadBrief, normaliseBrief } from './brief.js';
 import { CANVAS_PROFILES } from './canvas.js';
@@ -38,7 +38,7 @@ function parseArgs(argv) {
 
 /**
  * resolveBriefSource({ briefId, briefPath, cwd, fileConfig, env, fetchImpl,
- * signIn, claimBrief, fetchBriefById }) -> { brief, referencePath, existingBriefId, accessToken }
+ * signIn, claimBrief, fetchBriefById }) -> { brief, referencePaths, existingBriefId, accessToken }
  *
  * Two ways into a shift: a local JSON file (the original flow — SPEC 3.1),
  * or a brief a site visitor already created in Supabase (--brief-id). The
@@ -49,6 +49,13 @@ function parseArgs(argv) {
  * download its reference image to a real local path, since analyseFile()
  * needs one. The accessToken is returned too so the caller doesn't sign in
  * twice when it also wants to --publish at the end.
+ *
+ * referencePaths is always an array (1-4 entries, sparse — a null keeps
+ * that layer on the engine's own built-in PRESETS default; see
+ * buildBaseState). The `briefs` table's `reference` column is still a
+ * single URL — the site's brief-creation form (docs/site-plan.md, A4)
+ * only uploads one image today — so a --brief-id shift always produces a
+ * 1-entry array; only a local JSON brief can specify up to 4 today.
  */
 async function resolveBriefSource({
   briefId, briefPath, cwd, fileConfig, env, fetchImpl, dry,
@@ -56,7 +63,8 @@ async function resolveBriefSource({
 }) {
   if (!briefId) {
     const brief = await loadBrief(briefPath, fileConfig);
-    return { brief, referencePath: path.join(cwd, brief.reference), existingBriefId: null, accessToken: null };
+    const referencePaths = brief.references.map(r => r ? path.join(cwd, r) : null);
+    return { brief, referencePaths, existingBriefId: null, accessToken: null };
   }
 
   if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY || !env.SUPABASE_EMAIL || !env.SUPABASE_PASSWORD) {
@@ -86,7 +94,7 @@ async function resolveBriefSource({
     instruction: claimed.instruction,
     ratio: profile.ratio,
     canvasFormat: claimed.canvas_format,
-    reference: claimed.reference,
+    references: [claimed.reference],
     rounds: claimed.rounds,
   }, fileConfig, `brief ${briefId} (from Supabase)`);
 
@@ -102,7 +110,7 @@ async function resolveBriefSource({
   const referencePath = path.join(tmpdir(), `rubens-reference-${brief.id}${ext}`);
   await writeFile(referencePath, Buffer.from(await imgRes.arrayBuffer()));
 
-  return { brief, referencePath, existingBriefId: claimed.id, accessToken };
+  return { brief, referencePaths: [referencePath], existingBriefId: claimed.id, accessToken };
 }
 
 function jsonlLine(obj) {
@@ -115,13 +123,28 @@ function hashSeed(str) {
   return h;
 }
 
-async function buildBaseState(brief, referencePath) {
-  const analysed = await analyseFile(referencePath);
-  const refs = [{ name: brief.reference, pal: analysed.pal, prof: analysed.prof }];
+/**
+ * buildBaseState(brief, referencePaths) -> { state, refs, ovr, palette }
+ *
+ * refs starts as the engine's own four built-in PRESETS studies — the same
+ * "Reference library" the generator opens with (colour.js) — and
+ * referencePaths[i], where given, replaces that slot with a freshly
+ * analysed photo. state.L is left untouched: DEFAULT_STATE's own
+ * ref:[0,1,2,3,3] already points each of the four colour layers at a
+ * different slot (layer 4, the ribbons, shares layer 3's), so a brief that
+ * gives fewer than 4 references simply leaves the rest on their canonical
+ * PRESETS default rather than collapsing everything onto one photo.
+ */
+async function buildBaseState(brief, referencePaths) {
+  const refs = PRESETS.map(p => ({ name: p.name, pal: p.pal, prof: p.prof }));
+  for (let i = 0; i < Math.min(referencePaths.length, refs.length); i++) {
+    if (!referencePaths[i]) continue; // sparse: keep this slot's PRESETS default
+    const analysed = await analyseFile(referencePaths[i]);
+    refs[i] = { name: referencePaths[i], pal: analysed.pal, prof: analysed.prof };
+  }
   const state = structuredClone(DEFAULT_STATE);
   state.ratio = brief.ratio;
-  state.L = state.L.map(l => ({ ...l, ref: 0 })); // SPEC 3.2: locked to the one analysed reference
-  return { state, refs, ovr: [{}, {}, {}, {}, {}], palette: analysed };
+  return { state, refs, ovr: [{}, {}, {}, {}, {}], palette: refs };
 }
 
 async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsDir, env: envOverride, clients: clientsOverride, publish = false, sync: syncOverride, fetchImpl }) {
@@ -135,7 +158,7 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
   // a site-created brief, publishing results) — same DI pattern as
   // `clients` below, so a test never touches the network for any of it
   const syncFns = syncOverride ?? { signIn, claimBrief, fetchBriefById, insertBrief, closeBrief, syncVariant, syncVariantResults, syncComparisons };
-  const { brief, referencePath, existingBriefId, accessToken: claimAccessToken } = await resolveBriefSource({
+  const { brief, referencePaths, existingBriefId, accessToken: claimAccessToken } = await resolveBriefSource({
     briefId, briefPath, cwd, fileConfig, env, fetchImpl, dry,
     signIn: syncFns.signIn, claimBrief: syncFns.claimBrief, fetchBriefById: syncFns.fetchBriefById,
   });
@@ -208,12 +231,17 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
   await rm(runDir, { recursive: true, force: true });
   await mkdir(runDir, { recursive: true });
 
-  const { state: baseState, refs, ovr, palette } = await buildBaseState(brief, referencePath);
+  const { state: baseState, refs, ovr, palette } = await buildBaseState(brief, referencePaths);
   await writeFile(path.join(runDir, 'brief.json'), JSON.stringify(brief, null, 2));
   await writeFile(path.join(runDir, 'base-state.json'), JSON.stringify({ v: 1, S: baseState, ovr, refs }, null, 2));
   await writeFile(path.join(runDir, 'palette.json'), JSON.stringify(palette, null, 2));
 
-  const referenceJpeg = await toTransmitJpeg(await readFile(referencePath));
+  // judges see one photo as "the tonal target" (SPEC 3.2) — the first real
+  // upload the brief gave, not all four layers' worth. references is
+  // required to have at least one non-null entry (brief.js), so this
+  // always finds something.
+  const primaryReferencePath = referencePaths.find(p => p);
+  const referenceJpeg = await toTransmitJpeg(await readFile(primaryReferencePath));
 
   const costLogPath = path.join(runDir, 'cost-log.jsonl');
   const costTracker = createCostTracker(syndicateConfig.limits.maxUsd, {

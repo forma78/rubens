@@ -45,15 +45,23 @@ const FLOAT_KEYS = new Set(['weave', 'edge']);
 
 /* never patchable, brief or no brief */
 const LOCKED_TOP = new Set(['ratio', 'pattern']);
-const LOCKED_LAYER_RE = /^L\[([0-4])\]\.ref$/;
 
 /* locked unless the brief explicitly names them in opts.unlockedColours */
 const COLOUR_KEYS = new Set(['thread', 'cell', 'ribbon', 'bg']);
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
-const LAYER_KEY_RE = /^L\[([0-4])\]\.(bands|dir|span|cover|on)$/;
+/* which palette a layer holds (L[i].ref) used to be in this locked set —
+   patchable again as of the multireference fix (2026-08-18). A brief now
+   carries up to 4 references (buildBaseState in run.js backfills any
+   missing slot from the engine's own PRESETS, declared by name in
+   refs[].name), so every layer always has exactly 4 real palettes to
+   choose from — the range below assumes that count and needs revisiting
+   if PRESETS.length ever stops being 4. dyeRibbons reads L[4].ref too
+   (see engine/dye.js's dye(), called with li:4), so all five layers,
+   not just 0-3, are patchable here. */
+const LAYER_KEY_RE = /^L\[([0-4])\]\.(bands|dir|span|cover|on|ref)$/;
 const LAYER_ENUM = { dir: ['v', 'h'], span: ['cell', 'auto', 'sheet'] };
-const LAYER_RANGE = { bands: [2, 8], cover: [0, 100], on: [0, 1] };
+const LAYER_RANGE = { bands: [2, 8], cover: [0, 100], on: [0, 1], ref: [0, 3] };
 const LAYER_DIR_SPAN_COVER_MAX_I = 3; // dir/span/cover only exist on layers 0-3; layer 4 is the ribbons
 
 function clampNum(v, lo, hi, isFloat) {
@@ -71,9 +79,9 @@ function isNumber(v) {
  * `patch` is checked key by key. A key with an out-of-range number is
  * clamped into range and kept. A key that is unknown or the wrong type is
  * dropped and logged in `errors`, but the rest of the patch survives. A key
- * that names a locked field (ratio, pattern, L[i].ref, or a colour picker
- * the brief did not explicitly unlock) rejects the whole patch — `patch`
- * comes back empty.
+ * that names a locked field (ratio, pattern, or a colour picker the brief
+ * did not explicitly unlock) rejects the whole patch — `patch` comes back
+ * empty.
  *
  * The two rejections are not the same kind of failure, which is why they
  * get different blast radii. An unknown key or a wrong type is noise: the
@@ -82,10 +90,10 @@ function isNumber(v) {
  * good-faith patch, so only that key is dropped and the rest is still
  * usable. A locked key is a different kind of wrong: the agent is not
  * mistaken about a value, it is mistaken about its own authority — it
- * thinks it may change something the brief withheld from it (the ratio, the
- * pattern, which palette a layer holds, a colour nobody unlocked). That
- * isn't a typo to route around; it's grounds to distrust the whole patch,
- * so nothing from it survives, not even the keys that were otherwise fine.
+ * thinks it may change something the brief withheld from it (the ratio,
+ * the pattern, a colour nobody unlocked). That isn't a typo to route
+ * around; it's grounds to distrust the whole patch, so nothing from it
+ * survives, not even the keys that were otherwise fine.
  *
  * opts.unlockedColours: array of 'thread'|'cell'|'ribbon'|'bg' the brief
  * has explicitly unlocked (SPEC 2.1). Defaults to none.
@@ -112,13 +120,6 @@ function validate(patch, opts = {}) {
   for (const [key, value] of Object.entries(patch)) {
     if (LOCKED_TOP.has(key)) {
       errors.push({ key, reason: 'locked: never patchable' });
-      lockedViolation = true;
-      continue;
-    }
-
-    const refMatch = key.match(LOCKED_LAYER_RE);
-    if (refMatch) {
-      errors.push({ key, reason: 'locked: which palette a layer holds is never patchable' });
       lockedViolation = true;
       continue;
     }
@@ -157,7 +158,10 @@ function validate(patch, opts = {}) {
         continue;
       }
 
-      // bands, cover, on — all numeric
+      // bands, cover, on, ref — all numeric (ref is clamped to an integer
+      // 0-3 the same as any other numeric field; "which of the brief's 4
+      // references this layer shows" is now a real compositional choice,
+      // not a locked technical fact — see the comment on LAYER_KEY_RE)
       if (!isNumber(value)) {
         errors.push({ key, reason: 'wrong type: expected a number' });
         continue;

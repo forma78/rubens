@@ -3,8 +3,13 @@
    Gaussian of sigma = 12% of its range, clamp. This only touches numeric
    keys — L[i].dir/span are categorical (v|h, cell|auto|sheet) and a
    "Gaussian perturbation of the range" doesn't have a sensible meaning for
-   them, so they're left out of the mutation pool. Locked keys (ratio,
-   pattern, L[i].ref, colours) are never in the pool either. */
+   them, so they're left out of the mutation pool. L[i].ref is patchable
+   (2026-08-18, the multireference fix) but deliberately left out here too:
+   swapping a whole layer's palette is a much bigger visual jump than a 12%
+   nudge on any other key in this pool, closer in kind to a categorical pick
+   than a continuous perturbation — model generators propose it deliberately
+   instead. Locked keys (ratio, pattern, colours nobody unlocked) are never
+   in the pool either. */
 
 import { mk } from '../engine/rng.js';
 import { RANGE, FLOAT_KEYS, LAYER_RANGE, LAYER_DIR_SPAN_COVER_MAX_I } from './patch.js';

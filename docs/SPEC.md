@@ -163,9 +163,12 @@ rejected and the response is retried once, then dropped.
 | `L[i].span` | `cell` \| `auto` \| `sheet` | i = 0…3 |
 | `L[i].cover` | 0 – 100 | i = 0…3, cumulative threshold |
 | `L[i].on` | 0 or 1 | |
+| `L[i].ref` | 0 – 3 | i = 0…4, which of the brief's 4 references this layer shows |
 
-Locked by the brief, never patchable by an agent: `ratio`, `pattern`,
-`L[i].ref` (which palette a layer holds), and the palettes themselves.
+Locked by the brief, never patchable by an agent: `ratio`, `pattern`, and the
+palettes themselves (the 8 pure colours + band profile each reference
+resolves to — a layer may point at a different one of the brief's 4
+references, but not redefine what any of them actually contains).
 
 The colour pickers (`thread`, `cell`, `ribbon`, `bg`) are locked by default. A
 brief may unlock them explicitly.
@@ -188,7 +191,7 @@ vendor is worth knowing.
   "id": "brief-07",
   "instruction": "Anxious. The ribbons pulled tight, the cloth crowded under them.",
   "ratio": 5,
-  "reference": "studies/2026-08-16-morning.jpg",
+  "references": ["studies/2026-08-16-morning.jpg", null, null, null],
   "rounds": 5,
   "variantsPerRound": 24,
   "survivors": 6
@@ -197,17 +200,43 @@ vendor is worth knowing.
 
 `ratio: 5` is 9:16.
 
+`references` is 1–4 entries (a path for a local brief, a Storage URL for a
+site-created one); position is which of the 4 colour layers it overrides —
+`references[0]` overrides layer 0's palette, `references[1]` layer 1, and so
+on. `null` (or an array shorter than 4) leaves that slot on the engine's own
+built-in library (`PRESETS` in `src/engine/colour.js` — the same four
+studies the generator's own "Reference library" opens with) rather than
+collapsing the layer onto whichever photo *was* supplied. This mirrors the
+generator itself: `generator/index.html`'s reference library and per-layer
+assignment have always let a layer show any of several studies — Phase 3.2
+originally narrowed a shift to one reference locking every layer, which was
+a gap in this document against what the tool it's porting already did, not
+a deliberate restriction, and it's fixed as of the multireference work
+(2026-08-18).
+
+A brief needs at least one real reference. Any slot the brief leaves on its
+library default must say so plainly in the record (`refs[i].name` in
+`base-state.json` carries the PRESETS study's own name, e.g. `"color_02"`,
+for a defaulted slot, versus a real path/URL for a supplied one) — SPEC 2's
+"never invent numbers into the record" applies here too: a layer quietly
+painted from a photo nobody in the brief chose would be exactly that.
+
 ### 3.2 The reference enters twice, by two different doors
 
 **As colour, by code.** Port `analyse()` from the generator to Node in
 `src/analyse/`. It currently reads pixels through a canvas; in Node decode with
 `sharp(...).raw()` and feed the same RGBA buffer to the same algorithm. Output:
 eight pure colours, a 48-bin band profile, and the detected stroke axis. This is
-deterministic and no model is involved. The result is written into the base
-state as the palettes of layers 1–4 and locked.
+deterministic and no model is involved. Run once per real reference the brief
+supplies; the result replaces that reference's slot in `refs[]` (library
+defaults fill the rest, per 3.1). Which of the 4 slots a given layer shows is
+`L[i].ref` (SPEC 2.1) — patchable within 0–3, the same way any other layer
+field is, since which reference a layer displays is a real compositional
+choice once a brief can name more than one.
 
-**As a picture, to the judges.** The reference photograph is attached to every
-judging call with a fixed line: *this is the tonal target; judge composition
+**As a picture, to the judges.** The first real photo the brief supplies
+(`references[0]`, or the first non-null entry) is attached to every judging
+call with a fixed line: *this is the tonal target; judge composition
 against it.* Judges never see it as something to copy literally.
 
 ### 3.3 One round
@@ -286,7 +315,8 @@ On disk, `runs/brief-07/`:
 ```
 brief.json
 base-state.json
-palette.json          what the analyser read from the reference
+palette.json          the 4 reference slots: analysed for each real photo
+                       the brief supplied, library default for the rest
 round-1/ … round-5/
   variants/var-01.json  var-01.png
   proposals.jsonl       every patch, its source, its intent, accepted or rejected

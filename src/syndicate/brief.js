@@ -2,7 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import { CANVAS_PROFILES } from './canvas.js';
 
-const REQUIRED = ['id', 'instruction', 'ratio', 'reference'];
+const REQUIRED = ['id', 'instruction', 'ratio'];
 
 /**
  * normaliseBrief(raw, syndicateConfig, label) -> normalised brief
@@ -13,14 +13,30 @@ const REQUIRED = ['id', 'instruction', 'ratio', 'reference'];
  *
  * rounds/variantsPerRound/survivors fall back to config/syndicate.json when
  * the brief doesn't set them itself — the brief overrides, the config is
- * the default. `reference` is left as written (a path resolved relative to
- * the process cwd for a local brief; run.js resolves a Supabase brief's
- * reference as a URL instead — normaliseBrief doesn't care which).
+ * the default.
+ *
+ * `references`: 1-4 entries, each either a path (local brief) or a URL
+ * (Supabase brief) — normaliseBrief doesn't care which, run.js resolves
+ * them differently per source. Position is the layer it replaces:
+ * references[0] overrides layer 0's palette, references[1] layer 1, and so
+ * on — this mirrors the generator's own "Reference library" (a layer not
+ * given an override here keeps whichever of the engine's four built-in
+ * PRESETS studies it points to by default; see canvas.js's sibling
+ * comment in run.js's buildBaseState). A brief needs at least one.
  */
 function normaliseBrief(raw, syndicateConfig, label = 'brief') {
   const errors = [];
   for (const key of REQUIRED) {
     if (raw[key] === undefined) errors.push(`missing required field "${key}"`);
+  }
+  if (raw.references === undefined) {
+    errors.push('missing required field "references" (an array of 1-4 paths/URLs — see brief.js)');
+  } else if (!Array.isArray(raw.references) || raw.references.length < 1 || raw.references.length > 4) {
+    errors.push(`references must be an array of 1-4 entries (got ${JSON.stringify(raw.references)})`);
+  } else if (raw.references.some(r => r !== null && typeof r !== 'string')) {
+    errors.push('references entries must each be a string (a path or URL) or null (keep that layer\'s built-in default)');
+  } else if (raw.references.every(r => r === null)) {
+    errors.push('references must include at least one real path/URL, not only null slots — a brief with nothing new to say isn\'t a brief');
   }
   if (raw.ratio !== undefined && (!Number.isInteger(raw.ratio) || raw.ratio < 0 || raw.ratio > 5)) {
     errors.push(`ratio must be an integer 0-5 (got ${JSON.stringify(raw.ratio)})`);
@@ -50,7 +66,7 @@ function normaliseBrief(raw, syndicateConfig, label = 'brief') {
     instruction: raw.instruction,
     ratio: raw.ratio,
     canvasFormat: raw.canvasFormat,
-    reference: raw.reference,
+    references: raw.references,
     rounds: raw.rounds ?? syndicateConfig.rounds,
     variantsPerRound: raw.variantsPerRound ?? syndicateConfig.variantsPerRound,
     survivors: raw.survivors ?? syndicateConfig.survivors,
