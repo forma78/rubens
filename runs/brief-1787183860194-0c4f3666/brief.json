@@ -1,0 +1,16 @@
+{
+  "id": "brief-1787183860194-0c4f3666",
+  "instruction": "two vertical ribbons",
+  "ratio": 3,
+  "canvasFormat": "70x100",
+  "references": [
+    "https://rpurwvnolttcwytujunj.supabase.co/storage/v1/object/public/references/3553b7d4-9005-486e-86af-9037d4a849d7/37da48c4-b9bd-4951-9c1b-299b50553504-L0.png",
+    "https://rpurwvnolttcwytujunj.supabase.co/storage/v1/object/public/references/3553b7d4-9005-486e-86af-9037d4a849d7/7614b7c6-5681-48e9-9124-a62f64c2ca71-L1.png",
+    "https://rpurwvnolttcwytujunj.supabase.co/storage/v1/object/public/references/3553b7d4-9005-486e-86af-9037d4a849d7/01484b7e-e015-4709-b23f-a3f86a0e43df-L2.png",
+    "https://rpurwvnolttcwytujunj.supabase.co/storage/v1/object/public/references/3553b7d4-9005-486e-86af-9037d4a849d7/95168e9e-1860-44f9-bdcf-3448bf460a4d-L3.png"
+  ],
+  "rounds": 5,
+  "variantsPerRound": 32,
+  "survivors": 6,
+  "unlockedColours": []
+}
