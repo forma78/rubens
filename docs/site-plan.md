@@ -161,6 +161,49 @@ just does so at reading speed instead of overnight.
       that really ran 5 rounds (e.g. Shift 07) renders exactly as it
       always did — the site tells the two apart by whether more than one
       real `round` value exists on the brief's own variants.
+- [x] C1a. **Back onto the canon** (2026-08-21, second pass). The owner
+      opened a real shift and found the feed reading nothing like
+      `rubens-claude-design/Rubens Prototype.dc.html`; the screens he sent
+      that day are the single truth for it. Four real faults, all visible
+      on every shift page, all fixed:
+      - **Every round showed 32 images in 5 auto-fill columns**, so each
+        round ended on a half-empty row. The canon is fixed counts —
+        32 / 16 / 8 / 4 / 2 images at 8 / 8 / 4 / 2 / 2 to a row, which
+        divide exactly. `lib/shift.ts`'s `canonRounds`/`canonColumns` now
+        cut the field and `globals.css` sets the columns per round.
+        The narrowing itself is not new (`narrowingSizes`) — it was gated
+        behind "one real round *and* status done", and no shift in the
+        database satisfies both, so it never once ran. The gate is now
+        "has every image been judged", which is about the record rather
+        than about a `status` column two killed jobs left on `running`
+        for ever.
+      - **The comments were a transcript, not the canon's thread** — 288
+        rows under round 1, a 90,000px page. The canon shows one thread:
+        a verdict and the other judges' verdicts on the *same pair*, which
+        is real (the database holds 6–18 per pair). `components/comment.tsx`
+        is now that row — 36px avatar, name in link blue, `(role, vendor)
+        · round N`, the verdict, then `(Reply) (Thread) (Link)` — and Live
+        and Canon share it, so a comment cannot read two ways.
+      - **Ranking was computed from `rating`, which is 1500 on every row
+        in the database** — `syncVariantResults` never patched the real
+        Elo back for these shifts — so "approved"/"rejected" was decided
+        by render order. `rankVariants` falls back to net wins counted off
+        the real comparisons; checked against
+        `runs/brief-1787183860194-0c4f3666/round-1/ratings.json`, it
+        reproduces that shift's real Elo order exactly, same top 16.
+      - **Both pages read at most 1000 rows** (PostgREST's cap, silent).
+        That shift has 2930 comparisons — the ranking, the counts and the
+        verdicts were all drawn from a third of the record. `lib/rows.ts`
+        pages until a short page comes back.
+
+      One thing the data itself decided: judging is a sparse round-robin,
+      not a bracket. Below the top 8 the leaders had **never** been shown
+      against each other, so a narrowed round has real verdicts *about*
+      the images still standing, not between them. The panel head says
+      which of the two it is (`judged head to head` / `on the images still
+      standing`) rather than letting a verdict about another pair pass as
+      the final call.
+
 - [ ] C2. The owner's "pick the finalist" action, on-site, writing to
       `reactions`.
 

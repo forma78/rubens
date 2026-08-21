@@ -3,11 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { JUDGES, generatorById, judgeById, initial, vendorLabel } from "@/lib/roles";
-import { statusLabel, formatCommentDate, narrowingSizes } from "@/lib/shift";
+import { JUDGES, generatorById, vendorLabel } from "@/lib/roles";
+import {
+  canonColumns,
+  canonRounds,
+  canonThread,
+  fullyJudged,
+  generatedField,
+  rankVariants,
+  shiftTitle,
+  statusLabel,
+} from "@/lib/shift";
+import { CommentRow } from "@/components/comment";
 import { CastSidebar } from "@/components/cast-sidebar";
 
-type Variant = {
+export type Variant = {
   id: string;
   round: number;
   label: string;
@@ -19,7 +29,7 @@ type Variant = {
   created_at: string;
 };
 
-type Comparison = {
+export type Comparison = {
   id: string;
   round: number;
   judge_id: string;
@@ -40,26 +50,6 @@ type Brief = {
   status: string;
 };
 
-function Comment({ c }: { c: Comparison }) {
-  const judge = judgeById(c.judge_id);
-  return (
-    <div className="comment-row" id={`comment-${c.id}`}>
-      <div className="comment-avatar" style={{ background: judge?.color ?? "#888" }}>
-        {initial(judge?.name ?? "?")}
-      </div>
-      <div className="comment-body">
-        <div className="comment-meta">
-          <span className="name">{judge?.name ?? c.judge_id}</span> ({vendorLabel(c.vendor)}) · round {c.round}
-        </div>
-        <p className="comment-text">{c.why}</p>
-        <div className="comment-actions">
-          {formatCommentDate(c.created_at)} <a href={`#comment-${c.id}`}>(Link)</a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function WorkCard({ v, verdict }: { v: Variant; verdict: { text: string; cls: string } }) {
   const gen = generatorById(v.agent_id);
   return (
@@ -79,11 +69,17 @@ function WorkCard({ v, verdict }: { v: Variant; verdict: { text: string; cls: st
   );
 }
 
-// Live — design_handoff's key screen. Subscribes to the same three tables
+// Live — the canon's key screen. Subscribes to the same three tables
 // sync.js writes to incrementally (schema.sql's realtime publication,
 // 2026-08-21): a variant's row lands the moment it renders, a comparison's
 // the moment a judge answers, so this page fills in at reading speed
 // exactly like the feed CLAUDE.md describes, not in a batch at the end.
+//
+// The shape is the canon's, and it is the same shape for every shift:
+// 32 images generated once, then the shift's own real ranking cut in half
+// four times — 32 / 16 / 8 / 4 / 2 at 8 / 8 / 4 / 2 / 2 to a row. Nothing
+// is regenerated to fill a later round and nothing is invented to rank it;
+// see lib/shift.ts's rankVariants for where the order comes from.
 export function LiveView({
   brief,
   initialVariants,
@@ -139,102 +135,99 @@ export function LiveView({
     };
   }, [brief.id]);
 
-  // Rounds as they actually happened. A shift from before 2026-08-21 (see
-  // schema.sql) really did propose and judge fresh variants every round —
-  // those rows carry real, distinct `round` values and render exactly as
-  // they always have, below. A shift from now on only ever has round 1.
-  const rounds = useMemo(() => {
-    const map = new Map<number, Variant[]>();
-    for (const v of variants) {
-      if (!map.has(v.round)) map.set(v.round, []);
-      map.get(v.round)!.push(v);
-    }
-    return [...map.entries()].sort((a, b) => a[0] - b[0]);
-  }, [variants]);
+  // The 32 that were actually generated, and the comparisons that judged
+  // them. A pre-2026-08-21 shift also has rounds 2-5 of freshly proposed
+  // variants in the database; they stay in the record and on the round's
+  // own pairwise view — the feed reads the shift the way it reads now.
+  const field = useMemo(() => generatedField(variants), [variants]);
+  const fieldComparisons = useMemo(() => {
+    const ids = new Set(field.map((v) => v.id));
+    return comparisons.filter((c) => (c.left_id && ids.has(c.left_id)) || (c.right_id && ids.has(c.right_id)));
+  }, [comparisons, field]);
 
-  const commentsByRound = useMemo(() => {
-    const map = new Map<number, Comparison[]>();
-    for (const c of comparisons) {
-      if (!c.why) continue;
-      if (!map.has(c.round)) map.set(c.round, []);
-      map.get(c.round)!.push(c);
-    }
-    return map;
-  }, [comparisons]);
-
-  const maxRound = rounds.length ? rounds[rounds.length - 1][0] : 0;
-  const finished = status === "done" || status === "aborted";
-  const roundClosed = (round: number) => round < maxRound || finished;
-  const singleRealRound = new Set(variants.map((v) => v.round)).size <= 1;
-
-  // Only meaningful once judging is over — syncVariantResults patches real
-  // ratings onto variants once at the end of the (one, real) round, not
-  // incrementally, so mid-shift every rating is still the 1500 default.
-  const rankedRound1 = useMemo(
-    () => (singleRealRound && finished ? [...variants].sort((a, b) => (b.rating ?? 1500) - (a.rating ?? 1500)) : []),
-    [variants, singleRealRound, finished],
+  const judged = useMemo(() => fullyJudged(field, fieldComparisons), [field, fieldComparisons]);
+  const ranked = useMemo(
+    () => (judged ? rankVariants(field, fieldComparisons) : field),
+    [judged, field, fieldComparisons],
   );
-  const rankIndex = useMemo(() => new Map(rankedRound1.map((v, i) => [v.id, i])), [rankedRound1]);
-  const narrowSizes = singleRealRound && finished ? narrowingSizes(rankedRound1.length) : [];
+
+  // Until every image has a real verdict behind it there is one round, the
+  // one that is happening.
+  const rounds = useMemo(
+    () =>
+      judged
+        ? canonRounds(ranked)
+        : [{ num: 1, columns: canonColumns(1), variants: field, advancing: 0 }],
+    [judged, ranked, field],
+  );
+
+  const realRounds = new Set(variants.map((v) => v.round)).size;
 
   return (
     <>
-      <div className="page-head">
-        <h1 className="page-title">{brief.instruction}</h1>
+      <h1 className="page-title">{shiftTitle(brief.slug, brief.instruction)}</h1>
+      <div className="run-meta">
+        {statusLabel(status, realRounds || brief.rounds)} · canvas {brief.canvas_format ?? "—"} · {JUDGES.length}{" "}
+        judges · {field.length} proposals
       </div>
-      <p className="tagline" style={{ marginBottom: 18, display: "block" }}>
-        {statusLabel(status, maxRound || brief.rounds)} · canvas {brief.canvas_format ?? "—"} · {JUDGES.length}{" "}
-        judges
-      </p>
 
       <div className="layout-with-sidebar">
         <div>
-          {rounds.length === 0 && (
+          {!field.length && (
             <div className="panel">
               <div className="panel-body">
                 <p style={{ margin: 0, color: "var(--text-secondary)" }}>
-                  {status === "pending" ? "Queued — GitHub Actions hasn't picked this up yet." : "Rendering the first proposals now…"}
+                  {status === "pending"
+                    ? "Queued — GitHub Actions hasn't picked this up yet."
+                    : "Rendering the first proposals now…"}
                 </p>
               </div>
             </div>
           )}
 
-          {rounds.map(([round, roundVariants]) => {
-            const closed = roundClosed(round);
-            const isFinalReal = round === maxRound && closed && !singleRealRound;
+          {rounds.map((round) => {
+            const shownIds = new Set(round.variants.map((v) => v.id));
+            const { thread, headToHead } = canonThread(fieldComparisons, shownIds);
+            const final = judged && round.num === rounds.length;
             return (
-              <div className="round-block" key={round}>
+              <div className="round-block" key={round.num}>
                 <div className="round-heading">
                   <span>
-                    Round {round} — {roundVariants.length} image{roundVariants.length === 1 ? "" : "s"}
+                    Round {round.num} — {round.variants.length} image{round.variants.length === 1 ? "" : "s"}
                   </span>
-                  <Link href={`/shift/${brief.slug}/round/${round}`}>pairwise view →</Link>
+                  <Link href={`/shift/${brief.slug}/round/${round.num}`}>pairwise view →</Link>
                 </div>
-                <div className="work-grid">
-                  {roundVariants.map((v) => {
-                    let verdict: { text: string; cls: string };
-                    if (!closed) {
-                      verdict = { text: "judging…", cls: "pending" };
-                    } else if (singleRealRound) {
-                      const idx = rankIndex.get(v.id) ?? 0;
-                      const cutoff = narrowSizes[1];
-                      const advances = cutoff !== undefined ? idx < cutoff : idx === 0;
-                      verdict = advances ? { text: "approved", cls: "approved" } : { text: "rejected", cls: "rejected" };
-                    } else {
-                      verdict = v.survived ? { text: "approved", cls: "approved" } : { text: "rejected", cls: "rejected" };
-                    }
+                <div className="work-grid" data-cols={round.columns}>
+                  {round.variants.map((v, i) => {
+                    const verdict = !judged
+                      ? { text: "judging…", cls: "pending" }
+                      : i < round.advancing
+                        ? { text: "approved", cls: "approved" }
+                        : { text: "rejected", cls: "rejected" };
                     return <WorkCard v={v} verdict={verdict} key={v.id} />;
                   })}
                 </div>
 
-                {(commentsByRound.get(round)?.length ?? 0) > 0 && (
+                {thread.length > 0 && (
                   <div className="panel">
                     <div className="panel-head">
-                      <span>{isFinalReal ? "FINAL VERDICTS" : "COMMENTS"}</span>
+                      <span>{final ? "FINAL VERDICTS" : "COMMENTS"}</span>
+                      <span className="panel-note">
+                        {headToHead ? "judged head to head" : "on the images still standing"}
+                      </span>
                     </div>
-                    <div className="panel-body" style={{ padding: "6px 14px 4px" }}>
-                      {commentsByRound.get(round)!.map((c) => (
-                        <Comment c={c} key={c.id} />
+                    <div className="comment-list">
+                      {thread.map((c, i) => (
+                        <CommentRow
+                          key={c.id}
+                          id={c.id}
+                          judgeId={c.judge_id}
+                          vendor={c.vendor}
+                          why={c.why}
+                          tail={`round ${round.num}`}
+                          index={i}
+                          threadHref={`/shift/${brief.slug}/round/${round.num}#comment-${c.id}`}
+                        />
                       ))}
                     </div>
                   </div>
@@ -242,51 +235,6 @@ export function LiveView({
               </div>
             );
           })}
-
-          {/* Rounds 2+ for a single-real-round shift: not fresh judging —
-              round 1's own real ranking, cut in half each time (32 -> 16 ->
-              8 -> 4 -> 2), same real images, same real comparisons filtered
-              to the pair still standing. See lib/shift.ts's narrowingSizes. */}
-          {singleRealRound &&
-            narrowSizes.slice(1).map((size, i) => {
-              const roundNum = i + 2;
-              const shown = rankedRound1.slice(0, size);
-              const shownIds = new Set(shown.map((v) => v.id));
-              const nextSize = narrowSizes[i + 2];
-              const isFinal = i === narrowSizes.length - 2;
-              const relevant = comparisons.filter(
-                (c) => c.why && c.left_id && c.right_id && shownIds.has(c.left_id) && shownIds.has(c.right_id),
-              );
-              return (
-                <div className="round-block" key={`synthetic-${roundNum}`}>
-                  <div className="round-heading">
-                    <span>
-                      Round {roundNum} — {shown.length} image{shown.length === 1 ? "" : "s"}
-                    </span>
-                    <Link href={`/shift/${brief.slug}/round/${roundNum}`}>pairwise view →</Link>
-                  </div>
-                  <div className="work-grid">
-                    {shown.map((v, idx) => {
-                      const advances = nextSize !== undefined ? idx < nextSize : idx === 0;
-                      const verdict = advances ? { text: "approved", cls: "approved" } : { text: "rejected", cls: "rejected" };
-                      return <WorkCard v={v} verdict={verdict} key={v.id} />;
-                    })}
-                  </div>
-                  {relevant.length > 0 && (
-                    <div className="panel">
-                      <div className="panel-head">
-                        <span>{isFinal ? "FINAL VERDICTS" : "COMMENTS"}</span>
-                      </div>
-                      <div className="panel-body" style={{ padding: "6px 14px 4px" }}>
-                        {relevant.map((c) => (
-                          <Comment c={c} key={c.id} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
         </div>
 
         <div>

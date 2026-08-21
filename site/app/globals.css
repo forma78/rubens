@@ -246,6 +246,16 @@ a:hover {
   justify-content: space-between;
 }
 
+/* The canon's panel head carries a second, quieter half on the right (its
+   Canon screen: "PAIRWISE VIEW … What a judge is actually shown"). Used
+   here to say what a round's verdicts actually are — see roundVerdicts. */
+.panel-note {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
 .panel-body {
   padding: 14px;
 }
@@ -280,6 +290,14 @@ a:hover {
 .tagline {
   font-size: 11px;
   color: var(--text-secondary-2);
+}
+
+/* The line under a shift's title — canon: margin-top 6, margin-bottom 22. */
+.run-meta {
+  font-size: 11px;
+  color: var(--text-secondary-2);
+  margin-top: 6px;
+  margin-bottom: 22px;
 }
 
 /* ---------------------------------------------------------------- archive */
@@ -412,10 +430,34 @@ a:hover {
   font-weight: 400;
 }
 
+/* The canon's own grid (rubens-claude-design/Rubens Prototype.dc.html:
+   gridTemplateColumns: repeat([8,8,4,2,2][round], minmax(0,1fr)), gap 12).
+   Fixed counts, not auto-fill: 32 / 16 / 8 / 4 / 2 images divide exactly
+   into 8 / 8 / 4 / 2 / 2 to a row, so no round ends on a half-empty row
+   the way auto-fill's five columns left one. The narrow-screen fallbacks
+   halve, which keeps that true. */
 .work-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 12px;
+}
+
+.work-grid[data-cols="4"] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.work-grid[data-cols="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 560px) {
+  .work-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .work-grid[data-cols="4"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .work-card {
@@ -494,6 +536,10 @@ a:hover {
   }
 }
 
+.comment-list {
+  padding: 6px 14px 4px;
+}
+
 .comment-row {
   display: flex;
   gap: 9px;
@@ -503,6 +549,14 @@ a:hover {
 
 .comment-row:first-child {
   border-top: none;
+}
+
+/* A reply sits indented on the grey ground — canon: margin-left 44,
+   background #f7f7f7, padding-left 10. */
+.comment-row.indented {
+  margin-left: 44px;
+  padding-left: 10px;
+  background: #f7f7f7;
 }
 
 .comment-avatar {
@@ -541,9 +595,11 @@ a:hover {
   margin: 4px 0;
 }
 
+/* (Reply) (Thread) (Link) — the canon's own three, margin-top 5. */
 .comment-actions {
   font-size: 11px;
   color: var(--muted-2);
+  margin-top: 5px;
 }
 
 .comment-actions a {

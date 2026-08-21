@@ -1,23 +1,47 @@
 import { notFound } from "next/navigation";
 import { Chrome } from "@/components/chrome";
 import { createClient } from "@/lib/supabase/server";
-import { shiftSeq, formatCommentDate, narrowingSizes } from "@/lib/shift";
+import { shiftSeq, canonRounds, fullyJudged, generatedField, rankVariants, roundVerdicts } from "@/lib/shift";
 import { CastSidebar } from "@/components/cast-sidebar";
-import { judgeById, initial, vendorLabel } from "@/lib/roles";
+import { CommentRow } from "@/components/comment";
+import { judgeById, vendorLabel } from "@/lib/roles";
+import { fetchAllRows } from "@/lib/rows";
+
+type CanonVariant = {
+  id: string;
+  label: string;
+  render_url: string | null;
+  source: string;
+  agent_id: string | null;
+  round: number;
+  rating: number;
+  created_at: string;
+};
+
+type CanonComparison = {
+  id: string;
+  round: number;
+  judge_id: string;
+  vendor: string;
+  left_id: string;
+  right_id: string;
+  shown_first: string;
+  winner_id: string | null;
+  why: string | null;
+  created_at: string;
+};
 
 function tagOf(label: string): string {
   return /(\d+)\s*$/.exec(label)?.[1] ?? label;
 }
 
-// Canon — "what a judge is actually shown" (design_handoff's Canon screen),
-// for one round. A shift from before 2026-08-21 really judged fresh
-// variants every round (schema.sql), so round N there means exactly what
-// it says. A shift from now on only ever runs one real round — round N>1
-// here means "the real round-1 comparisons between the pair still standing
-// after halving to lib/shift.ts's narrowingSizes", same real `why` text,
-// just filtered to the field that round represents. Never an invented
-// verdict either way. No comment composer — nobody but the studio can
-// write, and the studio only ever reads this page too.
+// Canon — "what a judge is actually shown, A against B", for one round.
+// Live narrows the same field the same way (lib/shift.ts's canonRounds):
+// round 1 is the 32 that were generated, round N is the top of the shift's
+// own real ranking. This page is the record behind that — every real
+// comparison between the images round N still shows, in the order the
+// judges answered, never an invented verdict. No comment composer: nobody
+// but the studio can write, and the studio only ever reads this page too.
 export default async function CanonPage({ params }: { params: Promise<{ slug: string; n: string }> }) {
   const { slug, n } = await params;
   const round = Number(n);
@@ -31,61 +55,56 @@ export default async function CanonPage({ params }: { params: Promise<{ slug: st
     .maybeSingle();
   if (!brief) notFound();
 
-  const { data: allVariants } = await supabase
-    .from("variants")
-    .select("id,label,render_url,source,agent_id,round,rating")
-    .eq("brief_id", brief.id);
-  const variantById = new Map((allVariants ?? []).map((v) => [v.id, v]));
+  // Paged — see lib/rows.ts; a plain select stops at 1000 rows and this
+  // shift alone holds nearly three thousand real comparisons.
+  const [allVariants, allComparisons] = await Promise.all([
+    fetchAllRows<CanonVariant>((from, to) =>
+      supabase
+        .from("variants")
+        .select("id,label,render_url,source,agent_id,round,rating,created_at")
+        .eq("brief_id", brief.id)
+        .order("created_at", { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllRows<CanonComparison>((from, to) =>
+      supabase
+        .from("comparisons")
+        .select("id,round,judge_id,vendor,left_id,right_id,shown_first,winner_id,why,created_at")
+        .eq("brief_id", brief.id)
+        .order("created_at", { ascending: true })
+        .range(from, to),
+    ),
+  ]);
 
-  const singleRealRound = new Set((allVariants ?? []).map((v) => v.round)).size <= 1;
-  const finished = brief.status === "done" || brief.status === "aborted";
+  const variantById = new Map(allVariants.map((v) => [v.id, v]));
+  const field = generatedField(allVariants);
+  const fieldIds = new Set(field.map((v) => v.id));
+  const fieldComparisons = allComparisons.filter(
+    (c) => (c.left_id && fieldIds.has(c.left_id)) || (c.right_id && fieldIds.has(c.right_id)),
+  );
 
-  let comparisons: {
-    id: string;
-    round: number;
-    judge_id: string;
-    vendor: string;
-    left_id: string;
-    right_id: string;
-    shown_first: string;
-    winner_id: string | null;
-    why: string | null;
-    created_at: string;
-  }[] = [];
-  let notNarrowedYet = false;
+  const judged = fullyJudged(field, fieldComparisons);
+  const rounds = judged ? canonRounds(rankVariants(field, fieldComparisons)) : [];
+  const shown = rounds[round - 1];
+  if (judged && !shown) notFound();
 
-  if (round === 1 || !singleRealRound) {
-    // Real per-round data — either round 1 of any shift, or a genuine
-    // pre-2026-08-21 round with its own real judging.
-    const { data } = await supabase
-      .from("comparisons")
-      .select("id,round,judge_id,vendor,left_id,right_id,shown_first,winner_id,why,created_at")
-      .eq("brief_id", brief.id)
-      .eq("round", round)
-      .order("created_at", { ascending: true });
-    comparisons = data ?? [];
-  } else if (!finished) {
-    notNarrowedYet = true;
-  } else {
-    const ranked = [...(allVariants ?? [])].sort((a, b) => (b.rating ?? 1500) - (a.rating ?? 1500));
-    const sizes = narrowingSizes(ranked.length);
-    const size = sizes[round - 1];
-    if (size === undefined) notFound();
-    const shownIds = new Set(ranked.slice(0, size).map((v) => v.id));
-
-    const { data } = await supabase
-      .from("comparisons")
-      .select("id,round,judge_id,vendor,left_id,right_id,shown_first,winner_id,why,created_at")
-      .eq("brief_id", brief.id)
-      .order("created_at", { ascending: true });
-    comparisons = (data ?? []).filter((c) => shownIds.has(c.left_id) && shownIds.has(c.right_id));
-  }
+  const notNarrowedYet = !judged && round > 1;
+  const shownIds = new Set((shown?.variants ?? field).map((v) => v.id));
+  // Same cut Live makes, and the same honesty about what it is: from the
+  // top 8 down these images were never shown against each other, so this
+  // is every real verdict they were part of, not a head-to-head that
+  // never happened.
+  const { list: comparisons, headToHead } = notNarrowedYet
+    ? { list: [], headToHead: true }
+    : roundVerdicts(fieldComparisons, shownIds);
 
   return (
     <Chrome active="shift" crumb={`rubens-pearl / shift-${shiftSeq(slug)} / round-${round}`}>
-      <div className="page-head">
-        <h1 className="page-title">Round {round}</h1>
-        <span className="tagline">What a judge is actually shown, A against B</span>
+      <h1 className="page-title">Round {round}</h1>
+      <div className="run-meta">
+        What a judge is actually shown, A against B · {shownIds.size} image{shownIds.size === 1 ? "" : "s"} ·{" "}
+        {comparisons.length} real verdict{comparisons.length === 1 ? "" : "s"}
+        {comparisons.length > 0 && !headToHead && " these images were part of"}
       </div>
 
       <div className="layout-with-sidebar">
@@ -94,8 +113,8 @@ export default async function CanonPage({ params }: { params: Promise<{ slug: st
             <div className="panel">
               <div className="panel-body">
                 <p style={{ margin: 0, color: "var(--text-secondary)" }}>
-                  This round narrows once judging finishes — it&apos;s round 1&apos;s own real ranking, cut in
-                  half, not a fresh judging pass.
+                  This round narrows once every image has been judged — it&apos;s the shift&apos;s own real ranking,
+                  cut in half, not a fresh judging pass.
                 </p>
               </div>
             </div>
@@ -134,23 +153,15 @@ export default async function CanonPage({ params }: { params: Promise<{ slug: st
                       {slotB?.render_url ? <img src={slotB.render_url} alt="B" /> : <div className="placeholder">—</div>}
                     </div>
                   </div>
-                  {c.why && (
-                    <div className="comment-row" id={`comment-${c.id}`} style={{ marginTop: 14 }}>
-                      <div className="comment-avatar" style={{ background: judge?.color ?? "#888" }}>
-                        {initial(judge?.name ?? "?")}
-                      </div>
-                      <div className="comment-body">
-                        <div className="comment-meta">
-                          <span className="name">{judge?.name ?? c.judge_id}</span> ({vendorLabel(c.vendor)})
-                          {winnerLabel && <> · chose {winnerLabel}</>}
-                        </div>
-                        <p className="comment-text">{c.why}</p>
-                        <div className="comment-actions">
-                          {formatCommentDate(c.created_at)} <a href={`#comment-${c.id}`}>(Link)</a>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  <div className="comment-list" style={{ padding: "6px 0 0" }}>
+                    <CommentRow
+                      id={c.id}
+                      judgeId={c.judge_id}
+                      vendor={c.vendor}
+                      why={c.why}
+                      tail={winnerLabel ? `chose ${winnerLabel}` : `round ${round}`}
+                    />
+                  </div>
                 </div>
               </div>
             );

@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { Chrome } from "@/components/chrome";
 import { createClient } from "@/lib/supabase/server";
 import { shiftSeq } from "@/lib/shift";
-import { LiveView } from "./live-view";
+import { fetchAllRows } from "@/lib/rows";
+import { LiveView, type Variant, type Comparison } from "./live-view";
 
 export default async function ShiftPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -16,22 +17,31 @@ export default async function ShiftPage({ params }: { params: Promise<{ slug: st
 
   if (!brief) notFound();
 
-  const [{ data: variants }, { data: comparisons }] = await Promise.all([
-    supabase
-      .from("variants")
-      .select("id,round,label,source,agent_id,render_url,rating,survived,created_at")
-      .eq("brief_id", brief.id)
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("comparisons")
-      .select("id,round,judge_id,vendor,why,winner_id,left_id,right_id,created_at")
-      .eq("brief_id", brief.id)
-      .order("created_at", { ascending: true }),
+  // Paged, not a plain select — see lib/rows.ts. This shift's comparisons
+  // run to thousands and the ranking Live draws is only as real as the
+  // rows it is counted from.
+  const [variants, comparisons] = await Promise.all([
+    fetchAllRows<Variant>((from, to) =>
+      supabase
+        .from("variants")
+        .select("id,round,label,source,agent_id,render_url,rating,survived,created_at")
+        .eq("brief_id", brief.id)
+        .order("created_at", { ascending: true })
+        .range(from, to),
+    ),
+    fetchAllRows<Comparison>((from, to) =>
+      supabase
+        .from("comparisons")
+        .select("id,round,judge_id,vendor,why,winner_id,left_id,right_id,created_at")
+        .eq("brief_id", brief.id)
+        .order("created_at", { ascending: true })
+        .range(from, to),
+    ),
   ]);
 
   return (
     <Chrome active="shift" crumb={`rubens-pearl / shift-${shiftSeq(slug)} / live`}>
-      <LiveView brief={brief} initialVariants={variants ?? []} initialComparisons={comparisons ?? []} />
+      <LiveView brief={brief} initialVariants={variants} initialComparisons={comparisons} />
     </Chrome>
   );
 }
