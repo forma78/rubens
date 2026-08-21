@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { JUDGES, generatorById, judgeById, initial, vendorLabel } from "@/lib/roles";
-import { statusLabel } from "@/lib/shift";
+import { statusLabel, formatCommentDate } from "@/lib/shift";
 import { CastSidebar } from "@/components/cast-sidebar";
 
 type Variant = {
@@ -190,12 +190,8 @@ export function LiveView({
                               <span className="name">{judge?.name ?? c.judge_id}</span> ({vendorLabel(c.vendor)}) · round {c.round}
                             </div>
                             <p className="comment-text">{c.why}</p>
-                            {/* No reply/thread feature exists — this is a bot verdict, not a
-                                LiveJournal-style human thread — so only (Link) actually goes
-                                anywhere; (Reply)/(Thread) are the canon's own vocabulary, kept
-                                for the visual match, not wired to anything that doesn't exist. */}
                             <div className="comment-actions">
-                              (Reply) (Thread) <a href={`#comment-${c.id}`}>(Link)</a>
+                              {formatCommentDate(c.created_at)} <a href={`#comment-${c.id}`}>(Link)</a>
                             </div>
                           </div>
                         </div>

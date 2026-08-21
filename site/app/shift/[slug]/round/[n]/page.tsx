@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { Chrome } from "@/components/chrome";
 import { createClient } from "@/lib/supabase/server";
-import { shiftSeq } from "@/lib/shift";
+import { shiftSeq, formatCommentDate } from "@/lib/shift";
 import { CastSidebar } from "@/components/cast-sidebar";
 import { judgeById, initial, vendorLabel } from "@/lib/roles";
 
@@ -98,7 +98,7 @@ export default async function CanonPage({ params }: { params: Promise<{ slug: st
                         </div>
                         <p className="comment-text">{c.why}</p>
                         <div className="comment-actions">
-                          (Reply) (Thread) <a href={`#comment-${c.id}`}>(Link)</a>
+                          {formatCommentDate(c.created_at)} <a href={`#comment-${c.id}`}>(Link)</a>
                         </div>
                       </div>
                     </div>
