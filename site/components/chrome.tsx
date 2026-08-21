@@ -12,7 +12,7 @@ export async function Chrome({
   crumb,
   children,
 }: {
-  active: "archive" | "shift" | "new" | "about" | "login";
+  active: "archive" | "shift" | "generator" | "new" | "about" | "login";
   crumb: string;
   children: React.ReactNode;
 }) {
@@ -52,6 +52,9 @@ export async function Chrome({
             </Link>
             <Link href="/about" aria-current={active === "about" ? "page" : undefined}>
               About
+            </Link>
+            <Link href="/generator" aria-current={active === "generator" ? "page" : undefined}>
+              Generator
             </Link>
           </nav>
           <div className="identity">

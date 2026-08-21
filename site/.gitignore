@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# staged from the repo root by scripts/stage-generators.mjs — never committed
+/public/gen
+/public/src
