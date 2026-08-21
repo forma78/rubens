@@ -75,7 +75,23 @@ const LAYER_FIELDS = {
   cover: { kind: 'number', range: [0, 100], maxLayer: 3 },
 };
 
+/* See patch.js's VOCABULARY for why this lives in the schema. Model 2's
+   knobs are genuinely different — an agent told model 1's vocabulary would
+   propose L[i].ref and bands, which do not exist here, and never touch the
+   brush that does. */
+const VOCABULARY = [
+  'The cells are ruled, not dyed: short ink bars laid inside each cell.',
+  'Five stacked layers. Layers 0-3 each take a share of the cells (L[i].cover) and lay their bars one way',
+  "(L[i].dir 'v'|'h'); whatever a layer leaves uncovered falls through to the one beneath it. Layer 4 lays bars",
+  'across the ribbons themselves, so it has no dir or cover of its own.',
+  "Each layer draws from its own inks (L[i].inks: 1-3 colours from the generator's library, no invented values),",
+  "and L[i].span decides whether one ink runs per bar, per cell, or across the whole sheet.",
+  'One brush governs every layer: pitch (bar spacing), weight (bar thickness), length, jitter (an unsteady hand),',
+  "shade (tonal variation between bars), caps ('round'|'square'), wover (bars over or under the threads).",
+].join(' ');
+
 const SCHEMA = {
+  vocabulary: VOCABULARY,
   range: RANGE,
   floatKeys: FLOAT_KEYS,
   lockedTop: LOCKED_TOP,
@@ -94,4 +110,4 @@ function validate(patch, opts = {}) {
   return validateWith(SCHEMA, patch, opts);
 }
 
-export { validate, RANGE, BRUSH_RANGE, CLOTH_KEYS, INK_LIBRARY, MAX_INKS_PER_LAYER, LAYER_FIELDS, SCHEMA };
+export { validate, RANGE, BRUSH_RANGE, CLOTH_KEYS, INK_LIBRARY, MAX_INKS_PER_LAYER, LAYER_FIELDS, SCHEMA, VOCABULARY };

@@ -17,12 +17,12 @@ function imagePart(buf, mediaType = 'image/jpeg') {
   return { type: 'image_url', image_url: { url: dataUrl(buf, mediaType) } };
 }
 
-async function propose(client, { model, rolePrompt, brief, parentState, parentRenderPng, critiques }) {
+async function propose(client, { model, rolePrompt, schema, brief, parentState, parentRenderPng, critiques }) {
   const resp = await client.chat.completions.create({
     model,
     temperature: 1.0,
     messages: [
-      { role: 'system', content: generatorSystemPrompt(rolePrompt) },
+      { role: 'system', content: generatorSystemPrompt(rolePrompt, schema) },
       {
         role: 'user',
         content: [

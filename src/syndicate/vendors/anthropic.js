@@ -20,12 +20,12 @@ function imageBlock(buf, mediaType = 'image/jpeg') {
 }
 
 /** One generator proposal. Temperature 1.0 per SPEC 3.3. */
-async function propose(client, { model, rolePrompt, brief, parentState, parentRenderPng, critiques }) {
+async function propose(client, { model, rolePrompt, schema, brief, parentState, parentRenderPng, critiques }) {
   const resp = await client.messages.create({
     model,
     max_tokens: 1024,
     temperature: 1.0,
-    system: generatorSystemPrompt(rolePrompt),
+    system: generatorSystemPrompt(rolePrompt, schema),
     messages: [{
       role: 'user',
       content: [

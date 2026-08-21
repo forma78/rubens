@@ -71,7 +71,22 @@ const LAYER_ENUM = { dir: ['v', 'h'], span: ['cell', 'auto', 'sheet'] };
 const LAYER_RANGE = { bands: [2, 8], cover: [0, 100], on: [0, 1], ref: [0, 3] };
 const LAYER_DIR_SPAN_COVER_MAX_I = 3; // dir/span/cover only exist on layers 0-3; layer 4 is the ribbons
 
+/* What the knobs are, told to a generator agent once per call. Kept in the
+   schema so a model's vocabulary and its description of that vocabulary
+   cannot drift apart, and kept short because it is sent on every one of the
+   round's proposal calls. */
+const VOCABULARY = [
+  'The cells are dyed: synthetic strokes drawn from the colour probability read out of a real painted study.',
+  'Five stacked layers. Layers 0-3 each take a share of the cells (L[i].cover), lay their strokes one way',
+  "(L[i].dir 'v'|'h'), reach across a cell, the weave or the sheet (L[i].span), and show one of the brief's four",
+  'studies (L[i].ref); L[i].bands is how many of that study\'s pure colours the layer draws from. Whatever a layer',
+  'leaves uncovered falls through to the one beneath it. Layer 4 dyes the ribbons.',
+  'One brush governs every layer: pitch (stroke spacing), ilock (how far neighbouring colours interlock),',
+  'grain, load (paint load), wover (dye over or under the threads).',
+].join(' ');
+
 const SCHEMA = {
+  vocabulary: VOCABULARY,
   range: RANGE,
   floatKeys: FLOAT_KEYS,
   lockedTop: LOCKED_TOP,
@@ -112,4 +127,4 @@ function validate(patch, opts = {}) {
   return validateWith(SCHEMA, patch, opts);
 }
 
-export { validate, RANGE, FLOAT_KEYS, LAYER_RANGE, LAYER_DIR_SPAN_COVER_MAX_I, SCHEMA };
+export { validate, RANGE, FLOAT_KEYS, LAYER_RANGE, LAYER_DIR_SPAN_COVER_MAX_I, SCHEMA, VOCABULARY };
