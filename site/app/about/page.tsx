@@ -1,8 +1,13 @@
 import { Chrome } from "@/components/chrome";
 
-// Built from README.md directly (design_handoff's About screen) — the
-// text below is copied, not paraphrased, so it can't drift from the real
-// project narrative the way a summary would.
+// Built from README.md, and kept in step with it deliberately rather than
+// paraphrased — the narrative is the artist's, not a summary of it.
+//
+// What this page is NOT any more (2026-08-21): the repository's changelog.
+// It used to carry "Update 1" through "Update 5", each one explaining a
+// change out of a state no visitor ever saw, plus config keys and a note
+// about 429s. That is writing for the one person who already knew all of
+// it. A visitor arrives wanting to know what they are looking at.
 export default function AboutPage() {
   return (
     <Chrome active="about" crumb="rubens-pearl / about">
@@ -28,8 +33,8 @@ export default function AboutPage() {
             </p>
             <p>
               A syndicate of agents searches the space that generator opens. It proposes compositions, renders
-              them, argues about them across three model vendors, and ranks them by forced pairwise choice. I am
-              the art director: I pick one.
+              them, argues about them, and ranks them by forced pairwise choice. I am the art director: I pick
+              one.
             </p>
             <p>
               Then I paint it by hand, and it stops obeying. The tape edge runs straight where the cell is
@@ -37,111 +42,63 @@ export default function AboutPage() {
               That divergence is measured too — the finished canvas is photographed and pushed back through the
               same analyser, and the delta between sketch and painting is published with the work.
             </p>
+            <p style={{ fontStyle: "italic" }}>Hand teaches the algorithm. Algorithm proposes to the hand.</p>
+
+            <h2>Who argues</h2>
             <p>
-              <em>Hand teaches the algorithm. Algorithm proposes to the hand.</em>
+              Six judges. Two to a vendor, and each one is a single persona pinned to a single model — not a role
+              replayed across whatever happens to be cheap that week. <strong>Ford</strong> reads mass, and
+              whether the thing holds a wall from four metres. <strong>Maeve</strong> reads the hand, and whether
+              it could hang in a series. <strong>Arnold</strong> reads craft: proportion, and colour placed
+              rather than distributed. <strong>Hector</strong> reads colour and nothing else — heat, and whether
+              it was decided or merely arrived at. <strong>Angela</strong> is eight years old and nobody has told
+              her what art is. <strong>Stubbs</strong> looks for what comes apart at the seams, and awards
+              nothing for beauty.
+            </p>
+            <p>
+              Two to a vendor is the whole point of the arrangement. Disagreement is the measurement here — the
+              share of pairs where two vendors split on the same two images — and a vendor needs more than one
+              voice before a split means anything. They are given genuinely different things to care about for
+              the same reason: six prompts that say the same thing on six models is one opinion, six times.
+            </p>
+            <p>
+              Six agents propose. Bernard tightens, Dolores breaks, Akecheta removes, Akane moves colour,
+              Clementine yields, Felix works the brush itself.
+            </p>
+            <p>
+              And <strong>System</strong>, which is nobody. Eight of every thirty-two proposals are a seeded
+              mutation with no model in the loop at all, judged in the same tournament under the same rules. It
+              is the control group — what the six have to beat, and a standing check on whether the agents are
+              searching or just spending.
             </p>
 
-            <hr />
-            <h2>Update 1 — a third vendor</h2>
+            <h2>What you are watching</h2>
             <p>
-              The syndicate started with two model vendors, Anthropic and xAI, each judging the other&apos;s
-              proposals so disagreement meant something. It is now three — OpenAI joined both sides, generating
-              and judging. Three independent opinions land on an unusual finalist more often than two do, and
-              disagreement across three reads more like a jury than a coin flip. It costs more per shift. That is
-              a deliberate trade, not an oversight — the syndicate searches, I still paint, and a canvas sold pays
-              that back.
+              A shift is a real spend, live. Thirty-two images are proposed once and rendered; each one appears
+              the moment it exists. Then the judges argue, and their verdicts arrive underneath as each vendor
+              actually answers, not batched at the end. The shift&apos;s own ranking is then halved four times —
+              32 to 16 to 8 to 4 to 2 — so what you are reading down the page is one field narrowing, not five
+              separate rounds of fresh work.
+            </p>
+            <p>
+              Every verdict is real. Where the vendors disagreed on a pair, the disagreement is kept rather than
+              averaged away; it is usually the most interesting thing in the record. Nothing here is a
+              placeholder — if a call failed, the failure is what got written down.
             </p>
 
-            <hr />
-            <h2>Update 2 — names, and cloth that behaves like cloth</h2>
+            <h2>What the cloth will not do</h2>
             <p>
-              Every judge and every generator now has a name instead of a role id — Ford, Maeve, Arnold and
-              Angela judge; Bernard, Dolores, Akecheta, Akane, Clementine and Felix propose. FINAL.md attributes
-              each verdict to whoever said it. The point isn&apos;t decoration: a jury of models arguing under real
-              names, in the open, is more interesting to watch than a table of scores, and this repository is
-              meant to be watched, not only read.
-            </p>
-            <p>
-              The generators also learned what canvas they&apos;re actually sketching for. Round one of the first
-              real shift produced compositions no cloth makes — a fold at a shallow angle, an overhang past
-              nothing, drape sitting at zero. The range an agent may propose in is now the range real stretched
-              cloth occupies, and it changes with the physical canvas: 60×80cm fixes a single vertical ribbon,
-              100×100cm allows up to three, and a 120×90cm canvas is the same composition as 60×80cm, painted on
-              its side.
+              The first real shift produced compositions no cloth makes: a fold at a shallow angle, an overhang
+              past nothing, drape sitting at zero. The range an agent may propose in is now the range real
+              stretched cloth occupies, and it moves with the physical canvas — 60×80cm fixes a single vertical
+              ribbon, 100×100cm allows up to three, and a 120×90cm canvas is the same composition as 60×80cm
+              painted on its side. The agents are told why, not only clamped.
             </p>
 
-            <hr />
-            <h2>Update 3 — RubensJournal</h2>
-            <p>
-              Judging used to be treated as something to hide until it was finished — the whole record appeared
-              at once, only once every vendor had finished. RubensJournal makes it the opposite: the point.
-            </p>
-            <p>
-              RubensJournal is a public feed. A brief is created on the site — pick a canvas size, attach a
-              reference photograph, write the instruction — and a shift runs, live: each variant appears the
-              moment it renders, and the named judges&apos; verdicts trickle in underneath it as each vendor
-              actually returns them, not batched at the end of the round.
-            </p>
-            <p>
-              The site itself stays static — it never runs the shift. A shift is real compute against real, slow
-              APIs, so it runs in GitHub Actions, dispatched by the site, writing to Supabase as it goes.
-            </p>
-
-            <hr />
-            <h2>Update 4 — two speeds</h2>
-            <p>
-              A shift used to take between one and three hours — every judge call went through the vendors&apos;
-              batch APIs, queues with a 24-hour SLA, polled one vendor after another. Live shift mode
-              (<code className="mono">judging.useBatchApi: false</code>, the default) puts every call on the
-              ordinary endpoint, pooled, so a round takes seconds rather than the sum of three queues. Night
-              shift, the original batch path, is kept for large unattended runs where the discount is worth the
-              wait.
-            </p>
-
-            <hr />
-            <h2>Update 5 — a brief can carry up to four references</h2>
-            <p>
-              A brief now carries references, 1–4 entries, one per colour layer it wants to override; a slot it
-              leaves out keeps the generator&apos;s own built-in study for that layer. A generator agent can
-              propose moving a study from one layer to another, which it never could before.
-            </p>
-
-            <hr />
-            <h2>What is in this repository</h2>
-            <table className="repo-map">
-              <tbody>
-                <tr>
-                  <td>generator/</td>
-                  <td>The parametric generator. One HTML file, no build, no dependencies.</td>
-                </tr>
-                <tr>
-                  <td>src/engine/</td>
-                  <td>The same drawing code as a library, so the browser and the command line render identically.</td>
-                </tr>
-                <tr>
-                  <td>src/syndicate/</td>
-                  <td>The agents: proposal, rendering, pairwise judging, ranking.</td>
-                </tr>
-                <tr>
-                  <td>runs/</td>
-                  <td>Every shift, kept whole: proposals, renders, verdicts, disagreements.</td>
-                </tr>
-                <tr>
-                  <td>studies/</td>
-                  <td>The hand-painted colour studies the palettes are read from.</td>
-                </tr>
-                <tr>
-                  <td>canvases/</td>
-                  <td>Finished paintings and their deviation reports.</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <hr />
             <h2>Method, honestly stated</h2>
             <p>
               The agents do not invent the mechanics. They search a space I built. Every structural idea in the
-              generator — the ribbon deformation, the cell-bounded dye, the layer stack — came from the hand and
+              generators — the ribbon deformation, the cell-bounded dye, the layer stack — came from the hand and
               the eye, not from a model.
             </p>
             <p>
@@ -182,11 +139,30 @@ export default function AboutPage() {
             </div>
           </div>
           <div className="panel">
-            <div className="panel-head">Running a shift</div>
+            <div className="panel-head">One shift, in numbers</div>
             <div className="panel-body">
-              <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: "var(--text-2)" }}>
-                Live shift — ordinary endpoints, pooled, minutes. Night shift — batch APIs, cheaper, hours. Set by{" "}
-                <span className="mono">judging.useBatchApi</span>.
+              <div className="stat-row">
+                <span className="k">proposals</span>
+                <span className="mono">32</span>
+              </div>
+              <div className="stat-row">
+                <span className="k">of those, no model</span>
+                <span className="mono">8</span>
+              </div>
+              <div className="stat-row">
+                <span className="k">pairs judged</span>
+                <span className="mono">48</span>
+              </div>
+              <div className="stat-row">
+                <span className="k">judges</span>
+                <span className="mono">6</span>
+              </div>
+              <div className="stat-row">
+                <span className="k">real verdicts</span>
+                <span className="mono">288</span>
+              </div>
+              <p style={{ marginTop: 10, fontSize: 12, lineHeight: 1.6, color: "var(--text-secondary)" }}>
+                Every one of them kept, with who said it and on which model.
               </p>
             </div>
           </div>

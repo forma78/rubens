@@ -19,8 +19,8 @@ The generator then lays synthetic strokes by drawing from that probability — s
 the boundaries interlock in the same combed fingers my brush leaves.
 
 A syndicate of agents searches the space that generator opens. It proposes
-compositions, renders them, argues about them across three model vendors, and
-ranks them by forced pairwise choice. I am the art director: I pick one.
+compositions, renders them, argues about them, and ranks them by forced pairwise
+choice. I am the art director: I pick one.
 
 Then I paint it by hand, and it stops obeying. The tape edge runs straight where
 the cell is curved, the impasto stands up off the surface, a colour goes
@@ -32,133 +32,89 @@ Hand teaches the algorithm. Algorithm proposes to the hand.
 
 ---
 
-## Update 1 — a third vendor
+## Who argues
 
-The syndicate started with two model vendors, Anthropic and xAI, each judging
-the other's proposals so disagreement meant something. It is now three —
-OpenAI joined both sides, generating and judging. Three independent opinions
-land on an unusual finalist more often than two do, and disagreement across
-three reads more like a jury than a coin flip. It costs more per shift. That
-is a deliberate trade, not an oversight — the syndicate searches, I still
-paint, and a canvas sold pays that back.
+Six judges. Two to a vendor, and each one is a single persona pinned to a single
+model — not a role replayed across whatever happens to be cheap that week.
 
----
+| | | |
+|---|---|---|
+| **Ford** | mass, and whether the thing holds a wall from four metres | `claude-opus-5` |
+| **Maeve** | the hand, and whether it could hang in a series | `claude-sonnet-5` |
+| **Arnold** | craft: proportion, and colour placed rather than distributed | `grok-4.3` |
+| **Hector** | colour only — heat, and whether it was decided or arrived at | `grok-4.5` |
+| **Angela** | eight years old, nobody has told her what art is | `gpt-5.6-luna` |
+| **Stubbs** | what comes apart at the seams; awards nothing for beauty | `gpt-5.4` |
 
-## Update 2 — names, and cloth that behaves like cloth
+Two to a vendor is the whole point of the arrangement. Disagreement is the
+measurement here — the share of pairs where vendors split on the same two
+images — and a vendor needs more than one voice before a split means anything.
+They are given genuinely different things to care about for the same reason:
+six prompts that say the same thing on six models is one opinion, six times.
 
-Every judge and every generator now has a name instead of a role id — Ford,
-Maeve, Arnold and Angela judge; Bernard, Dolores, Akecheta, Akane, Clementine
-and Felix propose. `FINAL.md` attributes each verdict to whoever said it. The
-point isn't decoration: a jury of models arguing under real names, in the
-open, is more interesting to watch than a table of scores, and this
-repository is meant to be watched, not only read.
+Six agents propose: Bernard tightens, Dolores breaks, Akecheta removes, Akane
+moves colour, Clementine yields, Felix works the brush itself.
 
-The generators also learned what canvas they're actually sketching for.
-Round one of the first real shift produced compositions no cloth makes — a
-fold at a shallow angle, an overhang past nothing, drape sitting at zero.
-The range an agent may propose in is now the range real stretched cloth
-occupies, and it changes with the physical canvas: 60×80cm fixes a single
-vertical ribbon, 100×100cm allows up to three, and a 120×90cm canvas is the
-same composition as 60×80cm, painted on its side. The agents are told why,
-not only clamped — a brushstroke covers proportionally less of a bigger
-canvas, and that's worth knowing, not just enforcing.
+And **System**, which is nobody. Eight of every thirty-two proposals are a
+seeded mutation with no model in the loop at all, judged in the same tournament
+under the same rules. It is the control group — what the six have to beat, and
+a standing check on whether the agents are searching or just spending.
 
-Finished shifts now archive to Supabase too — brief, every variant, every
-comparison. Metadata for now; images once there is a site worth showing them
-on.
+Every verdict kept in `runs/` carries who said it, on which model, when, and the
+vendor's own request id. Where vendors disagreed on a pair, the disagreement is
+kept rather than averaged away; it is usually the most interesting thing in the
+file.
 
 ---
 
-## Update 3 — RubensJournal
+## Two generators
 
-A live shift runs in minutes; the batch mode it replaced took one to three
-hours. See "Update 4 — two speeds". Either way, judging used to be
-treated as something to hide until it was finished — the whole record
-appeared at once, only once every vendor had finished. RubensJournal makes it
-the opposite: the point.
+Both draw the same cloth: panels clipped by ribbons, per-edge offsets, a
+Gaussian drape field, a rounded outline — geometry derived by hand over many
+sessions and frozen since. What differs is what gets laid inside the cells.
 
-RubensJournal is a public feed. A brief is created on the site — pick a
-canvas size, attach a reference photograph, write the instruction — and a
-shift runs, live: each variant appears the moment it renders, and the
-named judges' verdicts trickle in underneath it as each vendor actually
-returns them, not batched at the end of the round. Watching three juries
-argue in something close to real time is more interesting than a table of
-final scores, and this project has always been about publishing the
-process, not just the result.
+- **Model 1** dyes them: colour fields drawn from the probability distribution
+  read out of a real painted study, up to four studies per brief, any layer free
+  to show any one of them.
+- **Model 2** rules them: short ink bars from a small library, five stacked
+  layers, each taking a share of the cells and laying them one way.
 
-The site itself stays static — it never runs the shift. A shift is real
-compute against real, slow APIs, so it runs in GitHub Actions, dispatched
-by the site, writing to Supabase as it goes. The static/no-secrets shape
-SPEC.md always asked for is unchanged; a shift just happens somewhere the
-site can trigger but doesn't have to host.
+They are not two copies of a similar idea. The cloth is literally the same
+functions — `src/engine2/` imports them from `src/engine/` — because two copies
+of frozen hand-derived maths is two things free to drift apart.
 
 ---
 
-## Update 4 — two speeds
+## What the cloth will not do
 
-A shift used to take between one and three hours. The first real one hit the
-Actions 60-minute ceiling halfway through an OpenAI batch and died there; the
-ceiling went up to 180 minutes, which fixed the symptom and admitted the
-problem.
+The first real shift produced round-one compositions that no cloth makes: a fold
+at a shallow angle, an overhang past nothing, drape sitting at zero. The range an
+agent may propose in is now the range real stretched cloth occupies, and it moves
+with the physical canvas — 60×80cm fixes a single vertical ribbon, 100×100cm
+allows up to three, and a 120×90cm canvas is the same composition as 60×80cm
+painted on its side.
 
-None of that time was work. Every judge call went through the vendors' **batch
-APIs** — queues with a 24-hour SLA and a 50% discount, polled every 15 seconds
-— and the three vendors were polled one after another, so a round cost the sum
-of three queues rather than the length of the longest call. Batch is the right
-tool for ten thousand calls nobody is waiting on. It is the wrong tool for a
-composition search someone is watching happen.
-
-There are now two modes, set by `judging.useBatchApi` in
-`config/syndicate.json`.
-
-**Live shift** (`false`, the default). Every call goes out on the ordinary
-endpoint. Proposals, renders and judgments are each pooled —
-`limits.concurrency` sets how many of each run at once — and all three vendors
-share one pool, so nobody waits for anybody. A round is the slowest call times
-the number of waves. Verdicts still stream to the feed as they land, in groups
-of `judging.streamEvery`.
-
-**Night shift** (`true`). The original batch path, kept intact, for large
-unattended runs where the discount is worth the queue. The three vendors' batches
-are now submitted and polled concurrently instead of in series, so even this
-mode costs one queue rather than three.
-
-Determinism survived the change. Variant ids and seeds are derived from the job
-index rather than a running counter, `mapPool` returns results in input order,
-and the comparisons array is assembled in call order — Elo applies its
-K-factor updates sequentially, so that ordering is part of what makes a shift
-reproducible. Log writes reached from inside a pool are serialised: two
-concurrent appends to `runs/<slug>/round-N/comparisons.jsonl` can interleave
-into one corrupt line, and everything under `runs/` is evidence.
-
-What this does not do is reduce the number of calls. A late round still issues
-around nine hundred judgments, because the pairwise tournament grows with the
-field, the number of active roles and the number of vendors all at once.
-Parallelism turns that from hours into minutes; getting a round under thirty
-seconds needs the field cut before the tournament rather than the tournament
-made cheaper. That is the screening stage, next.
+The agents are told why, not only clamped. A brushstroke covers proportionally
+less of a bigger canvas, and that is worth knowing rather than merely enforcing.
 
 ---
 
-## Update 5 — a brief can carry up to four references
+## RubensJournal
 
-Every shift so far has locked every one of the four colour layers to
-whichever single photo the brief supplied, because that's what this
-document said to build. It was a gap against the tool itself: the
-generator has always had a real "Reference library" — four studies, any
-layer free to show any one of them — and a shift never got to use it.
+[rubens-pearl.vercel.app](https://rubens-pearl.vercel.app) is the public feed.
 
-A brief now carries `references`, 1–4 entries, one per colour layer it
-wants to override; a slot it leaves out keeps the generator's own built-in
-study for that layer, declared by name (`"color_02"`, not silently
-substituted) in `base-state.json`'s `refs[]`. `L[i].ref` — which of the
-four a layer shows — is patchable now too, the same as any other layer
-field: a generator agent can propose moving a study from one layer to
-another, which it never could before.
+A brief is composed on the site — canvas size, up to four reference photographs,
+the instruction — and a shift runs live: each variant appears the moment it
+renders, and the judges' verdicts arrive underneath as each vendor actually
+answers, not batched at the end. Thirty-two images are proposed once, then the
+shift's own ranking is halved four times, 32 → 16 → 8 → 4 → 2.
 
-Two of the shifts already in `runs/` predate this — see `runs/README.md`
-for which, and what to discount in their generator agents' reasoning about
-palettes as a result.
+Judging used to be something to hide until it was finished, the whole record
+appearing at once. This is the opposite, and the reason the site exists.
+
+The site never runs the shift itself. A shift is real compute against real APIs,
+so it runs in GitHub Actions, dispatched by the site, writing to Supabase as it
+goes.
 
 ---
 
@@ -166,52 +122,64 @@ palettes as a result.
 
 | | |
 |---|---|
-| `generator/` | The parametric generator. One HTML file, no build, no dependencies. |
-| `src/engine/` | The same drawing code as a library, so the browser and the command line render identically. |
-| `src/syndicate/` | The agents: proposal, rendering, pairwise judging, ranking. |
+| `generator/` | The two generators. Interface only — each imports its engine. |
+| `src/engine/` | Model 1's drawing code, so the browser and the command line render identically. |
+| `src/engine2/` | Model 2's ink bars. The cloth is imported from `src/engine/`, never copied. |
+| `src/syndicate/` | The agents: proposal, rendering, pairwise judging, ranking, cost. |
+| `site/` | RubensJournal. Static Next.js, reads Supabase with the anon key. |
 | `runs/` | Every shift, kept whole: proposals, renders, verdicts, disagreements. |
 | `studies/` | The hand-painted colour studies the palettes are read from. |
-| `canvases/` | Finished paintings and their deviation reports. |
+| `canvases/` | For finished paintings and their deviation reports. Empty — nothing has been painted from a shift yet. |
 
-The `runs/` folder is the point. Every verdict carries the model that produced
-it, its version, the timestamp and the request id. Where the vendors disagreed
-on the same pair, the disagreement is kept rather than averaged away — it is
-usually the most interesting thing in the file.
+`runs/` is the point. A run that cannot be reproduced cannot be published, and
+publishing the runs is the entire project.
 
 ---
 
 ## Running it
 
-The generator alone needs nothing. Open `generator/index.html` in a browser.
+Node 20+, an Anthropic key, an xAI key, an OpenAI key, and a Supabase project.
+`docs/SPEC.md` is the contract; `CLAUDE.md` is how to work in here.
 
-The syndicate needs Node 20+, an Anthropic key, an xAI key, an OpenAI key and
-a Supabase project. See `docs/SPEC.md`.
+The generators are single HTML files that import their engine as ES modules, so
+they are served, not opened from disk:
 
 ```bash
-# live shift (default): ordinary endpoints, pooled, minutes
-node src/syndicate/run.js --brief-id <uuid> --publish
-
-# night shift: batch APIs, cheaper, hours — set judging.useBatchApi true first
+npm i
+npm run dev          # then /generator/ or /generator/index2.html
 ```
 
-`limits.concurrency` in `config/syndicate.json` controls how many calls are in
-flight per stage — `{ propose: 12, render: 6, judge: 24 }` by default. Lower
-`judge` first if a vendor starts returning 429s; `render` is synchronous CPU
-work and gains nothing above a handful of cores.
+A shift:
+
+```bash
+node src/syndicate/run.js --brief-id <uuid> --publish
+```
+
+It runs one real round: thirty-two proposals, rendered, then a pairwise
+tournament — forty-eight pairs, six judges, 288 real verdicts. Every call goes
+out on the ordinary endpoint, pooled, and the round takes tens of seconds.
+
+A second mode is kept for unattended volume: `judging.useBatchApi` sends the
+same work through the vendors' batch queues at half the price and a 24-hour SLA.
+It is not the default and should not become it — a shift is fast because it is
+watched.
+
+There is a hard spend cap in `config/syndicate.json`. It is not there to be
+raised when something doesn't fit.
 
 ---
 
 ## Method, honestly stated
 
 The agents do not invent the mechanics. They search a space I built. Every
-structural idea in the generator — the ribbon deformation, the cell-bounded
+structural idea in the generators — the ribbon deformation, the cell-bounded
 dye, the layer stack — came from the hand and the eye, not from a model.
 
 The judges see a rendered image at the size of a postcard. They read
-composition, proportion and colour distribution well. They are blind to
-impasto, to the ridge a loaded brush leaves, to what the surface does in raking
-light. That is the boundary of the instrument, and it is why a human still
-paints the result.
+composition, proportion and colour distribution well. They are blind to impasto,
+to the ridge a loaded brush leaves, to what the surface does in raking light.
+That is the boundary of the instrument, and it is why a human still paints the
+result.
 
 ---
 
