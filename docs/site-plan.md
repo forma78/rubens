@@ -204,6 +204,32 @@ just does so at reading speed instead of overnight.
       standing`) rather than letting a verdict about another pair pass as
       the final call.
 
+- [x] C1b. **Six judges, two per vendor, each on its own model** (2026-08-21).
+      The sidebar used to read `Ford / architect / rounds 1-5`: a role id
+      where a model belongs, and a rounds range that says nothing once
+      every judge judges the one round there is. A judge is now one persona
+      pinned to one model — `config/roles.json` carries `vendor` + `model`
+      per judge, `src/syndicate/judges.js` resolves them, and the sidebar
+      prints `Ford / claude-opus-5 / Anthropic`. Two new Westworld seats:
+      **Hector** (colourist — colour, heat, nerve) and **Stubbs**
+      (inspector — what comes apart at the seams).
+
+      Fewer calls, not more: one call per pair per judge instead of four
+      personas across three vendors is 6 instead of 12. Measured on real
+      renders with one live call per judge — **$1.14 a round against $1.62**
+      before, ~30% less even with Opus 5 among them.
+
+      Every model id was listed live on its vendor's own API that day and
+      sent a real image to confirm it can see, then a real judge call
+      through the actual vendor module. `grok-4-mini` does not exist —
+      xAI has no mini variant at all. Prices in `src/syndicate/cost.js`
+      were re-checked: Opus 5 had been sitting at $15/$75 against a real
+      $5/$25, so `maxUsd` would have aborted a shift that had spent a third
+      of the cap. Nothing in that table is UNVERIFIED any more, and
+      `test/roles.test.js` now fails the suite if a judge names a model
+      with no verified price — the old failure mode was discovering it
+      inside `costTracker.add()`, after the call was already paid for.
+
 - [ ] C2. The owner's "pick the finalist" action, on-site, writing to
       `reactions`.
 

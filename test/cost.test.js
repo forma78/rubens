@@ -23,11 +23,14 @@ test('usdForUsage prices cached input tokens at the cached rate, not the full ra
 
 test('usdForUsage treats Anthropic cache fields as additive, not a subset of input_tokens', () => {
   // input_tokens (fresh) and cache_read_input_tokens are two separate token
-  // pools for Anthropic — both get billed, on top of each other. With no
-  // distinct cachedInput rate configured, cache_read falls back to the full
-  // input rate, so this must equal (1M + 400k) tokens at $3/M, not 1M.
-  const usd = usdForUsage('anthropic', 'claude-sonnet-5', { input_tokens: 1_000_000, output_tokens: 0, cache_read_input_tokens: 400_000 });
-  assert.equal(usd, 4.20);
+  // pools for Anthropic — both get billed, on top of each other. 1M fresh
+  // at $3/M plus 400k read at the $0.30/M cache-read rate.
+  const withCache = usdForUsage('anthropic', 'claude-sonnet-5', { input_tokens: 1_000_000, output_tokens: 0, cache_read_input_tokens: 400_000 });
+  const withoutCache = usdForUsage('anthropic', 'claude-sonnet-5', { input_tokens: 1_000_000, output_tokens: 0 });
+  assert.equal(withCache, 3.12);
+  // the point of the test: read tokens are charged on top of the full 1M,
+  // never carved out of it — treating them as a subset would undercount
+  assert.ok(withCache > withoutCache, 'cache reads must add to the bill, not be subtracted from input_tokens');
 });
 
 test('usdForUsage accepts OpenAI itself (same shape as xAI, since xAI is the openai client at a different base_url)', () => {

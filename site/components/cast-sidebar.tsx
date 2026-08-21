@@ -2,7 +2,9 @@ import { JUDGES, GENERATORS, initial, vendorLabel } from "@/lib/roles";
 
 // Judges + Generators panels — used by both Live and Canon (design_handoff's
 // "The cast"). Static, from config/roles.json (mirrored in lib/roles.ts):
-// who's in the syndicate doesn't change per shift.
+// who's in the syndicate doesn't change per shift. A judge shows the model
+// it actually answers on, not its role id — "rounds 1-5" used to sit here
+// and said nothing once every judge judges every round.
 export function CastSidebar() {
   return (
     <>
@@ -16,11 +18,9 @@ export function CastSidebar() {
               </div>
               <div>
                 <span className="cast-name">{j.name}</span>
-                <span className="cast-tag">{j.id}</span>
+                <span className="cast-tag">{j.model}</span>
               </div>
-              <span className="cast-detail">
-                rounds {j.rounds[0]}-{j.rounds[j.rounds.length - 1]}
-              </span>
+              <span className="cast-detail">{vendorLabel(j.vendor)}</span>
             </div>
           ))}
         </div>

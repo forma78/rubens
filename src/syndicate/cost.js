@@ -13,9 +13,18 @@
 
 const PRICING = {
   anthropic: {
-    // UNVERIFIED — check against platform.claude.com/docs before real spend
-    'claude-opus-5':   { input: 15.00, output: 75.00, verified: false },
-    'claude-sonnet-5': { input: 3.00, output: 15.00, verified: false },
+    // Confirmed against Anthropic's own current pricing, 2026-08-21, and
+    // both ids confirmed live on GET /v1/models the same day. Opus 5 was
+    // carrying 15.00/75.00 here — three times its real price, unverified
+    // since the day it was written — so maxUsd would have aborted a shift
+    // that had barely spent a third of the cap. Cache rates are the
+    // standard multipliers: a write costs 1.25x a fresh input token, a
+    // read 0.1x.
+    'claude-opus-5':   { input: 5.00, cacheWriteInput: 6.25, cachedInput: 0.50, output: 25.00, verified: true },
+    // Sonnet 5 is on introductory pricing (2.00/10.00) through 2026-08-31;
+    // the standard rate is what's recorded, so the cap over-estimates
+    // rather than under-estimates while the intro lasts.
+    'claude-sonnet-5': { input: 3.00, cacheWriteInput: 3.75, cachedInput: 0.30, output: 15.00, verified: true },
   },
   xai: {
     // confirmed against the docs.x.ai pricing page, 2026-08-17
@@ -32,6 +41,12 @@ const PRICING = {
     // tokens — isn't stated anywhere in the docs; only real spend data
     // after the switch will confirm that part.
     'grok-4.3': { input: 1.25, cachedInput: 0.20, output: 2.50, verified: true },
+    // Not a judge today — here so swapping the second xAI seat is one line.
+    // Same tier and same source as grok-4.6 above (docs.x.ai, <200k), and a
+    // real judge call on 2026-08-21 billed consistently with $2/M in.
+    // Measured on that call: 6.9s and 456 reasoning tokens, against
+    // grok-4.6's 48s and 2239 for the same pair of images.
+    'grok-4.5': { input: 2.00, cachedInput: 0.50, output: 6.00, verified: true },
   },
   openai: {
     // confirmed against platform.openai.com/docs/pricing, 2026-08-17.
@@ -40,6 +55,14 @@ const PRICING = {
     // gpt-5.1 generator, by deliberate choice, not an oversight.
     'gpt-5.1':      { input: 1.25, cachedInput: 0.125, output: 10.00, verified: true },
     'gpt-5.4-mini': { input: 0.75, cachedInput: 0.075, output: 4.50, verified: true },
+    // Judges, added 2026-08-21. Both ids listed live on GET /v1/models and
+    // prices read off developers.openai.com/api/docs/pricing the same day.
+    // Both were also sent a real image and asked to name its colour before
+    // going in here — the pricing page does not list either under its
+    // multimodal section, and a judge that cannot see is a judge that
+    // fails on every call.
+    'gpt-5.6-luna': { input: 0.20, cachedInput: 0.02, output: 1.20, verified: true },
+    'gpt-5.4':      { input: 2.50, cachedInput: 0.25, output: 15.00, verified: true },
   }
 };
 

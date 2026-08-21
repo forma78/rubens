@@ -12,7 +12,7 @@ type CanvasFormat = (typeof CANVAS_FORMATS)[number];
 // config/syndicate.json's real defaults, mirrored the same way
 // lib/roles.ts mirrors config/roles.json — Vercel's Root Directory is
 // `site`, so nothing outside it is guaranteed to exist in the build.
-const ESTIMATE = { rounds: 5, proposalsPerRound: 32, studies: 4, judges: 4 };
+const ESTIMATE = { rounds: 1, proposalsPerRound: 32, studies: 4, judges: 6 };
 
 type Slot =
   | { status: "empty" }

@@ -102,7 +102,11 @@ const screenConfig = {
   screening: { enabled: true, finalists: 4, minHammingDistance: 0, tilePx: 16, cols: 4, maxTilesPerSheet: 12 },
 };
 const roles = {
-  judges: [{ id: 'architect', vendors: ['anthropic', 'xai', 'openai'], prompt: 'judge weight', rounds: [1] }],
+  judges: [
+    { id: 'architect', vendor: 'anthropic', model: 'claude-sonnet-5', prompt: 'judge weight' },
+    { id: 'colourist', vendor: 'xai', model: 'grok-4.3', prompt: 'judge colour' },
+    { id: 'gallerist', vendor: 'openai', model: 'gpt-5.4-mini', prompt: 'judge hand' },
+  ],
 };
 const brief = { instruction: 'Anxious.' };
 

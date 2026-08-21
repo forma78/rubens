@@ -35,6 +35,7 @@ import { renderToPng } from './render-core.js';
 import { toTransmitJpeg } from './image.js';
 import { round1Pairs, swissPairs } from './pairing.js';
 import { eloRound, disagreement } from './elo.js';
+import { judgeVendor, judgeModel, activeJudges } from './judges.js';
 import * as anthropic from './vendors/anthropic.js';
 import * as xai from './vendors/xai.js';
 import * as openai from './vendors/openai.js';
@@ -237,31 +238,33 @@ async function judgeRound({
     ? round1Pairs(ids, config.judging.pairsPerVariantPerJudge, seedBase + roundNum)
     : swissPairs(ids, id => byId.get(id).seedRating ?? 1500, config.judging.pairsPerVariantPerJudge, config.judging.extraRandomPairsPerVariant, seedBase + roundNum);
 
-  const activeJudges = roles.judges.filter(j => j.rounds.includes(roundNum));
+  const judges = activeJudges(roles, roundNum);
   const rnd = mk(seedBase + roundNum * 7919);
 
-  // every (pair, judge role, vendor) is one comparison request
+  // every (pair, judge) is one comparison request — a judge is one persona
+  // on one model now, not a persona replayed across three vendors
   const calls = [];
   for (const [a, b] of pairs) {
     const pairId = `${a}|${b}`;
     const swapped = config.judging.shuffleSlots && rnd() < 0.5;
     const [slotA, slotB] = swapped ? [b, a] : [a, b];
-    for (const role of activeJudges) {
-      for (const vendor of role.vendors) {
-        calls.push({ pairId, a, b, slotA, slotB, role, vendor });
-      }
+    for (const role of judges) {
+      calls.push({ pairId, a, b, slotA, slotB, role, vendor: judgeVendor(role), model: judgeModel(role, config) });
     }
   }
 
-  const callsByVendor = new Map();
+  // batches are per vendor *and* per model: two judges share a vendor but
+  // not a model, and one batch cannot carry two models
+  const callsByLane = new Map();
   for (const c of calls) {
-    if (!callsByVendor.has(c.vendor)) callsByVendor.set(c.vendor, []);
-    callsByVendor.get(c.vendor).push(c);
+    const key = `${c.vendor}|${c.model}`;
+    if (!callsByLane.has(key)) callsByLane.set(key, { vendor: c.vendor, model: c.model, calls: [] });
+    callsByLane.get(key).calls.push(c);
   }
 
   const logOne = serialise(logComparison);
   const judgePayload = (c) => ({
-    model: config.models[c.vendor]?.judge,
+    model: c.model,
     rolePrompt: c.role.prompt,
     brief,
     maxWords: config.judging.maxWords,
@@ -271,7 +274,7 @@ async function judgeRound({
   });
 
   if (config.judging?.useBatchApi === true) {
-    return { comparisons: await judgeViaBatches({ callsByVendor, judgePayload, config, clients, costTracker, logOne, onComparisons }) };
+    return { comparisons: await judgeViaBatches({ callsByLane, judgePayload, config, clients, costTracker, logOne, onComparisons }) };
   }
 
   // ---- live path -------------------------------------------------------
@@ -291,7 +294,7 @@ async function judgeRound({
 
   const results = await mapPool(calls, lanes(config).judge, async (c) => {
     if (costTracker.capped()) return null;
-    const model = config.models[c.vendor]?.judge;
+    const model = c.model;
     let r;
     try {
       r = await VENDOR_MODULES[c.vendor].judge(clients[c.vendor], judgePayload(c));
@@ -308,18 +311,18 @@ async function judgeRound({
   return { comparisons: results.filter(Boolean) };
 }
 
-/** Night mode. One batch per vendor as before, but the vendors run
- *  concurrently — three queues that each take up to an hour should cost an
- *  hour, not three. Results are still assembled in vendor-then-call order
- *  so the comparisons array stays reproducible. */
-async function judgeViaBatches({ callsByVendor, judgePayload, config, clients, costTracker, logOne, onComparisons }) {
-  const vendors = [...callsByVendor.keys()];
-  const perVendor = new Map();
+/** Night mode. One batch per vendor *and model* — two judges can share a
+ *  vendor without sharing a model — and the lanes run concurrently: queues
+ *  that each take up to an hour should cost an hour, not one after another.
+ *  Results are still assembled in lane-then-call order so the comparisons
+ *  array stays reproducible. */
+async function judgeViaBatches({ callsByLane, judgePayload, config, clients, costTracker, logOne, onComparisons }) {
+  const laneKeys = [...callsByLane.keys()];
+  const perLane = new Map();
 
-  await Promise.all(vendors.map(async (vendor) => {
-    const vendorCalls = callsByVendor.get(vendor);
+  await Promise.all(laneKeys.map(async (laneKey) => {
+    const { vendor, model, calls: vendorCalls } = callsByLane.get(laneKey);
     if (!vendorCalls.length || costTracker.capped()) return;
-    const model = config.models[vendor]?.judge;
     const client = clients[vendor];
     const adapter = BATCH_ADAPTERS[vendor];
     const out = [];
@@ -349,11 +352,11 @@ async function judgeViaBatches({ callsByVendor, judgePayload, config, clients, c
       out.push(...recs.filter(Boolean));
     }
 
-    perVendor.set(vendor, out);
+    perLane.set(laneKey, out);
     if (onComparisons && out.length) await onComparisons(out);
   }));
 
-  return vendors.flatMap(v => perVendor.get(v) ?? []);
+  return laneKeys.flatMap(k => perLane.get(k) ?? []);
 }
 
 /** Records one comparison to the log and returns it, or returns null if the

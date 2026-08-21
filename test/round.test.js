@@ -21,8 +21,12 @@ const config = {
 };
 const roles = {
   judges: [
-    { id: 'architect', vendors: ['anthropic', 'xai', 'openai'], prompt: 'judge weight', rounds: [1, 2] },
-    { id: 'gallerist', vendors: ['anthropic', 'xai', 'openai'], prompt: 'judge hand', rounds: [2] },
+    // a judge is one persona on one model (config/roles.json, 2026-08-21).
+    // Three judges over three vendors here, one of them gated to round 2 so
+    // the `rounds` filter still has something to filter.
+    { id: 'architect', name: 'Ford', vendor: 'anthropic', model: 'claude-sonnet-5', prompt: 'judge weight' },
+    { id: 'colourist', name: 'Hector', vendor: 'xai', model: 'grok-4.3', prompt: 'judge colour' },
+    { id: 'gallerist', name: 'Maeve', vendor: 'openai', model: 'gpt-5.4-mini', prompt: 'judge hand', rounds: [2] },
   ],
   generators: [
     { id: 'gen-tight', vendor: 'anthropic', prompt: 'tighten' },
@@ -101,17 +105,24 @@ test('judgeRound (round 1): every active judge x vendor evaluates the round-1 pa
     clients, costTracker, dry: false, seedBase: 3, logComparison: (e) => logged.push(e),
   });
 
-  // round 1: only 'architect' is active (rounds:[1,2] includes 1; 'gallerist' only [2])
-  // pairsPerVariantPerJudge pairs per variant, shared across every active
-  // (role, vendor) combination — 1 active role x 3 vendors here
+  // round 1: 'architect' and 'colourist' judge every round; 'gallerist' is
+  // gated to round 2. One call per (pair, judge) — a judge is no longer
+  // replayed across the vendors.
   const expectedPairs = config.variantsPerRound * config.judging.pairsPerVariantPerJudge / 2;
-  assert.equal(comparisons.length, expectedPairs * 3); // 1 active role x 3 vendors
+  assert.equal(comparisons.length, expectedPairs * 2); // 2 active judges
   assert.equal(logged.length, comparisons.length);
   for (const c of comparisons) {
     assert.ok(children.some(v => v.id === c.winner));
     assert.ok(children.some(v => v.id === c.loser));
     assert.notEqual(c.winner, c.loser);
   }
+
+  // each judge answered on its own pinned model, not on the vendor default
+  const modelByJudge = new Map(comparisons.map(c => [c.judgeId, `${c.vendor}/${c.model}`]));
+  assert.deepEqual([...modelByJudge].sort(), [
+    ['architect', 'anthropic/claude-sonnet-5'],
+    ['colourist', 'xai/grok-4.3'],
+  ]);
 });
 
 test('selectRound returns survivors + wildcards, and honours the configured wildcard count', async () => {

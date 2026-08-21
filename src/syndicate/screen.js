@@ -7,7 +7,8 @@
    so a meaningful share of a round is visually indistinguishable from its
    parent; an average hash catches that for free.
 
-   3b. contact-sheet screening — one call per (sheet, judge role, vendor).
+   3b. contact-sheet screening — one call per (sheet, judge); a judge is
+   one persona on one model (config/roles.json, 2026-08-21).
    Every active judge narrows a numbered contact sheet down to its own
    keepCount, best first; screenRound Borda-aggregates all of those votes
    into one global ranking and keeps the top `finalists`.
@@ -17,6 +18,7 @@
    marks it `screened: true` in ratings.json rather than omitting it. */
 
 import sharp from 'sharp';
+import { judgeVendor, judgeModel, activeJudges } from './judges.js';
 import { mapPool, serialise } from './pool.js';
 import * as anthropic from './vendors/anthropic.js';
 import * as xai from './vendors/xai.js';
@@ -204,11 +206,11 @@ async function screenRound({
     maxTilesPerSheet: screening.maxTilesPerSheet ?? 12,
   });
 
-  const activeJudges = roles.judges.filter(j => j.rounds.includes(roundNum));
+  const judges = activeJudges(roles, roundNum);
   const calls = [];
   for (const [sheetIndex, sheet] of sheets.entries()) {
-    for (const role of activeJudges) {
-      for (const vendor of role.vendors) calls.push({ sheetIndex, sheet, role, vendor });
+    for (const role of judges) {
+      calls.push({ sheetIndex, sheet, role, vendor: judgeVendor(role), model: judgeModel(role, config) });
     }
   }
 
@@ -218,7 +220,7 @@ async function screenRound({
 
   await mapPool(calls, judgeLane, async (c) => {
     if (costTracker.capped()) return;
-    const model = config.models[c.vendor]?.judge;
+    const model = c.model;
     const tileCount = c.sheet.order.length;
     const keepCount = Math.min(finalists, tileCount);
     let r;

@@ -285,7 +285,12 @@ Pairing: round 1 random, every variant appearing in exactly 3 pairs per judge.
 Round 2 onwards Swiss — sort by rating, pair neighbours — plus one random pair
 per variant so the field cannot lock.
 
-Rounds 1 and 2 use two judges to screen cheaply. Rounds 3 to 5 use all of them.
+A judge is one persona pinned to one model, and there are six of them, two per
+vendor (2026-08-21 — before that, four personas were each replayed across all
+three vendors, twelve calls a pair). Every judge judges every round, which is
+one round now. Two judges to a vendor is what keeps `disagreement` below
+measurable at all: it is a split between vendors on the same pair, so a vendor
+has to be represented by more than one voice for the split to mean anything.
 
 **Rank.** Elo. Start every variant of a round at 1500.
 
