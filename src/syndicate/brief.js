@@ -41,6 +41,12 @@ function normaliseBrief(raw, syndicateConfig, label = 'brief') {
   if (raw.ratio !== undefined && (!Number.isInteger(raw.ratio) || raw.ratio < 0 || raw.ratio > 5)) {
     errors.push(`ratio must be an integer 0-5 (got ${JSON.stringify(raw.ratio)})`);
   }
+  // which generator to search. Absent means 1: every brief written before
+  // there was a second one meant that, and a shift that silently ran the
+  // wrong generator would spend real money rendering the wrong thing.
+  if (raw.generator !== undefined && raw.generator !== 1 && raw.generator !== 2) {
+    errors.push(`generator must be 1 or 2 (got ${JSON.stringify(raw.generator)})`);
+  }
   if (raw.rounds !== undefined && (!Number.isInteger(raw.rounds) || raw.rounds < 1)) {
     errors.push(`rounds must be a positive integer (got ${JSON.stringify(raw.rounds)})`);
   }
@@ -66,6 +72,9 @@ function normaliseBrief(raw, syndicateConfig, label = 'brief') {
     instruction: raw.instruction,
     ratio: raw.ratio,
     canvasFormat: raw.canvasFormat,
+    // explicit rather than left undefined: every consumer reads brief.generator
+    // directly, and a normalised brief should say which generator it means
+    generator: raw.generator ?? 1,
     references: raw.references,
     rounds: raw.rounds ?? syndicateConfig.rounds,
     variantsPerRound: raw.variantsPerRound ?? syndicateConfig.variantsPerRound,

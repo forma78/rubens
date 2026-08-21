@@ -314,3 +314,62 @@ test('the real CLI (node src/syndicate/run.js --dry) runs end to end', async () 
     await rm(writtenDir, { recursive: true, force: true });
   }
 });
+
+/* ------------------------------------------------- generator routing ----- */
+
+/* The whole point of the second generator: choosing it has to actually
+   change what gets rendered, all the way down. A shift that quietly ran
+   model 1 while the brief asked for model 2 would spend real money on 32
+   real renders of the wrong thing, and nothing on the page would say so. */
+test('a brief naming generator 2 runs model 2 end to end', async () => {
+  const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-gen2-'));
+  const briefFile = path.join(runsDir, 'brief-2.json');
+  const brief = JSON.parse(await readFile(briefPath, 'utf8'));
+  await (await import('node:fs/promises')).writeFile(
+    briefFile,
+    JSON.stringify({ ...brief, id: 'gen2-brief', generator: 2 }),
+  );
+
+  try {
+    const result = await run({ briefPath: briefFile, dry: true, cwd: root, runsDir });
+    const runDir = path.join(runsDir, 'gen2-brief');
+    const base = JSON.parse(await readFile(path.join(runDir, 'base-state.json'), 'utf8'));
+
+    // model 2's own state shape: layers carry inks, not a study reference
+    assert.ok(base.S.L[0].inks, 'model 2 layers name their inks');
+    assert.equal(base.S.L[0].ref, undefined, "ref is model 1's vocabulary");
+    assert.ok('pitch' in base.S && 'weight' in base.S, "model 2's brush");
+    assert.equal(base.S.ilock, undefined, "ilock is model 1's dye");
+
+    // and no colour studies were analysed for a model that has none
+    assert.deepEqual(base.refs ?? [], [], 'model 2 has no reference library');
+
+    assert.ok(result.finalIds.length > 0, 'the shift still produced a ranked field');
+  } finally {
+    await rm(runsDir, { recursive: true, force: true });
+  }
+});
+
+test('a brief with no generator field still runs model 1, as every old brief meant', async () => {
+  const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-gen1-'));
+  try {
+    await run({ briefPath, dry: true, cwd: root, runsDir });
+    const base = JSON.parse(await readFile(path.join(runsDir, 'test-brief', 'base-state.json'), 'utf8'));
+    assert.equal(base.S.L[0].ref, 0, 'model 1 layers point at a study');
+    assert.ok((base.refs ?? []).length > 0, 'and the reference library is populated');
+  } finally {
+    await rm(runsDir, { recursive: true, force: true });
+  }
+});
+
+test('a brief naming a generator that does not exist is refused, not defaulted', async () => {
+  const runsDir = await mkdtemp(path.join(tmpdir(), 'rubens-gen9-'));
+  const briefFile = path.join(runsDir, 'brief-9.json');
+  const brief = JSON.parse(await readFile(briefPath, 'utf8'));
+  await (await import('node:fs/promises')).writeFile(briefFile, JSON.stringify({ ...brief, generator: 9 }));
+  try {
+    await assert.rejects(() => run({ briefPath: briefFile, dry: true, cwd: root, runsDir }), /generator must be 1 or 2/);
+  } finally {
+    await rm(runsDir, { recursive: true, force: true });
+  }
+});

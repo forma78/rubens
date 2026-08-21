@@ -17,6 +17,7 @@ import { loadBrief, normaliseBrief } from './brief.js';
 import { CANVAS_PROFILES } from './canvas.js';
 import { createCostTracker } from './cost.js';
 import { renderToPng } from './render-core.js';
+import { modelFor } from './models.js';
 import { toTransmitJpeg } from './image.js';
 import { proposeRound, renderRound, judgeRound, selectRound } from './round.js';
 import { screenRound } from './screen.js';
@@ -142,14 +143,23 @@ function hashSeed(str) {
  * PRESETS default rather than collapsing everything onto one photo.
  */
 async function buildBaseState(brief, referencePaths) {
+  const model = modelFor(brief.generator);
+  const state = structuredClone(model.defaultState);
+  state.ratio = brief.ratio;
+
+  // Model 2 has no colour studies at all — its inks are named in its own
+  // state, and the analyser reads stroke direction and pure colours out of a
+  // hand-painted study, which is not what a photograph means to it. Running
+  // the analyser anyway would spend real work producing a palette nothing
+  // downstream reads.
+  if (!model.usesStudies) return { state, refs: [], ovr: [{}, {}, {}, {}, {}], palette: [] };
+
   const refs = PRESETS.map(p => ({ name: p.name, pal: p.pal, prof: p.prof }));
   for (let i = 0; i < Math.min(referencePaths.length, refs.length); i++) {
     if (!referencePaths[i]) continue; // sparse: keep this slot's PRESETS default
     const analysed = await analyseFile(referencePaths[i]);
     refs[i] = { name: referencePaths[i], pal: analysed.pal, prof: analysed.prof };
   }
-  const state = structuredClone(DEFAULT_STATE);
-  state.ratio = brief.ratio;
   return { state, refs, ovr: [{}, {}, {}, {}, {}], palette: refs };
 }
 
@@ -273,7 +283,7 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
   let roundsRun = 0;
   let aborted = false;
 
-  const basePng = await renderToPng(baseState, refs, ovr, { quality: 'preview' });
+  const basePng = await renderToPng(baseState, refs, ovr, { quality: 'preview', model: modelFor(brief.generator).id });
   const baseParent = { id: 'base', state: baseState, png: basePng, source: 'base', intent: 'base state', roundNum: 'base', seedRating: 1500 };
   allVariantsById.set('base', baseParent);
 
@@ -308,6 +318,7 @@ async function run({ briefPath, briefId, dry = false, cwd = process.cwd(), runsD
     // forward from an earlier round already have a row from that round's
     // own pass through this same loop.
     await renderRound(children, refs, ovr, {
+      model: modelFor(brief.generator).id,
       config: syndicateConfig,
       onRendered: async (v) => {
         v.roundNum = `round-${roundNum}`;

@@ -28,7 +28,7 @@
 
 import { mk } from '../engine/rng.js';
 import { mapPool, serialise } from './pool.js';
-import { validate } from './patch.js';
+import { modelFor } from './models.js';
 import { canvasGuidance } from './canvas.js';
 import { mutate } from './mutate.js';
 import { renderToPng } from './render-core.js';
@@ -93,6 +93,10 @@ async function proposeRound({
   parents, roundNum, config, roles, brief, unlockedColours,
   clients, costTracker, dry, seedBase, logProposal, critiquesFor,
 }) {
+  // which generator this shift is searching — its schema gates the patch,
+  // feeds the mechanical mutation's key pool, and is what the agents are
+  // told they are holding (models.js)
+  const model = modelFor(brief.generator);
   const n = config.variantsPerRound;
   const split = config.proposalSplit;
   const modelVendors = Object.keys(split).filter(k => k !== 'mechanical');
@@ -129,7 +133,7 @@ async function proposeRound({
 
     let patch, intent, meta = { id, source, parentId: parent.id };
     if (source === 'mechanical') {
-      patch = mutate(parent.state, seed);
+      patch = mutate(parent.state, seed, model.schema);
       intent = 'mechanical mutation';
     } else {
       const vendorMod = VENDOR_MODULES[source];
@@ -144,6 +148,7 @@ async function proposeRound({
           result = await vendorMod.propose(client, {
             model: models.generator,
             rolePrompt: `${gen.prompt} ${canvasGuidance(brief.canvasFormat)}`,
+            schema: model.schema,
             brief,
             parentState: parent.state,
             parentRenderPng: parentImage,
@@ -156,7 +161,7 @@ async function proposeRound({
       }
       if (!result) {
         await logOne({ id, source, generatorId: gen.id, parentId: parent.id, patch: null, intent: null, accepted: false, error: lastError?.message ?? 'unknown error' });
-        patch = mutate(parent.state, seed); // fill the slot mechanically rather than short the round
+        patch = mutate(parent.state, seed, model.schema); // fill the slot mechanically rather than short the round
         intent = 'mechanical mutation (fallback after generator failure)';
         meta = { id, source: 'mechanical', parentId: parent.id, fallbackFrom: source };
       } else {
@@ -167,7 +172,7 @@ async function proposeRound({
       }
     }
 
-    const { ok, patch: clean, errors } = validate(patch, { unlockedColours, canvasFormat: brief.canvasFormat });
+    const { ok, patch: clean, errors } = model.validate(patch, { unlockedColours, canvasFormat: brief.canvasFormat });
     await logOne({ ...meta, patch, intent, accepted: ok, errors });
     const finalPatch = ok ? clean : {}; // an invalid patch contributes no change rather than nothing at all
     const state = applyPatch(parent.state, finalPatch);
@@ -188,9 +193,9 @@ async function proposeRound({
  *  which is the whole reason the hook exists. It just no longer blocks the
  *  variants behind it: a slow Supabase upload used to hold up the next
  *  render, which on 32 variants is most of the stage. */
-async function renderRound(variants, refs, ovr, { onRendered, config } = {}) {
+async function renderRound(variants, refs, ovr, { onRendered, config, model } = {}) {
   await mapPool(variants, lanes(config).render, async (v) => {
-    v.png = await renderToPng(v.state, refs, ovr, { quality: 'preview' });
+    v.png = await renderToPng(v.state, refs, ovr, { quality: 'preview', model });
     v.jpeg = await toTransmitJpeg(v.png);
     if (onRendered) await onRendered(v);
   });
