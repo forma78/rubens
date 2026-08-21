@@ -41,12 +41,17 @@ const PRICING = {
     // tokens — isn't stated anywhere in the docs; only real spend data
     // after the switch will confirm that part.
     'grok-4.3': { input: 1.25, cachedInput: 0.20, output: 2.50, verified: true },
-    // Not a judge today — here so swapping the second xAI seat is one line.
-    // Same tier and same source as grok-4.6 above (docs.x.ai, <200k), and a
-    // real judge call on 2026-08-21 billed consistently with $2/M in.
-    // Measured on that call: 6.9s and 456 reasoning tokens, against
-    // grok-4.6's 48s and 2239 for the same pair of images.
-    'grok-4.5': { input: 2.00, cachedInput: 0.50, output: 6.00, verified: true },
+    // Hector's seat. Prices read straight off xAI's own
+    // GET /v1/language-models on 2026-08-21 rather than the pricing page —
+    // the endpoint reports $/1M x 10000, and grok-4.3's numbers there match
+    // this table exactly, which is what makes the reading trustworthy. The
+    // cached rate is 0.30, not the 0.50 that grok-4.6 carries; they are not
+    // the same tier despite sharing input and output prices.
+    // Chosen over grok-4.6 on a measured judge call: 6.9s and 456 reasoning
+    // tokens against 4.6's 48s and 2239 for the same pair of images. 4.6 is
+    // built for long-horizon agentic work and spends it on a 25-word
+    // verdict; a round is supposed to take tens of seconds (CLAUDE.md).
+    'grok-4.5': { input: 2.00, cachedInput: 0.30, output: 6.00, verified: true },
   },
   openai: {
     // confirmed against platform.openai.com/docs/pricing, 2026-08-17.

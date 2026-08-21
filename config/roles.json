@@ -1,5 +1,5 @@
 {
-  "note": "Six judges, two per vendor, each one persona pinned to one model — changed 2026-08-21 from four personas replayed across all three vendors (twelve calls a pair; a judge you could not point at). Six calls a pair now, and `Ford / claude-opus-5` in the sidebar is a real thing that answered. Keep the personas few and genuinely different — six prompts that say the same thing on six models is six correlated opinions, not six judges — and keep both models of a vendor on genuinely different personas, since that is the only cross-vendor disagreement elo.js can still measure. `id` is the stable technical identifier (logs, file paths, tests) and never changes; `name` is what RubensJournal prints over the comment. `model` is verified against the vendor's own API before it goes in here, never guessed — every id below was listed live on 2026-08-21, and gpt-5.6-luna and gpt-5.4 were additionally probed with a real image, since every judge call sends three. No `rounds` field: a shift is one real round now, so every judge judges it.",
+  "note": "Six judges, two per vendor, each one persona pinned to one model — changed 2026-08-21 from four personas replayed across all three vendors (twelve calls a pair; a judge you could not point at). Six calls a pair now, and `Ford / claude-opus-5` in the sidebar is a real thing that answered. Keep the personas few and genuinely different — six prompts that say the same thing on six models is six correlated opinions, not six judges — and keep both models of a vendor on genuinely different personas, since that is the only cross-vendor disagreement elo.js can still measure. `id` is the stable technical identifier (logs, file paths, tests) and never changes; `name` is what RubensJournal prints over the comment. `model` is verified against the vendor's own API before it goes in here, never guessed — every id below was listed live on 2026-08-21 with its prices read straight off xAI's /v1/language-models and Anthropic's /v1/models, and gpt-5.6-luna and gpt-5.4 were additionally probed with a real image, since every judge call sends three. No `rounds` field: a shift is one real round now, so every judge judges it.",
   "judges": [
     {
       "id": "architect",
@@ -26,7 +26,7 @@
       "id": "colourist",
       "name": "Hector",
       "vendor": "xai",
-      "model": "grok-4.6",
+      "model": "grok-4.5",
       "prompt": "You judge colour and nothing else. You look at temperature, at how much heat the sheet carries and where it sits, at whether the palettes argue or merely coexist. Geometry is not your business. A composition that is correct and cold has failed, and timid colour is worse than loud colour. Choose the one whose colour was decided rather than arrived at."
     },
     {

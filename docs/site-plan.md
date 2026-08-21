@@ -216,8 +216,33 @@ just does so at reading speed instead of overnight.
 
       Fewer calls, not more: one call per pair per judge instead of four
       personas across three vendors is 6 instead of 12. Measured on real
-      renders with one live call per judge — **$1.14 a round against $1.62**
-      before, ~30% less even with Opus 5 among them.
+      renders with one live call per judge — **$1.1-1.3 a round against
+      $1.62** before, ~25% less even with Opus 5 among them. (A range, not
+      a number: reasoning and completion tokens vary call to call, so two
+      runs of the same six judges on the same pair came out $1.14 and
+      $1.25. The first real shift's cost log is what settles it.)
+
+      Hector's seat went to **grok-4.5, not 4.6**, on that measurement:
+      4.6 spent 48 seconds and 2239 reasoning tokens producing a 25-word
+      verdict, and the slowest judge sets a round's latency — that alone
+      would have made a round minutes instead of the tens of seconds
+      CLAUDE.md asks for. 4.5 does it in 7-13s on ~450. Judging is a short
+      classification with three images attached; a reasoning-heavy
+      flagship is the wrong instrument for it.
+
+      Worth knowing for later: 97% of a judge call is pictures — 44 tokens
+      of prompt text against 428 per image at `imageLongestSide` 768,
+      three images a call (counted with Anthropic's count_tokens). Dropping
+      to 512 would cut a call from 1328 tokens to 794 at every vendor at
+      once, which is a bigger lever on spend than any model swap. Not done
+      — it is a real change to what a judge is shown, and that is the
+      owner's call.
+
+      The six also visibly disagree, which the old four never did: on the
+      measured pair Ford, Hector, Angela and Stubbs chose B while Maeve and
+      Arnold chose A, and both Anthropic and xAI split internally. Every
+      `disagreement` column in the record so far reads 0%, because a role
+      replayed across three vendors mostly agrees with itself.
 
       Every model id was listed live on its vendor's own API that day and
       sent a real image to confirm it can see, then a real judge call

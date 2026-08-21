@@ -26,7 +26,7 @@ export const JUDGES: Judge[] = [
   { id: "architect", name: "Ford", color: "#1a4fd0", vendor: "anthropic", model: "claude-opus-5" },
   { id: "gallerist", name: "Maeve", color: "#c2265a", vendor: "anthropic", model: "claude-sonnet-5" },
   { id: "old-master", name: "Arnold", color: "#7a5aa8", vendor: "xai", model: "grok-4.3" },
-  { id: "colourist", name: "Hector", color: "#0d7f8f", vendor: "xai", model: "grok-4.6" },
+  { id: "colourist", name: "Hector", color: "#0d7f8f", vendor: "xai", model: "grok-4.5" },
   { id: "child", name: "Angela", color: "#1f8a5a", vendor: "openai", model: "gpt-5.6-luna" },
   { id: "inspector", name: "Stubbs", color: "#3d3f4c", vendor: "openai", model: "gpt-5.4" },
 ];
