@@ -87,7 +87,7 @@ export default async function CanonPage({ params }: { params: Promise<{ slug: st
                     </div>
                   </div>
                   {c.why && (
-                    <div className="comment-row" style={{ marginTop: 14 }}>
+                    <div className="comment-row" id={`comment-${c.id}`} style={{ marginTop: 14 }}>
                       <div className="comment-avatar" style={{ background: judge?.color ?? "#888" }}>
                         {initial(judge?.name ?? "?")}
                       </div>
@@ -97,6 +97,9 @@ export default async function CanonPage({ params }: { params: Promise<{ slug: st
                           {winnerLabel && <> · chose {winnerLabel}</>}
                         </div>
                         <p className="comment-text">{c.why}</p>
+                        <div className="comment-actions">
+                          (Reply) (Thread) <a href={`#comment-${c.id}`}>(Link)</a>
+                        </div>
                       </div>
                     </div>
                   )}

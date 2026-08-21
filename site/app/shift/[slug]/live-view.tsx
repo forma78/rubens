@@ -141,7 +141,7 @@ export function LiveView({
             </div>
           )}
 
-          {[...rounds].reverse().map(([round, roundVariants]) => (
+          {rounds.map(([round, roundVariants]) => (
             <div className="round-block" key={round}>
               <div className="round-heading">
                 <span>
@@ -153,7 +153,7 @@ export function LiveView({
                 {roundVariants.map((v) => {
                   const gen = generatorById(v.agent_id);
                   const closed = roundClosed(round);
-                  const verdict = !closed ? { text: "judging…", cls: "pending" } : v.survived ? { text: "survived", cls: "approved" } : { text: "eliminated", cls: "rejected" };
+                  const verdict = !closed ? { text: "judging…", cls: "pending" } : v.survived ? { text: "approved", cls: "approved" } : { text: "rejected", cls: "rejected" };
                   return (
                     <div className="work-card" key={v.id}>
                       {v.render_url ? <img src={v.render_url} alt={v.label} /> : <div className="placeholder">rendering…</div>}
@@ -181,7 +181,7 @@ export function LiveView({
                     {commentsByRound.get(round)!.map((c) => {
                       const judge = judgeById(c.judge_id);
                       return (
-                        <div className="comment-row" key={c.id}>
+                        <div className="comment-row" id={`comment-${c.id}`} key={c.id}>
                           <div className="comment-avatar" style={{ background: judge?.color ?? "#888" }}>
                             {initial(judge?.name ?? "?")}
                           </div>
@@ -190,6 +190,13 @@ export function LiveView({
                               <span className="name">{judge?.name ?? c.judge_id}</span> ({vendorLabel(c.vendor)}) · round {c.round}
                             </div>
                             <p className="comment-text">{c.why}</p>
+                            {/* No reply/thread feature exists — this is a bot verdict, not a
+                                LiveJournal-style human thread — so only (Link) actually goes
+                                anywhere; (Reply)/(Thread) are the canon's own vocabulary, kept
+                                for the visual match, not wired to anything that doesn't exist. */}
+                            <div className="comment-actions">
+                              (Reply) (Thread) <a href={`#comment-${c.id}`}>(Link)</a>
+                            </div>
                           </div>
                         </div>
                       );

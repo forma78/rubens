@@ -541,6 +541,19 @@ a:hover {
   margin: 4px 0;
 }
 
+.comment-actions {
+  font-size: 11px;
+  color: var(--muted-2);
+}
+
+.comment-actions a {
+  color: var(--muted-2);
+}
+
+.comment-actions a:hover {
+  color: var(--link);
+}
+
 /* --------------------------------------------------------------- sidebar */
 
 .cast-row {
