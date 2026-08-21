@@ -51,4 +51,68 @@ for (const [from, to] of jobs) {
   await cp(path.join(repo, from), dest, { recursive: true });
 }
 
-console.log(`staged ${jobs.length} generator paths into site/public`);
+/* The site's own bar, added to the staged copies only.
+ *
+ * Opened from the site, a generator is a page of the site and needs a way
+ * back — without one it is a dead end you can only leave with the browser's
+ * own back button. The originals stay clean: at the repository root there is
+ * no site to link to, and `generator/` is meant to be interface only.
+ *
+ * It has to join the grid rather than sit on top of it: body is a
+ * three-column grid at height 100%, so a fixed bar would cover the rail and
+ * a padded body would overflow. One auto row above the existing content
+ * costs nothing and keeps the panels scrolling as they did. The 1180px
+ * breakpoint restates its own rows, so it needs the extra row too.
+ *
+ * "Live" is deliberately absent: it resolves to the most recent shift's
+ * slug, which a static file cannot know.
+ */
+const BAR_CSS = `
+<style>
+  body{grid-template-rows:auto 1fr}
+  @media (max-width:1180px){ body{grid-template-rows:auto minmax(320px,48vh) auto auto} }
+  #rj-bar{grid-column:1/-1;display:flex;align-items:center;gap:20px;height:44px;padding:0 14px;
+    background:linear-gradient(#4a4a4a,#1c1c1c);border-bottom:1px solid #000;
+    font-family:Arial,Helvetica,sans-serif;font-size:12px}
+  #rj-bar .rj-mark{font-size:16px;font-weight:bold;color:#fff;text-shadow:0 -1px 0 #000;letter-spacing:-.3px;
+    text-decoration:none}
+  #rj-bar .rj-mark span{color:#5b9bd8}
+  #rj-bar nav{display:flex;gap:2px}
+  #rj-bar nav a{padding:5px 10px;border-radius:3px;color:#cfcfcf;font-weight:bold;text-decoration:none;
+    text-shadow:0 -1px 0 #000}
+  #rj-bar nav a:hover{color:#fff;background:rgba(255,255,255,.08)}
+  #rj-bar nav a[aria-current]{color:#fff;background:rgba(0,0,0,.45)}
+</style>`;
+
+const BAR_HTML = `
+<div id="rj-bar">
+  <a class="rj-mark" href="/">Rubens<span>Journal</span></a>
+  <nav>
+    <a href="/">Archive</a>
+    <a href="/generator" aria-current="page">Generator</a>
+    <a href="/new">New brief</a>
+    <a href="/about">About</a>
+  </nav>
+</div>`;
+
+/* The generators are bare fragments — no <html>, <head> or <body> tag
+   anywhere in them; the browser implies all three. So the anchors are the
+   real ones: the CSS goes after the generator's own </style> so it wins,
+   and the bar goes immediately before the first grid child. Both anchors
+   are asserted rather than assumed — a silent no-op here would ship a
+   generator with no way back to the site. */
+const { readFile, writeFile } = await import('node:fs/promises');
+for (const page of ['public/gen/index.html', 'public/gen/index2.html']) {
+  const file = path.join(site, page);
+  const html = await readFile(file, 'utf8');
+  const RAIL = '<div id="rail">';
+  if (!html.includes('</style>') || !html.includes(RAIL)) {
+    throw new Error(`${page}: expected </style> and ${RAIL} to inject the site bar around`);
+  }
+  await writeFile(
+    file,
+    html.replace('</style>', `</style>${BAR_CSS}`).replace(RAIL, `${BAR_HTML}\n${RAIL}`),
+  );
+}
+
+console.log(`staged ${jobs.length} generator paths into site/public, with the site bar injected`);
