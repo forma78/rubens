@@ -1,0 +1,84 @@
+{
+  "S": {
+    "ratio": 3,
+    "pattern": "grid",
+    "cols": 3,
+    "rows": 4,
+    "weave": 2,
+    "edge": 2,
+    "dot": 56,
+    "nv": 1,
+    "nh": 1,
+    "rw": 31,
+    "angle": 79,
+    "scatter": 13,
+    "over": -6,
+    "squeeze": 15,
+    "swell": 32,
+    "round": 53,
+    "drape": 40,
+    "hand": 26,
+    "thread": "#B0822F",
+    "cell": "#FFFFFF",
+    "ribbon": "#1877E0",
+    "bg": "#FFFFFF",
+    "seed": 11,
+    "paint": 1,
+    "pitch": 120,
+    "weight": 60,
+    "length": 80,
+    "jitter": 20,
+    "shade": 10,
+    "caps": "round",
+    "cseed": 5,
+    "wover": 1,
+    "L": [
+      {
+        "inks": [
+          "#141414",
+          "#B0822F"
+        ],
+        "dir": "h",
+        "span": "cell",
+        "cover": 60,
+        "on": 1
+      },
+      {
+        "inks": [
+          "#3F4348"
+        ],
+        "dir": "v",
+        "span": "bar",
+        "cover": 100,
+        "on": 1
+      },
+      {
+        "inks": [
+          "#8A6A22"
+        ],
+        "dir": "h",
+        "span": "cell",
+        "cover": 100,
+        "on": 0
+      },
+      {
+        "inks": [
+          "#B0822F"
+        ],
+        "dir": "v",
+        "span": "cell",
+        "cover": 100,
+        "on": 0
+      },
+      {
+        "inks": [
+          "#D8D2C6"
+        ],
+        "dir": "v",
+        "span": "cell",
+        "cover": 100,
+        "on": 1
+      }
+    ]
+  }
+}

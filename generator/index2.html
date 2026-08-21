@@ -1,0 +1,604 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ribbon Grid 7 — Lines</title>
+<style>
+  :root{
+    --ground:#E4E6E8; --panel:#F6F7F8; --ink:#101317; --muted:#7C838B;
+    --rule:#C9CDD2; --live:#B0822F;
+    --mono: ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:13px;
+       display:grid;grid-template-columns:276px minmax(300px,1fr) auto}
+  #rail,#dye{background:var(--panel);display:flex;flex-direction:column;overflow-y:auto}
+  #rail{border-right:1px solid var(--rule)}
+  #dye{border-left:1px solid var(--rule)}
+  .head{padding:18px 18px 14px;border-bottom:1px solid var(--rule)}
+  .head h1{margin:0;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase}
+  .head p{margin:6px 0 0;color:var(--muted);font-size:11.5px;line-height:1.45}
+  .grp{padding:14px 18px}
+  .grp+.grp{border-top:1px solid var(--rule)}
+  .grp>h2{margin:0 0 12px;font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .ctl{margin-bottom:13px}
+  .ctl:last-child{margin-bottom:0}
+  .ctl label{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+  .ctl .nm{font-size:12px}
+  .ctl .vl{font-family:var(--mono);font-size:11px;color:var(--live)}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:16px;background:transparent;cursor:pointer;display:block}
+  input[type=range]::-webkit-slider-runnable-track{height:1px;background:var(--rule)}
+  input[type=range]::-moz-range-track{height:1px;background:var(--rule)}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;height:11px;margin-top:-5px;background:var(--ink);border-radius:50%}
+  input[type=range]::-moz-range-thumb{width:11px;height:11px;background:var(--ink);border:0;border-radius:50%}
+  input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 3px rgba(176,130,47,.45)}
+  input[type=range]:disabled{opacity:.35;cursor:default}
+  .seg{display:flex;border:1px solid var(--rule);background:#fff}
+  .seg button{flex:1;padding:7px 4px;border:0;background:transparent;cursor:pointer;font-family:var(--mono);
+              font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .seg button+button{border-left:1px solid var(--rule)}
+  .seg button[aria-pressed=true]{background:var(--ink);color:#fff}
+  .mini{width:100%;padding:7px;border:1px solid var(--rule);background:#fff;cursor:pointer;font-family:var(--mono);
+        font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:block;text-align:center}
+  .mini:hover{border-color:var(--live);color:var(--live)}
+  .row2{display:flex;gap:10px;margin-bottom:10px}
+  .row2:last-child{margin-bottom:0}
+  .row2 .sw{flex:1}
+  .row2 .sw span{display:block;font-size:11px;color:var(--muted);margin-bottom:5px}
+  .row2 .sw input[type=color]{width:100%;height:26px;padding:0;border:1px solid var(--rule);background:#fff;cursor:pointer}
+  .out{padding:14px 18px 20px;border-top:1px solid var(--rule);margin-top:auto}
+  .out button{width:100%;padding:10px;margin-bottom:8px;cursor:pointer;border:1px solid var(--ink);
+              background:var(--ink);color:#fff;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+  .out button.ghost{background:transparent;color:var(--ink)}
+  .out button:hover{background:var(--live);border-color:var(--live);color:#fff}
+  #stage{position:relative;overflow:hidden}
+  #view{display:block;width:100%;height:100%}
+
+  /* --- ink rail --- */
+  .refs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .refs .rf{position:relative;width:46px;height:46px;border:1px solid var(--rule);background:#fff;padding:0;cursor:pointer;overflow:hidden}
+  .refs .rf canvas{display:block;width:100%;height:100%}
+  .refs .rf[aria-pressed=true]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+  #dye{width:min(1140px,max(292px,34vw))}
+  .top{display:grid;grid-template-columns:repeat(auto-fit,minmax(238px,1fr))}
+  .top .grp{border-top:0}
+  .top .grp+.grp{border-top:0;border-left:1px solid var(--rule)}
+  .layers{display:grid;grid-template-columns:repeat(auto-fit,minmax(198px,1fr));border-top:1px solid var(--rule)}
+  .lay{padding:12px 14px 14px;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+  .lay.off{opacity:.4}
+  .layhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .layhead h3{margin:0;font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+  .tog{border:1px solid var(--rule);background:#fff;padding:3px 7px;cursor:pointer;font-family:var(--mono);
+       font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .tog[aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .lay .ctl{margin-bottom:10px}
+  .lay .seg button{padding:5px 2px;font-size:9.5px}
+  .lstrip{display:block;width:100%;height:30px;border:1px solid var(--rule);background:#fff;margin-bottom:7px}
+  .band{display:flex;gap:3px}
+  .band input[type=color]{flex:1;min-width:0;height:20px;padding:0;border:1px solid var(--rule);background:#fff;cursor:pointer}
+  .note{margin:8px 0 0;font-size:11px;line-height:1.45;color:var(--muted)}
+
+  @media (max-width:1180px){
+    body{grid-template-columns:1fr;grid-template-rows:minmax(320px,48vh) auto auto}
+    #dye{width:auto}
+    #stage{order:1}
+    #rail{order:2;border-right:0;border-top:1px solid var(--rule)}
+    #dye{order:3;border-left:0;border-top:1px solid var(--rule)}
+    .out{margin-top:0}
+  }
+</style>
+
+<div id="rail">
+  <div class="head">
+    <h1>Ribbon Grid 7</h1>
+    <p>Two loose thread layers over panels of cloth, pressed apart by rigid bands.</p>
+  </div>
+
+  <div class="grp">
+    <h2>Cloth</h2>
+    <div class="ctl">
+      <label><span class="nm">Proportion</span><span class="vl" id="v-ratio"></span></label>
+      <input type="range" id="ratio" min="0" max="5" step="1">
+    </div>
+    <div class="ctl">
+      <div class="seg" role="group" aria-label="Pattern">
+        <button id="p-grid" aria-pressed="true">Weave</button>
+        <button id="p-dots" aria-pressed="false">Polka</button>
+      </div>
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Columns</span><span class="vl" id="v-cols"></span></label>
+      <input type="range" id="cols" min="2" max="40" step="1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Rows</span><span class="vl" id="v-rows"></span></label>
+      <input type="range" id="rows" min="2" max="48" step="1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Thread weight</span><span class="vl" id="v-weave"></span></label>
+      <input type="range" id="weave" min="0.4" max="20" step="0.1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Edge weight</span><span class="vl" id="v-edge"></span></label>
+      <input type="range" id="edge" min="0.4" max="20" step="0.1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Dot size</span><span class="vl" id="v-dot"></span></label>
+      <input type="range" id="dot" min="10" max="95" step="1">
+    </div>
+  </div>
+
+  <div class="grp">
+    <h2>Ribbons</h2>
+    <div class="ctl">
+      <label><span class="nm">Vertical</span><span class="vl" id="v-nv"></span></label>
+      <input type="range" id="nv" min="0" max="4" step="1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Horizontal</span><span class="vl" id="v-nh"></span></label>
+      <input type="range" id="nh" min="0" max="6" step="1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Ribbon width</span><span class="vl" id="v-rw"></span></label>
+      <input type="range" id="rw" min="1" max="60" step="1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Angle</span><span class="vl" id="v-angle"></span></label>
+      <input type="range" id="angle" min="45" max="90" step="1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Scatter</span><span class="vl" id="v-scatter"></span></label>
+      <input type="range" id="scatter" min="0" max="100" step="1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Overhang</span><span class="vl" id="v-over"></span></label>
+      <input type="range" id="over" min="-10" max="30" step="1">
+    </div>
+    <button class="mini" id="shuffle">Reshuffle</button>
+  </div>
+
+  <div class="grp">
+    <h2>Tension</h2>
+    <div class="ctl">
+      <label><span class="nm">Squeeze</span><span class="vl" id="v-squeeze"></span></label>
+      <input type="range" id="squeeze" min="0" max="80" step="1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Swell</span><span class="vl" id="v-swell"></span></label>
+      <input type="range" id="swell" min="0" max="80" step="1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Rounding</span><span class="vl" id="v-round"></span></label>
+      <input type="range" id="round" min="0" max="100" step="1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Drape</span><span class="vl" id="v-drape"></span></label>
+      <input type="range" id="drape" min="0" max="100" step="1">
+    </div>
+    <div class="ctl">
+      <label><span class="nm">Hand</span><span class="vl" id="v-hand"></span></label>
+      <input type="range" id="hand" min="0" max="100" step="1">
+    </div>
+  </div>
+
+  <div class="grp">
+    <h2>Colour</h2>
+    <div class="row2">
+      <div class="sw"><span>Thread</span><input type="color" id="c-thread" value="#B0822F"></div>
+      <div class="sw"><span>Cell</span><input type="color" id="c-cell" value="#FFFFFF"></div>
+    </div>
+    <div class="row2">
+      <div class="sw"><span>Ribbon</span><input type="color" id="c-ribbon" value="#1877E0"></div>
+      <div class="sw"><span>Ground</span><input type="color" id="c-bg" value="#FFFFFF"></div>
+    </div>
+    <p class="note">Ground stays flat — one solid colour, never a gradient.</p>
+  </div>
+
+  <div class="out">
+    <button id="svg">Save SVG</button>
+    <button id="png" class="ghost">Save PNG</button>
+  </div>
+</div>
+
+<div id="stage"><canvas id="view"></canvas></div>
+
+<div id="dye">
+  <div class="head">
+    <h1>Lines</h1>
+    <p>Five layers of short bars, stacked. Each layer takes a share of the cells and lays them one way; whatever it leaves falls through to the layer beneath.</p>
+  </div>
+
+  <div class="top">
+    <div class="grp">
+      <h2>Brush</h2>
+      <div class="ctl">
+        <div class="seg" role="group" aria-label="Paint">
+          <button id="k-off" aria-pressed="false">Bare</button>
+          <button id="k-on" aria-pressed="true">Inked</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <label><span class="nm">Ends</span><span class="vl" id="v-capslbl"></span></label>
+        <div class="seg" role="group" aria-label="Ends">
+          <button id="e-round" aria-pressed="true">Round</button>
+          <button id="e-square" aria-pressed="false">Square</button>
+        </div>
+      </div>
+      <div class="ctl">
+        <label><span class="nm">Bar pitch</span><span class="vl" id="v-pitch"></span></label>
+        <input type="range" id="pitch" min="4" max="70" step="1">
+      </div>
+      <div class="ctl">
+        <label><span class="nm">Bar weight</span><span class="vl" id="v-weight"></span></label>
+        <input type="range" id="weight" min="8" max="95" step="1">
+      </div>
+      <div class="ctl">
+        <label><span class="nm">Bar length</span><span class="vl" id="v-length"></span></label>
+        <input type="range" id="length" min="10" max="100" step="1">
+      </div>
+      <div class="ctl">
+        <label><span class="nm">Hand jitter</span><span class="vl" id="v-jitter"></span></label>
+        <input type="range" id="jitter" min="0" max="100" step="1">
+      </div>
+      <div class="ctl">
+        <label><span class="nm">Shade</span><span class="vl" id="v-shade"></span></label>
+        <input type="range" id="shade" min="0" max="60" step="1">
+      </div>
+      <div class="ctl">
+        <label><span class="nm">Weave</span><span class="vl" id="v-wovlbl"></span></label>
+        <div class="seg" role="group" aria-label="Weave">
+          <button id="w-over" aria-pressed="true">Over</button>
+          <button id="w-under" aria-pressed="false">Under</button>
+        </div>
+      </div>
+      <button class="mini" id="cshuffle">Reshuffle lines</button>
+    </div>
+
+    <div class="grp">
+      <h2>Ink library</h2>
+      <div class="refs" id="refs"></div>
+      <p class="note">A preset loads its inks into every layer at once. After that each layer keeps its own swatches — edit them below.</p>
+      <p class="note" id="fieldnote"></p>
+    </div>
+  </div>
+
+  <div class="layers" id="layers"></div>
+</div>
+
+<script type="module">
+import {
+  S as DEFAULT_STATE, dom,
+  hex, unhex, h3, mk, PRESETS, SPARE,
+  ribbons, layers, lattice, panels, edges, drape, outline, bbox,
+  ink, inkOf, shadeOf, COLC, owner, shareOf,
+  barCell, barPanel, barRibbons, ribbonSpan,
+  frame, canonicalFrame, svgOut
+} from '../src/engine2/index.js';
+
+/* the editor owns a private, mutable copy — the imported S is the engine's
+   frozen default, not a shared live object */
+const S=structuredClone(DEFAULT_STATE);
+
+
+/* ======================================================================
+   LINES — short bars laid inside the cells
+   ====================================================================== */
+
+
+let PICKED=0;
+
+
+
+
+/* ---------- render ---------- */
+const view=document.getElementById('view'), ctx=view.getContext('2d');
+function threadPath(g,E,B,axis,v,T){
+  const pad=0.06, a=(axis==='v'?B.y0:B.x0)-pad, b=(axis==='v'?B.y1:B.x1)+pad;
+  const n=Math.max(8,Math.round((b-a)*(S.drape>0?160:2)));
+  g.beginPath();
+  for(let s=0;s<=n;s++){
+    const t=a+(b-a)*s/n;
+    const p=T(drape(S, axis==='v'?v:t, axis==='v'?t:v, E));
+    s?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]);
+  }
+  g.stroke();
+}
+/* bars are collected per colour+width and stroked in one call each */
+function canvasSink(g){
+  const map=new Map();
+  const put=(pts,col,w)=>{
+    const q=Math.max(0.3,Math.round(w*4)/4), key=col+'|'+q;
+    let e=map.get(key);
+    if(!e){ e={col,w:q,p:new Path2D()}; map.set(key,e); }
+    e.p.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length;i++) e.p.lineTo(pts[i][0],pts[i][1]);
+  };
+  put.flush=()=>{
+    g.lineCap=S.caps==='round'?'round':'butt';
+    for(const e of map.values()){ g.strokeStyle=e.col; g.lineWidth=e.w; g.stroke(e.p); }
+    g.lineCap='butt'; map.clear();
+  };
+  return put;
+}
+function render(g,W,H){
+  const R=ribbons(S), F=frame(S,W,H), L=layers(S), LT=lattice(S,L), T=p=>[p[0]*F.k+F.ox,p[1]*F.k+F.oy];
+  const on=S.paint&&S.pattern==='grid', sink=canvasSink(g);
+  const PS=[ink(S,F.k,0),ink(S,F.k,1),ink(S,F.k,2),ink(S,F.k,3)];
+  COLC.clear();
+  g.fillStyle=S.bg; g.fillRect(0,0,W,H);
+  g.lineJoin='round'; g.lineCap='butt';
+
+  for(const poly of panels(S,R)){
+    const E=edges(S,poly), B=bbox(poly), o=outline(S,poly,E).map(T);
+    const path=new Path2D();
+    path.moveTo(o[0][0],o[0][1]);
+    for(let i=1;i<o.length;i++) path.lineTo(o[i][0],o[i][1]);
+    path.closePath();
+
+    g.fillStyle=S.cell; g.fill(path);
+    g.save(); g.clip(path);
+    if(on&&S.wover){ barPanel(S,sink,poly,E,LT.X,LT.Y,T,PS); sink.flush(); }
+    if(S.pattern==='grid'){
+      g.strokeStyle=S.thread; g.lineWidth=S.weave;
+      for(const x of L.xs) if(x>B.x0-0.08&&x<B.x1+0.08) threadPath(g,E,B,'v',x,T);
+      for(const y of L.ys) if(y>B.y0-0.08&&y<B.y1+0.08) threadPath(g,E,B,'h',y,T);
+    } else {
+      g.fillStyle=S.thread;
+      const r=(S.dot/100)*Math.min(L.cw,L.ch)*F.k/2;
+      for(let i=0;i<S.cols;i++) for(let j=0;j<S.rows;j++){
+        const x=(i+0.5)*L.cw, y=(j+0.5)*L.ch;
+        if(x<B.x0-0.08||x>B.x1+0.08||y<B.y0-0.08||y>B.y1+0.08) continue;
+        const p=T(drape(S,x,y,E));
+        g.beginPath(); g.arc(p[0],p[1],r,0,6.2832); g.fill();
+      }
+    }
+    if(on&&!S.wover){ barPanel(S,sink,poly,E,LT.X,LT.Y,T,PS); sink.flush(); }
+    g.restore();
+    g.strokeStyle=S.thread; g.lineWidth=S.edge; g.stroke(path);
+  }
+
+  const ov=S.over/100;
+  g.save();
+  g.beginPath(); g.rect(F.ox-ov*F.k,F.oy-ov*F.k,(F.w+2*ov)*F.k,(F.h+2*ov)*F.k); g.clip();
+  g.strokeStyle=S.ribbon; g.lineWidth=(S.rw/1000)*F.k;
+  for(const r of R.all){
+    const a=T([r.px-r.dx*2,r.py-r.dy*2]), b=T([r.px+r.dx*2,r.py+r.dy*2]);
+    g.beginPath(); g.moveTo(a[0],a[1]); g.lineTo(b[0],b[1]); g.stroke();
+  }
+  if(S.paint&&S.L[4].on){ barRibbons(S,sink,R,T,ink(S,F.k,4)); sink.flush(); }
+  g.restore();
+}
+let raf=0;
+function draw(){ if(raf) return; raf=requestAnimationFrame(()=>{raf=0;render(ctx,view.clientWidth,view.clientHeight);}); }
+function fit(){
+  const r=view.parentElement.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+  view.width=Math.round(r.width*dpr); view.height=Math.round(r.height*dpr);
+  ctx.setTransform(dpr,0,0,dpr,0,0); render(ctx,view.clientWidth,view.clientHeight);
+}
+
+const save=(b,n)=>{const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000);};
+
+/* ---------- lines rail ---------- */
+function barsInto(g,W,H,P){
+  g.clearRect(0,0,W,H);
+  g.lineJoin='round';
+  g.lineCap=P.round?'round':'butt';
+  const V=P.dir==='v';
+  const across=V?W:H, along=V?H:W;
+  const m=Math.max(2,Math.round(across/Math.max(5,(V?11:9))));
+  const sp=across/m;
+  for(let n=0;n<m;n++){
+    let w=sp*P.weight*(1+(h3(n,1,P.seed)-0.5)*P.jit*0.45);
+    w=Math.max(1,Math.min(w,sp*0.96));
+    const u=(n+0.5)*sp;
+    let L=along*P.len*(1+(h3(n,4,P.seed)-0.5)*P.jit*0.5);
+    L=Math.max(2,Math.min(L,along*0.96));
+    let c0=(along-L)/2, c1=c0+L;
+    if(P.round){ const t=Math.min(w/2,L/2*0.9); c0+=t; c1-=t; }
+    g.strokeStyle=shadeOf(inkOf(P,n,n,1),P,n);
+    g.lineWidth=w;
+    g.beginPath();
+    if(V){ g.moveTo(u,c0); g.lineTo(u,c1); } else { g.moveTo(c0,u); g.lineTo(c1,u); }
+    g.stroke();
+  }
+}
+function paintBarCanvas(cv,P,w0,h0){
+  const dpr=window.devicePixelRatio||1, r=cv.getBoundingClientRect();
+  const W=w0||r.width||cv.clientWidth||120, H=h0||r.height||cv.clientHeight||30;
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  const g=cv.getContext('2d'); g.setTransform(dpr,0,0,dpr,0,0);
+  COLC.clear(); barsInto(g,W,H,P); COLC.clear();
+}
+const LAYNAME=['Layer 1','Layer 2','Layer 3','Layer 4','Layer 5 \u00B7 Ribbons'];
+
+function buildRefs(){                       /* the shared ink library */
+  const box=document.getElementById('refs'); box.innerHTML='';
+  PRESETS.forEach((p,i)=>{
+    const b=document.createElement('button');
+    b.className='rf'; b.title=p.name;
+    b.setAttribute('aria-pressed',i===PICKED);
+    const c=document.createElement('canvas'); c.style.width='46px'; c.style.height='46px';
+    b.appendChild(c);
+    b.onclick=()=>{
+      PICKED=i;
+      for(let li=0;li<5;li++) S.L[li].inks=p.inks.slice();
+      buildRefs(); buildLayers(); draw();
+    };
+    box.appendChild(b);
+    paintBarCanvas(c,Object.assign(ink(S,1,0,p.inks),{dir:'v',len:0.86,jit:0.2}),46,46);
+  });
+}
+
+function setInkCount(cfg,k){
+  while(cfg.inks.length>k) cfg.inks.pop();
+  while(cfg.inks.length<k) cfg.inks.push(SPARE[cfg.inks.length%SPARE.length]);
+}
+
+function buildLayers(){
+  const box=document.getElementById('layers'); box.innerHTML='';
+  STRIPS.length=0;
+  const made=[];
+  for(let li=0;li<5;li++) made.push(box.appendChild(layerCard(li)));
+  for(const c of made) if(c._redraw) c._redraw();   /* sized once it is in the page */
+}
+const STRIPS=[];
+function strips(){ for(const f of STRIPS) f(); }
+
+function layerCard(li){
+  const cfg=S.L[li], rib=li===4;
+  const card=document.createElement('div');
+  card.className='lay'+(cfg.on?'':' off');
+
+  const head=document.createElement('div'); head.className='layhead';
+  const h=document.createElement('h3'); h.textContent=LAYNAME[li]; head.appendChild(h);
+  const tog=document.createElement('button'); tog.className='tog';
+  tog.textContent=cfg.on?(rib?'Inked':'On'):(rib?'Flat':'Off');
+  tog.setAttribute('aria-pressed',!!cfg.on);
+  tog.onclick=()=>{ cfg.on=cfg.on?0:1; buildLayers(); sync(); draw(); };
+  head.appendChild(tog); card.appendChild(head);
+
+  const strip=document.createElement('canvas'); strip.className='lstrip';
+  const bandRow=document.createElement('div'); bandRow.className='band';
+  const redraw=()=>{
+    paintBarCanvas(strip,ink(S,1,li),0,30);
+    bandRow.innerHTML='';
+    cfg.inks.forEach((c,i)=>{
+      const el=document.createElement('input');
+      el.type='color'; el.value=c; el.title='Ink '+(i+1);
+      el.addEventListener('input',()=>{ cfg.inks[i]=el.value; paintBarCanvas(strip,ink(S,1,li),0,30); draw(); });
+      bandRow.appendChild(el);
+    });
+  };
+  STRIPS.push(()=>paintBarCanvas(strip,ink(S,1,li),0,30));
+
+  /* how many inks this layer draws from */
+  const bc=document.createElement('div'); bc.className='ctl';
+  const bl=document.createElement('label');
+  const bn=document.createElement('span'); bn.className='nm'; bn.textContent='Inks';
+  const bv=document.createElement('span'); bv.className='vl';
+  bl.appendChild(bn); bl.appendChild(bv); bc.appendChild(bl);
+  const br=document.createElement('input');
+  br.type='range'; br.min=1; br.max=5; br.step=1; br.value=cfg.inks.length;
+  const bt=()=>{ bv.textContent=cfg.inks.length+(cfg.inks.length>1?' inks':' ink'); };
+  br.addEventListener('input',()=>{ setInkCount(cfg,parseInt(br.value,10)); bt(); redraw(); draw(); });
+  bc.appendChild(br); card.appendChild(bc); bt();
+
+  if(!rib){
+    /* bar direction */
+    const dc=document.createElement('div'); dc.className='ctl';
+    const dl=document.createElement('label');
+    dl.innerHTML='<span class="nm">Bars</span>';
+    const dv=document.createElement('span'); dv.className='vl'; dl.appendChild(dv); dc.appendChild(dl);
+    const dseg=document.createElement('div'); dseg.className='seg';
+    for(const [k,t] of [['v','Vertical'],['h','Horizontal']]){
+      const b=document.createElement('button'); b.textContent=t;
+      b.setAttribute('aria-pressed',cfg.dir===k);
+      b.onclick=()=>{ cfg.dir=k; buildLayers(); draw(); };
+      dseg.appendChild(b);
+    }
+    dc.appendChild(dseg); card.appendChild(dc);
+  }
+
+  /* how far one ink runs before it can change */
+  const rc=document.createElement('div'); rc.className='ctl';
+  const rl=document.createElement('label');
+  rl.innerHTML='<span class="nm">Ink runs</span>';
+  const rv=document.createElement('span'); rv.className='vl';
+  rv.textContent=cfg.span==='bar'?'per bar':cfg.span==='cell'?'per cell':'per panel';
+  rl.appendChild(rv); rc.appendChild(rl);
+  const rseg=document.createElement('div'); rseg.className='seg';
+  for(const [k,t] of [['bar','Bar'],['cell','Cell'],['sheet','Sheet']]){
+    const b=document.createElement('button'); b.textContent=t;
+    b.setAttribute('aria-pressed',cfg.span===k);
+    b.onclick=()=>{ cfg.span=k; buildLayers(); draw(); };
+    rseg.appendChild(b);
+  }
+  rc.appendChild(rseg); card.appendChild(rc);
+
+  if(!rib){
+    /* coverage */
+    const cc=document.createElement('div'); cc.className='ctl';
+    const cl=document.createElement('label');
+    const cn=document.createElement('span'); cn.className='nm'; cn.textContent='Coverage';
+    const cv=document.createElement('span'); cv.className='vl';
+    cl.appendChild(cn); cl.appendChild(cv); cc.appendChild(cl);
+    const cr=document.createElement('input');
+    cr.type='range'; cr.min=0; cr.max=100; cr.step=1; cr.value=cfg.cover;
+    const ct=()=>{ cv.textContent=cfg.cover+'%  \u2192 '+shareOf(S,li)+'%'; };
+    cr.addEventListener('input',()=>{ cfg.cover=parseFloat(cr.value); ct(); sync(); draw(); });
+    cc.appendChild(cr); card.appendChild(cc); ct();
+  }
+
+  card.appendChild(strip); card.appendChild(bandRow);
+  card._redraw=redraw;
+  return card;
+}
+function refreshDye(){ STRIPS.length=0; buildRefs(); buildLayers(); sync(); }
+
+/* ---------- wiring ---------- */
+function bind(id,key,fmt){
+  const el=document.getElementById(id),out=document.getElementById('v-'+id);
+  el.value=S[key]; if(out) out.textContent=fmt(S[key]);
+  el.addEventListener('input',()=>{S[key]=parseFloat(el.value);sync();strips();draw();});
+}
+function sync(){
+  const D=dom(S), cw=D.w/S.cols, ch=D.h/S.rows;
+  const set=(id,t)=>{const e=document.getElementById('v-'+id); if(e) e.textContent=t;};
+  set('ratio',D.label); set('cols',S.cols); set('rows',S.rows);
+  set('weave',S.weave.toFixed(1)+' px'); set('edge',S.edge.toFixed(1)+' px'); set('dot',S.dot+'%');
+  set('nv',S.nv||'none'); set('nh',S.nh||'none'); set('rw',S.rw);
+  set('angle',S.angle+'\u00B0'); set('scatter',S.scatter+'%');
+  set('over',(S.over>0?'+':'')+S.over+'%');
+  set('squeeze',S.squeeze+'%'); set('swell',S.swell+'%'); set('round',S.round+'%');
+  set('drape',S.drape+'%'); set('hand',S.hand+'%');
+  document.getElementById('v-cols').textContent=S.cols+'  ('+(cw/ch).toFixed(2)+' : 1)';
+  set('pitch',S.pitch); set('weight',S.weight+'%'); set('length',S.length+'%');
+  set('jitter',S.jitter+'%'); set('shade',S.shade+'%');
+  set('wovlbl',S.wover?'bars on top':'bars beneath');
+  set('capslbl',S.caps==='round'?'oval sticks':'cut rectangles');
+  const sh=[0,1,2,3].map(li=>shareOf(S,li)), bare=Math.max(0,100-sh.reduce((a,b)=>a+b,0));
+  document.getElementById('fieldnote').textContent =
+    S.pattern==='dots' ? 'Bars follow the weave; switch Cloth back to Weave to draw.'
+    : 'Sheet split: '+sh.join(' / ')+(bare?' \u00B7 bare '+bare:'')+'%';
+}
+['ratio','cols','rows','weave','edge','dot','nv','nh','rw','angle','scatter','over',
+ 'squeeze','swell','round','drape','hand','pitch','weight','length','jitter','shade'].forEach(id=>bind(id,id,()=>''));
+(function(){
+  const A=document.getElementById('p-grid'),B=document.getElementById('p-dots');
+  const set=v=>{S.pattern=v;A.setAttribute('aria-pressed',v==='grid');B.setAttribute('aria-pressed',v==='dots');sync();draw();};
+  A.onclick=()=>set('grid'); B.onclick=()=>set('dots');
+})();
+(function(){
+  const off=document.getElementById('k-off'), on=document.getElementById('k-on');
+  const set=v=>{S.paint=v;off.setAttribute('aria-pressed',!v);on.setAttribute('aria-pressed',!!v);draw();};
+  off.onclick=()=>set(0); on.onclick=()=>set(1);
+})();
+(function(){
+  const r=document.getElementById('e-round'), s=document.getElementById('e-square');
+  const set=v=>{S.caps=v;r.setAttribute('aria-pressed',v==='round');s.setAttribute('aria-pressed',v==='square');
+                sync();strips();buildRefs();draw();};
+  r.onclick=()=>set('round'); s.onclick=()=>set('square');
+})();
+(function(){
+  const o=document.getElementById('w-over'), u=document.getElementById('w-under');
+  const set=v=>{S.wover=v;o.setAttribute('aria-pressed',!!v);u.setAttribute('aria-pressed',!v);sync();draw();};
+  o.onclick=()=>set(1); u.onclick=()=>set(0);
+})();
+for(const [id,key] of [['c-thread','thread'],['c-cell','cell'],['c-ribbon','ribbon'],['c-bg','bg']]){
+  const el=document.getElementById(id); el.value=S[key];
+  el.addEventListener('input',()=>{S[key]=el.value;draw();});
+}
+document.getElementById('shuffle').onclick=()=>{S.seed=Math.floor(Math.random()*99999)+1;draw();};
+document.getElementById('cshuffle').onclick=()=>{S.cseed=Math.floor(Math.random()*99999)+1;strips();draw();};
+document.getElementById('svg').onclick=()=>save(new Blob([svgOut(S)],{type:'image/svg+xml'}),'ribbon-grid-lines.svg');
+document.getElementById('png').onclick=()=>{
+  const sc=3,W=view.clientWidth,H=view.clientHeight;
+  const c=document.createElement('canvas');c.width=W*sc;c.height=H*sc;
+  const g=c.getContext('2d');g.scale(sc,sc);render(g,W,H);
+  c.toBlob(b=>save(b,'ribbon-grid-lines.png'));
+};
+refreshDye();
+sync();
+new ResizeObserver(fit).observe(view.parentElement);
+fit();
+</script>
