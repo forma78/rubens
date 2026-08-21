@@ -22,7 +22,12 @@ type Slot =
 
 const emptySlots: Slot[] = [{ status: "empty" }, { status: "empty" }, { status: "empty" }, { status: "empty" }];
 
-export function BriefForm({ userId }: { userId: string }) {
+// `userId` is null for a guest. A guest gets the whole page and none of the
+// spending: Go! is locked, the study slots don't open a file picker (the
+// references bucket is owner-only at the database anyway, so an upload would
+// only fail confusingly), and /api/shift would refuse the dispatch regardless.
+export function BriefForm({ userId }: { userId: string | null }) {
+  const isGuest = userId === null;
   const router = useRouter();
   const [canvasFormat, setCanvasFormat] = useState<CanvasFormat | null>(null);
   const [slots, setSlots] = useState<Slot[]>(emptySlots);
@@ -32,7 +37,7 @@ export function BriefForm({ userId }: { userId: string }) {
   const fileInputs = useRef<(HTMLInputElement | null)[]>([]);
 
   const hasReference = slots.some((s) => s.status === "done");
-  const canSubmit = canvasFormat !== null && hasReference && instruction.trim().length > 0 && !submitting;
+  const canSubmit = !isGuest && canvasFormat !== null && hasReference && instruction.trim().length > 0 && !submitting;
 
   async function handleFileChosen(index: number, file: File) {
     const previewUrl = URL.createObjectURL(file);
@@ -68,6 +73,8 @@ export function BriefForm({ userId }: { userId: string }) {
   }
 
   async function handleGo() {
+    if (isGuest) return; // the button is already disabled; this is the second lock
+
     // "Confirms before it fires" (the note under the button) has to be
     // real, not just copy — this is a real paid shift, not a preview.
     const confirmed = window.confirm(
@@ -149,9 +156,15 @@ export function BriefForm({ userId }: { userId: string }) {
             {slots.map((slot, i) => (
               <div key={i} className={slot.status === "empty" ? undefined : "study"}>
                 {slot.status === "empty" && (
-                  <button type="button" className="study empty" onClick={() => fileInputs.current[i]?.click()}>
-                    <span className="plus">+</span>
-                    <span>Add image</span>
+                  <button
+                    type="button"
+                    className="study empty"
+                    disabled={isGuest}
+                    title={isGuest ? "Studio only — a study is uploaded to the studio's own account" : undefined}
+                    onClick={() => fileInputs.current[i]?.click()}
+                  >
+                    <span className="plus">{isGuest ? "\u{1F512}" : "+"}</span>
+                    <span>{isGuest ? "Studio only" : "Add image"}</span>
                   </button>
                 )}
                 {(slot.status === "uploading" || slot.status === "done") && (
@@ -193,12 +206,20 @@ export function BriefForm({ userId }: { userId: string }) {
               </div>
             ))}
 
-            <button type="button" className="go" disabled={!canSubmit} onClick={handleGo}>
-              {submitting ? "…" : "Go!"}
+            <button
+              type="button"
+              className="go"
+              disabled={!canSubmit}
+              title={isGuest ? "Studio only — guests cannot spend tokens" : "Fires a real, paid shift"}
+              onClick={handleGo}
+            >
+              {isGuest ? "\u{1F512}" : submitting ? "…" : "Go!"}
             </button>
           </div>
           <p className="gonote" style={{ marginBottom: 26 }}>
-            A real shift, real spend — not a preview. Confirms before it fires.
+            {isGuest
+              ? "Go! is the studio's. Everything else on this page is yours to read."
+              : "A real shift, real spend — not a preview. Confirms before it fires."}
           </p>
 
           <div className="section-label">Instruction</div>
@@ -236,13 +257,21 @@ export function BriefForm({ userId }: { userId: string }) {
           </div>
         </div>
         <div className="panel">
-          <div className="panel-head">Who can fire a shift</div>
+          <div className="panel-head">Want one of your own?</div>
           <div className="panel-body">
             <p style={{ margin: "0 0 10px", fontSize: 12, lineHeight: 1.6 }}>
-              <strong>Studio</strong> — composes the brief, fires Go!, watches it run.
+              You&apos;ve wandered into the artist&apos;s back room. That round button spends his actual
+              money on real models, so it stays locked — nothing personal.
             </p>
-            <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: "var(--text-secondary)" }}>
-              Everyone else reads the Archive and watches a shift arrive. No spend.
+            <p style={{ margin: "0 0 10px", fontSize: 12, lineHeight: 1.6 }}>
+              The whole syndicate is on GitHub though, MIT and all of it. Clone it, put it on your own
+              server, feed it your own API keys and your own Supabase — and six opinionated judges will
+              start arguing about <em>your</em> paintings instead of his. Same stubbornness. Your bill.
+            </p>
+            <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6 }}>
+              <a href="https://github.com/forma78/rubens" target="_blank" rel="noreferrer">
+                github.com/forma78/rubens
+              </a>
             </p>
           </div>
         </div>

@@ -4,10 +4,14 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Refreshes the Supabase session cookie on every request (the standard
  * @supabase/ssr pattern — an expired access token gets silently renewed
- * here before any page or route handler runs) and gates /new: no session
- * means no brief-creation form, only /login. Anonymous visitors have
- * nothing to read yet either — C1 (the public feed) isn't built in this
- * pass, so there's no anonymous-facing route to leave open.
+ * here before any page or route handler runs).
+ *
+ * It used to redirect guests away from /new. It doesn't any more (2026-08-21):
+ * the whole point of that page is to show what a shift is made of, and a guest
+ * who can't see it can't decide they want one. Nothing is protected by hiding
+ * the form — Go! is disabled for guests, /api/shift verifies a real session
+ * before it dispatches anything, and the references bucket is owner-only at
+ * the database. The lock people should meet is the button, not a redirect.
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -33,15 +37,8 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user && request.nextUrl.pathname.startsWith("/new")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
+  // still called on every request: this is what refreshes the cookie
+  await supabase.auth.getUser();
 
   return response;
 }

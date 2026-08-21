@@ -44,17 +44,18 @@ export async function Chrome({
                 Live
               </Link>
             )}
-            {user && (
-              <Link href="/new" aria-current={active === "new" ? "page" : undefined}>
-                New brief
-              </Link>
-            )}
+            {/* open to everyone — the canon's own nav carries it with a lock
+                for guests (briefLock). Reading the brief costs nothing; only
+                Go! is studio-only, and /api/shift checks the session itself. */}
+            <Link href="/new" aria-current={active === "new" ? "page" : undefined}>
+              New brief{user ? "" : " 🔒"}
+            </Link>
             <Link href="/about" aria-current={active === "about" ? "page" : undefined}>
               About
             </Link>
           </nav>
           <div className="identity">
-            <span className="identity-line">{user ? "signed in — studio" : "not signed in — visitor"}</span>
+            <span className="identity-line">{user ? "signed in — studio" : "not signed in — guest"}</span>
             <span className={`avatar ${user ? "admin" : "guest"}`}>
               {user ? (user.email?.charAt(0).toUpperCase() ?? "A") : "G"}
             </span>
