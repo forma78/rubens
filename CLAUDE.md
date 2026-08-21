@@ -5,18 +5,38 @@ how to work in this repository, not what to build.
 
 ## Ground rules
 
-**The generator's geometry is frozen.** `generator/index.html` contains a
-deformation model that was derived by hand over many sessions: convex clipping
-into panels, per-edge offsets, the Gaussian drape field, the rounded outline.
-When extracting it into `src/engine/`, move it **byte for byte**. Do not
-refactor it, do not rename its variables, do not "improve" the maths. The only
-permitted changes are removing DOM access and adding `export`.
+**The generators' geometry is frozen.** There are two: `generator/index.html`
+(model 1 — dyed colour fields) and `generator/index2.html` (model 2 — short ink
+bars). Each was derived by hand over many sessions: convex clipping into
+panels, per-edge offsets, the Gaussian drape field, the rounded outline. Both
+are extracted, into `src/engine/` and `src/engine2/`. When extracting anything
+further, move it **byte for byte**. Do not refactor it, do not rename its
+variables, do not "improve" the maths. The only permitted changes are removing
+DOM access and adding `export`.
 
 If you believe you found a bug in the geometry, stop and say so. Do not fix it.
 
+**The two models share the cloth.** `ribbons`, `layers`, `lattice`, `clipHalf`,
+`panels`, `edges`, `drape`, `outline`, `bbox`, `h3`, `owner`, `shareOf`,
+`ribbonSpan` and `frame` are not similar between the models, they are the *same
+functions* — `src/engine2/` imports them from `src/engine/`. What differs is
+what gets laid inside the cells. Never fork one of those to make one model
+behave differently; if a model genuinely needs its own, ask first.
+
+**Prove an extraction, don't assert it.** Byte-for-byte is a claim that can be
+checked, so check it: render several states from the untouched generator in a
+real browser, render the same states through the extracted engine, and compare
+the bytes. Mind two traps that cost time in the 2026-08-21 extraction — apply
+each test state to a *freshly loaded* page (states applied in sequence
+accumulate onto one another and the goldens quietly stop meaning what you
+think), and remember that the browser's `svgOut` divides by the live canvas
+size, so pin the canvas to the canonical size to make that ratio 1 on both
+sides. `test/engine2.test.js` records the whole method.
+
 **One source of truth.** After extraction, the browser and the command line
-must run the same functions from `src/engine/`. If a change makes them diverge,
-the change is wrong. There is a test for this; keep it green.
+must run the same functions from `src/engine/` and `src/engine2/`. If a change
+makes them diverge, the change is wrong. There is a test for each; keep them
+green.
 
 **Determinism is a feature.** Same state plus same seeds must produce a
 byte-identical SVG, on any machine, on any run. Never call `Math.random()`
@@ -72,8 +92,11 @@ without asking first.
 ## Style
 
 Plain ES modules, Node 20+, no TypeScript, no bundler, no framework in the
-engine or the runner. The generator must keep working as a single file opened
-from disk. Dependencies are a cost — the current count is four, and each new
+engine or the runner. Each generator stays a single HTML file — interface only,
+importing its engine as ES modules. That means it is served, not opened from
+disk: `npm run dev`, then `/generator/` or `/generator/index2.html`. (Opening
+`file://` predates the engine extraction and has not worked since; see
+`generator/README.md`.) Dependencies are a cost — the current count is four, and each new
 one needs a reason in the pull request.
 
 Small commits with a real message. `runs/` is committed; it is the evidence.
