@@ -34,6 +34,24 @@ export function formatCommentDate(iso: string): string {
   return `${date} · ${time}`;
 }
 
+// 2026-08-21: a shift is one real round of generation+judging now (see
+// schema.sql's `briefs.rounds` default and its comment) — "Round 2/3/4/5"
+// on Live/Canon are not fresh judging, they're a real, honest halving of
+// round 1's own final ranking (top 16, top 8, top 4, top 2 of the SAME
+// real variants and the SAME real ratings), so a shift still reads as
+// narrowing 32 -> 2 without a second round of paid API calls. Shared by
+// Live and Canon so both cut the same field the same way.
+export function narrowingSizes(total: number): number[] {
+  if (total <= 0) return [];
+  const sizes = [total];
+  while (sizes.length < 5) {
+    const next = Math.max(1, Math.floor(sizes[sizes.length - 1] / 2));
+    if (next === sizes[sizes.length - 1]) break;
+    sizes.push(next);
+  }
+  return sizes;
+}
+
 export function statusLabel(status: string, rounds: number): string {
   if (status === "pending") return "pending";
   if (status === "running") return `round ${rounds || 1} — running`;

@@ -19,9 +19,9 @@ export type Generator = {
 
 export const JUDGES: Judge[] = [
   { id: "architect", name: "Ford", color: "#1a4fd0", rounds: [1, 2, 3, 4, 5] },
-  { id: "old-master", name: "Arnold", color: "#7a5aa8", rounds: [3, 4, 5] },
+  { id: "old-master", name: "Arnold", color: "#7a5aa8", rounds: [1, 3, 4, 5] },
   { id: "gallerist", name: "Maeve", color: "#c2265a", rounds: [1, 2, 3, 4, 5] },
-  { id: "child", name: "Angela", color: "#1f8a5a", rounds: [4, 5] },
+  { id: "child", name: "Angela", color: "#1f8a5a", rounds: [1, 4, 5] },
 ];
 
 export const GENERATORS: Generator[] = [

@@ -63,6 +63,13 @@ alter table if exists public.briefs
 alter table if exists public.briefs
   alter column published set default true;
 
+-- One real round now, not five (see the `rounds` column's own comment
+-- below, in the table's create statement) — this alter is what actually
+-- reaches the live table; `create table if not exists` above is a no-op
+-- once the table already exists, same as slug/published's alters.
+alter table if exists public.briefs
+  alter column rounds set default 1;
+
 -- ---------------------------------------------------------------- sketches
 -- states saved by hand from the generator's Archive panel
 create table if not exists public.sketches (
@@ -89,7 +96,13 @@ create table if not exists public.briefs (
   palette      jsonb,               -- what the analyser read from the reference
   reference    text,                -- deprecated 2026-08-20, superseded by reference_urls below — kept for old rows, nothing writes it any more
   reference_urls jsonb not null default '[]'::jsonb, -- up to 4 entries (site's A4 form / a local brief's references[]), position = the colour layer it overrides. Named `reference_urls`, not `references` — the latter is a reserved SQL word (foreign-key syntax)
-  rounds       int  not null default 5,
+  -- 2026-08-21: a shift is one real round now (proposeRound + judgeRound
+  -- once, 32 variants, one real tournament) — rounds 2-5 on the site are
+  -- a progressive reveal of that same round's real ratings (top 16/8/4/2),
+  -- not fresh generation or judging. Owner's call: re-running the search
+  -- with fresh mutations every round burned tokens with no discussion
+  -- payoff a single well-judged round doesn't already give.
+  rounds       int  not null default 1,
   published    boolean not null default false,
   status       text not null default 'pending',   -- pending | running | done | aborted
   cost_usd     numeric(10,4) not null default 0,

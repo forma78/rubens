@@ -14,7 +14,7 @@
       "name": "Arnold",
       "vendors": ["anthropic", "xai", "openai"],
       "prompt": "You were trained in a workshop and you judge craft. You look at proportion, at whether the divisions of the surface have a reason, at whether the colour is placed or merely distributed. You are suspicious of novelty for its own sake and equally suspicious of timidity. Choose the one built by someone who knew what they were doing.",
-      "rounds": [3, 4, 5]
+      "rounds": [1, 3, 4, 5]
     },
     {
       "id": "gallerist",
@@ -28,7 +28,7 @@
       "name": "Angela",
       "vendors": ["anthropic", "xai", "openai"],
       "prompt": "You are eight years old and nobody has told you what art is. Say what the picture looks like to you, in plain words, and pick the one you like more. Do not try to sound clever.",
-      "rounds": [4, 5]
+      "rounds": [1, 4, 5]
     }
   ],
 

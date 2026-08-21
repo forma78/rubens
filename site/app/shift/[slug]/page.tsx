@@ -19,12 +19,12 @@ export default async function ShiftPage({ params }: { params: Promise<{ slug: st
   const [{ data: variants }, { data: comparisons }] = await Promise.all([
     supabase
       .from("variants")
-      .select("id,round,label,source,agent_id,render_url,survived,created_at")
+      .select("id,round,label,source,agent_id,render_url,rating,survived,created_at")
       .eq("brief_id", brief.id)
       .order("created_at", { ascending: true }),
     supabase
       .from("comparisons")
-      .select("id,round,judge_id,vendor,why,winner_id,created_at")
+      .select("id,round,judge_id,vendor,why,winner_id,left_id,right_id,created_at")
       .eq("brief_id", brief.id)
       .order("created_at", { ascending: true }),
   ]);
