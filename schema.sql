@@ -23,13 +23,29 @@ alter table if exists public.briefs
 --    built — CLAUDE.md's "a feed that fills in as it happens is the
 --    reason the site exists" applies from the moment Go! is pressed, not
 --    after the fact.
+-- No policies on this one, deliberately: nobody needs to read or write
+-- shift_counters directly, only next_shift_slug() below does, and it
+-- does that as security definer — RLS enabled with zero policies is a
+-- default-deny, which is exactly right for a table nothing outside this
+-- one function should ever touch.
 create table if not exists public.shift_counters (
   day   date primary key,
   count int  not null default 0
 );
+alter table public.shift_counters enable row level security;
 
+-- security definer: this runs as the function's owner (whoever ran this
+-- script in the SQL editor — Supabase's own RLS default caught the first
+-- version of this function, which ran as the calling role and had no
+-- grant on shift_counters at all), not as whichever role's INSERT into
+-- briefs triggered this column default. search_path pinned to public so
+-- a security definer function can't be tricked by a caller-controlled
+-- search_path into resolving to some other `shift_counters`.
 create or replace function public.next_shift_slug()
-returns text language plpgsql as $$
+returns text language plpgsql
+security definer
+set search_path = public
+as $$
 declare
   d date := current_date;
   n int;
