@@ -4,14 +4,17 @@
   "private": true,
   "type": "module",
   "description": "Acrylic on canvas, composed by an algorithm written from the artist's own brushwork.",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "npx serve .",
     "render": "node src/syndicate/render.js",
     "analyse": "node src/analyse/cli.js",
     "syndicate": "node src/syndicate/run.js",
     "dry": "node src/syndicate/run.js --dry",
-    "test": "node --test"
+    "test": "node --test",
+    "thumbs": "node scripts/model-thumbs.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
