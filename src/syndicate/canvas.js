@@ -49,11 +49,20 @@ const CANVAS_PROFILES = {
   },
 };
 
-/* the physical framing every generator agent gets, regardless of vendor —
-   the hard numbers below are enforced anyway by patch.js's RANGE (and, for
-   nv/nh, canvasRangeOverrides); this text is so an agent understands *why*
-   and can aim for the preferred zone instead of bouncing off the clamp. */
-const CLOTH_GUIDANCE = 'You are sketching a composition that will later be painted by hand, in oil or acrylic, on real stretched canvas — not a digital-only pattern. Real cloth does not fold at a shallow angle, does not overhang past a hair, and does not sit at zero drape. Within the allowed ranges, ribbon width around 30-40, squeeze around 15%, and rounding around 60% read as the most natural.';
+/* The physical framing every generator agent gets, regardless of vendor or
+   which generator it is proposing for — both models draw the same cloth, so
+   the same physics binds them. The hard numbers are enforced anyway by
+   patch.js's RANGE (and, for nv/nh, canvasRangeOverrides); this text is so
+   an agent understands *why* and can aim for the preferred zone instead of
+   bouncing off the clamp.
+
+   The squeeze/ribbon-width coupling is stated here rather than enforced as
+   a rule because it already cannot happen: squeeze clamps at 20 and ribbon
+   width floors at 30, so "squeeze above 20 with a ribbon under 30" is
+   unreachable from either side — an agent asking for squeeze 35 and width
+   12 gets 20 and 30. What the sentence adds is the reason, which is what
+   stops an agent from sitting on the boundary and wondering why. */
+const CLOTH_GUIDANCE = 'You are sketching a composition that will later be painted by hand, in oil or acrylic, on real stretched canvas — not a digital-only pattern. Real cloth does not fold at a shallow angle, does not overhang past a hair, and does not sit at zero drape. Squeeze and ribbon width are coupled: a narrow ribbon cannot also be hard-squeezed — thin cloth pulled tight tears instead of folding. Within the allowed ranges, ribbon width around 30-40, squeeze around 15%, swell between 15% and 50%, rounding around 60%, and a thread weight of 2.0px read as the most natural.';
 
 /** canvasRangeOverrides(canvasFormat) -> partial RANGE table (possibly {})
  *  for the given format string (e.g. '60x80') — only nv/nh are ever
