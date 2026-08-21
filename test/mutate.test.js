@@ -58,3 +58,60 @@ test('perturbations are centred on the parent value (sigma = 12% of range)', () 
   const mean = sum / n;
   assert.ok(Math.abs(mean - 5) < 1, `expected mean near 5, got ${mean.toFixed(2)} over ${n} samples`);
 });
+
+/* ---------------------------------------------------------------- model 2 */
+
+import { SCHEMA as MODEL_2, validate as validate2 } from '../src/syndicate/patch2.js';
+import { S as DEFAULT_STATE_2 } from '../src/engine2/index.js';
+
+test('model 2 mutates its own keys, not model 1s', () => {
+  const keys = new Set(numericKeyPool(MODEL_2).map((k) => k.key));
+  for (const brush of ['pitch', 'weight', 'length', 'jitter', 'shade', 'wover', 'paint']) {
+    assert.ok(keys.has(brush), `${brush} should be mutable on model 2`);
+  }
+  for (const dye of ['ilock', 'grain', 'load']) {
+    assert.equal(keys.has(dye), false, `${dye} is model 1's dye, not model 2's brush`);
+  }
+  assert.equal(keys.has('L[0].bands'), false, "bands is model 1's vocabulary");
+  assert.equal(keys.has('L[0].ref'), false);
+});
+
+test('model 2 never mechanically nudges a categorical field', () => {
+  const keys = numericKeyPool(MODEL_2).map((k) => k.key);
+  for (const k of keys) {
+    assert.equal(k.includes('.dir'), false, `${k} is categorical`);
+    assert.equal(k.includes('.span'), false, `${k} is categorical`);
+    assert.equal(k.includes('.inks'), false, `${k} is a palette swap, not a nudge`);
+    assert.notEqual(k, 'caps');
+  }
+});
+
+test('L[4].cover is not in model 2s pool — the ribbons layer has no share of the cells', () => {
+  const keys = new Set(numericKeyPool(MODEL_2).map((k) => k.key));
+  assert.ok(keys.has('L[4].on'), 'the ribbon layer can still be switched off');
+  assert.equal(keys.has('L[4].cover'), false);
+  assert.ok(keys.has('L[3].cover'));
+});
+
+test('every model 2 mutate() patch passes model 2s validate() cleanly', () => {
+  for (let seed = 1; seed <= 200; seed++) {
+    const raw = mutate(DEFAULT_STATE_2, seed, MODEL_2);
+    const { ok, errors } = validate2(raw);
+    assert.equal(ok, true, `seed ${seed}: ${JSON.stringify(errors)}`);
+  }
+});
+
+test('model 2 mutation is deterministic in its seed', () => {
+  assert.deepEqual(mutate(DEFAULT_STATE_2, 77, MODEL_2), mutate(DEFAULT_STATE_2, 77, MODEL_2));
+});
+
+/* The two models share a mutator but must not share its choices: the same
+   seed picks from a different pool, so a model-2 shift is not a model-1
+   shift with different colours. */
+test('the same seed picks differently for the two models', () => {
+  const differ = [1, 2, 3, 4, 5].filter(
+    (s) => JSON.stringify(Object.keys(mutate(DEFAULT_STATE_2, s, MODEL_2))) !==
+           JSON.stringify(Object.keys(mutate(DEFAULT_STATE_2, s))),
+  );
+  assert.ok(differ.length > 0, 'model 2 should not be drawing from model 1s key pool');
+});

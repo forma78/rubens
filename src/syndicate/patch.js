@@ -79,7 +79,11 @@ const SCHEMA = {
   enums: {},
   layerFields: {
     bands: { kind: 'number', range: LAYER_RANGE.bands, maxLayer: 4 },
-    ref:   { kind: 'number', range: LAYER_RANGE.ref,   maxLayer: 4 },
+    /* patchable, but never mutated mechanically: swapping a whole layer's
+       palette is a much bigger visual jump than a 12% nudge, closer in kind
+       to a categorical pick than a continuous perturbation. A model
+       generator proposes it deliberately — see mutate.js. */
+    ref:   { kind: 'number', range: LAYER_RANGE.ref,   maxLayer: 4, mutable: false },
     on:    { kind: 'number', range: LAYER_RANGE.on,    maxLayer: 4 },
     dir:   { kind: 'enum',   values: LAYER_ENUM.dir,   maxLayer: LAYER_DIR_SPAN_COVER_MAX_I },
     span:  { kind: 'enum',   values: LAYER_ENUM.span,  maxLayer: LAYER_DIR_SPAN_COVER_MAX_I },
