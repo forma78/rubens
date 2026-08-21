@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { JUDGES, generatorById, vendorLabel } from "@/lib/roles";
+import { JUDGES, SYSTEM, generatorById, initial, vendorLabel } from "@/lib/roles";
 import {
   canonColumns,
   canonRounds,
@@ -52,16 +52,24 @@ type Brief = {
 
 function WorkCard({ v, verdict }: { v: Variant; verdict: { text: string; cls: string } }) {
   const gen = generatorById(v.agent_id);
+  // A mechanical variant has no agent_id — it is the control group, not a
+  // missing value, and an empty slot said neither. See lib/roles.ts's SYSTEM.
+  const maker = gen ?? (v.source === "mechanical" ? SYSTEM : null);
   return (
     <div className="work-card">
       {v.render_url ? <img src={v.render_url} alt={v.label} /> : <div className="placeholder">rendering…</div>}
       <div className="work-meta">
         <span className="work-model">{vendorLabel(v.source)}</span>
         <span className={`work-verdict ${verdict.cls}`}>{verdict.text}</span>
-        {gen && (
+        {maker && (
           <div className="work-artist">
-            <span className="swatch" style={{ background: gen.color }} />
-            <span>{gen.name}</span>
+            <span
+              className={`swatch${maker === SYSTEM ? " system" : ""}`}
+              style={{ background: maker.color }}
+            >
+              {initial(maker.name)}
+            </span>
+            <span>{maker.name}</span>
           </div>
         )}
       </div>

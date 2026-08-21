@@ -1,4 +1,4 @@
-import { JUDGES, GENERATORS, initial, vendorLabel } from "@/lib/roles";
+import { JUDGES, GENERATORS, SYSTEM, initial, vendorLabel } from "@/lib/roles";
 
 // Judges + Generators panels — used by both Live and Canon (design_handoff's
 // "The cast"). Static, from config/roles.json (mirrored in lib/roles.ts):
@@ -40,6 +40,21 @@ export function CastSidebar() {
               <span className="cast-detail">{vendorLabel(g.vendor)}</span>
             </div>
           ))}
+        </div>
+      </div>
+      <div className="panel">
+        <div className="panel-head">System</div>
+        <div className="panel-body">
+          <div className="cast-row">
+            <div className="cast-avatar system" style={{ background: SYSTEM.color }}>
+              {initial(SYSTEM.name)}
+            </div>
+            <div>
+              <span className="cast-name">{SYSTEM.name}</span>
+              <span className="cast-tag">{SYSTEM.tag}</span>
+            </div>
+            <span className="cast-detail">{SYSTEM.detail}</span>
+          </div>
         </div>
       </div>
     </>

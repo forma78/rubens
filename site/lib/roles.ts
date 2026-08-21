@@ -40,6 +40,22 @@ export const GENERATORS: Generator[] = [
   { id: "gen-grain", name: "Felix", color: "#6b5230", vendor: "openai" },
 ];
 
+// The control group. 8 of every 32 proposals are made by mutate() alone —
+// a seeded perturbation of the parent with no model in the loop at all
+// (config/syndicate.json's proposalSplit.mechanical, and proposeRound's
+// `source === 'mechanical'` branch). They are judged in the same tournament
+// as everything else, which is the point: it is what the six generators
+// have to beat. They carry no agent_id, so they used to render with an
+// empty artist slot and the word "mechanical" and nothing said what they
+// were. Acid yellow, dark text — it is not one of the cast.
+export const SYSTEM = {
+  id: "mechanical",
+  name: "System",
+  color: "#e1ff00",
+  tag: "seeded mutation",
+  detail: "control group",
+};
+
 const VENDOR_LABELS: Record<string, string> = {
   anthropic: "Anthropic",
   xai: "xAI",
