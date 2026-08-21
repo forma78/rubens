@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body{margin:0;background:#d7d7d7}
+  a{color:#0d5aa7;text-decoration:none}
+  a:hover{color:#0a3f78;text-decoration:underline}
+  @keyframes rjIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @keyframes rjPulse{0%,100%{opacity:1}50%{opacity:.35}}
+</style>
+</helmet>
+
+<div style="font-family:Arial,Helvetica,sans-serif;color:#333;font-size:12px;min-height:100vh;background:#d7d7d7">
+
+  <div style="background:linear-gradient(#4a4a4a,#1c1c1c);border-bottom:1px solid #000;box-shadow:0 1px 0 rgba(255,255,255,.12) inset">
+    <div style="max-width:980px;margin:0 auto;display:flex;align-items:center;gap:22px;height:46px;padding:0 14px">
+      <div style="font-size:18px;font-weight:bold;color:#fff;text-shadow:0 -1px 0 #000;letter-spacing:-.3px">Rubens<span style="color:#5b9bd8">Journal</span></div>
+      <div style="display:flex;gap:2px;align-items:center">
+        <a href="#" onClick="{{ goFeed }}" style="display:block;white-space:nowrap;padding:6px 11px;border-radius:3px;color:{{ navFeed }};font-size:12px;font-weight:bold;text-shadow:0 -1px 0 #000;background:{{ navFeedBg }}">Archive</a>
+        <a href="#" onClick="{{ goLive }}" style="display:block;white-space:nowrap;padding:6px 11px;border-radius:3px;color:{{ navLive }};font-size:12px;font-weight:bold;text-shadow:0 -1px 0 #000;background:{{ navLiveBg }}">Live</a>
+        <a href="#" onClick="{{ goWork }}" style="display:block;white-space:nowrap;padding:6px 11px;border-radius:3px;color:{{ navWork }};font-size:12px;font-weight:bold;text-shadow:0 -1px 0 #000;background:{{ navWorkBg }}">Canon</a>
+        <a href="#" onClick="{{ goBrief }}" style="display:block;white-space:nowrap;padding:6px 11px;border-radius:3px;color:{{ navBrief }};font-size:12px;font-weight:bold;text-shadow:0 -1px 0 #000;background:{{ navBriefBg }}">New brief {{ briefLock }}</a>
+        <a href="#" onClick="{{ goAbout }}" style="display:block;white-space:nowrap;padding:6px 11px;border-radius:3px;color:{{ navAbout }};font-size:12px;font-weight:bold;text-shadow:0 -1px 0 #000;background:{{ navAboutBg }}">About</a>
+      </div>
+      <div style="flex:1"></div>
+      <div style="display:flex;align-items:center;gap:9px">
+        <span style="color:#9a9a9a;font-size:11px;text-shadow:0 -1px 0 #000">{{ whoami }}</span>
+        <div style="width:26px;height:26px;border-radius:3px;background:{{ avatarBg }};border:1px solid #000;color:#fff;font-weight:bold;font-size:12px;display:flex;align-items:center;justify-content:center;text-shadow:0 -1px 0 rgba(0,0,0,.4)">{{ avatarLetter }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background:linear-gradient(#f4f4f4,#e2e2e2);border-bottom:1px solid #b9b9b9">
+    <div style="max-width:980px;margin:0 auto;padding:0 14px;height:29px;display:flex;align-items:center;gap:8px;font-size:11px;color:#666">
+      <span style="font-family:Menlo,Consolas,monospace">{{ crumb }}</span>
+      <div style="flex:1"></div>
+      <span style="color:#8a8a8a">Prototype — viewing as</span>
+      <div style="display:flex;border:1px solid #a9a9a9;border-radius:3px;overflow:hidden">
+        <a href="#" onClick="{{ setAdmin }}" style="padding:3px 9px;font-size:11px;font-weight:bold;color:{{ segAdminFg }};background:{{ segAdminBg }};text-decoration:none">Admin</a>
+        <a href="#" onClick="{{ setGuest }}" style="padding:3px 9px;font-size:11px;font-weight:bold;color:{{ segGuestFg }};background:{{ segGuestBg }};border-left:1px solid #a9a9a9;text-decoration:none">Guest</a>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:980px;margin:0 auto;padding:18px 14px 60px">
+
+    <sc-if value="{{ isFeed }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:12px">
+          <h1 style="margin:0;font-size:22px;font-weight:bold;color:#222;letter-spacing:-.3px">Archive</h1>
+          <span style="color:#777;font-size:11px;padding-bottom:3px">Every shift is a real spend. The syndicate runs five rounds and 32 proposals per shift.</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">
+          <sc-for list="{{ shifts }}" as="s" hint-placeholder-count="6">
+            <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14);padding:5px">
+              <a href="#" onClick="{{ s.open }}" style="display:block;position:relative">
+                <img src="{{ s.src }}" alt="" style="display:block;width:100%;height:auto;background:#f2f2f2">
+                <sc-if value="{{ s.live }}" hint-placeholder-val="{{ false }}">
+                  <span style="position:absolute;top:6px;left:6px;background:#c8103c;color:#fff;font-size:9px;font-weight:bold;letter-spacing:.9px;padding:3px 6px;border-radius:2px;font-family:Menlo,Consolas,monospace;animation:rjPulse 1.6s infinite">LIVE</span>
+                </sc-if>
+              </a>
+              <div style="padding:8px 4px 4px">
+                <div style="font-size:13px;font-weight:bold;color:#222;margin-bottom:2px"><a href="#" onClick="{{ s.open }}">{{ s.title }}</a></div>
+                <div style="font-family:Menlo,Consolas,monospace;font-size:10px;color:#8a8a8a">{{ s.meta }}</div>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:7px;padding-top:7px;border-top:1px solid #ededed;font-size:11px;color:#777">
+                  <span>▲ {{ s.appr }}</span><span>◉ {{ s.views }}</span><span>❑ {{ s.comments }}</span>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isBrief }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:1fr 260px;gap:18px;align-items:start">
+        <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14)">
+          <div style="background:linear-gradient(#fbfbfb,#ededed);border-bottom:1px solid #d5d5d5;padding:9px 14px;display:flex;align-items:center">
+            <span style="font-size:12px;font-weight:bold;color:#333">Compose a shift</span>
+            <div style="flex:1"></div>
+            <span style="font-family:Menlo,Consolas,monospace;font-size:10px;color:#8a8a8a">draft · v1</span>
+          </div>
+          <div style="padding:16px 18px 22px">
+
+            <div style="font-family:Menlo,Consolas,monospace;font-size:10px;letter-spacing:1.4px;color:#8a8a8a;padding-bottom:6px;border-bottom:1px solid #e4e4e4">CANVAS SIZE</div>
+            <div style="display:flex;gap:8px;margin:12px 0 24px">
+              <sc-for list="{{ sizes }}" as="z" hint-placeholder-count="5">
+                <a href="#" onClick="{{ z.pick }}" style="padding:7px 13px;border:1px solid {{ z.bc }};border-radius:3px;background:{{ z.bg }};color:{{ z.fg }};font-family:Menlo,Consolas,monospace;font-size:12px;text-decoration:none">{{ z.label }}</a>
+              </sc-for>
+            </div>
+
+            <div style="font-family:Menlo,Consolas,monospace;font-size:10px;letter-spacing:1.4px;color:#8a8a8a;padding-bottom:6px;border-bottom:1px solid #e4e4e4">COLOUR — four hand-painted studies</div>
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0 6px">
+              <sc-for list="{{ studies }}" as="c" hint-placeholder-count="4">
+                <div style="border:1px solid #d0d0d0;background:#fff;padding:5px">
+                  <img src="{{ c.src }}" alt="" style="display:block;width:100%;height:auto;background:#f2f2f2">
+                  <div style="font-family:Menlo,Consolas,monospace;font-size:10px;color:#444;margin-top:6px">{{ c.name }}</div>
+                  <div style="font-family:Menlo,Consolas,monospace;font-size:9px;color:#9a9a9a">{{ c.slot }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+              <a href="#" onClick="{{ attach }}" style="display:flex;align-items:center;gap:7px;padding:6px 12px;border:1px dashed {{ attachBc }};border-radius:3px;background:{{ attachBg }};color:{{ attachFg }};font-size:11px;font-weight:bold;text-decoration:none">＋ Attach your own study</a>
+              <span style="color:#8a8a8a;font-size:11px">{{ attachNote }}</span>
+            </div>
+            <sc-if value="{{ hasAttached }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:10px;margin:-14px 0 24px;padding:8px 10px;background:#f6f6f6;border:1px solid #e2e2e2">
+                <div style="width:34px;height:34px;background:#dcdcdc;border:1px solid #cfcfcf"></div>
+                <div style="font-family:Menlo,Consolas,monospace;font-size:10px;color:#555">custom_study.png<div style="color:#9a9a9a">uploaded · slot L[5]</div></div>
+                <div style="flex:1"></div>
+                <a href="#" onClick="{{ removeAttached }}" style="font-size:11px;color:#a3123c">Remove</a>
+              </div>
+            </sc-if>
+
+            <div style="font-family:Menlo,Consolas,monospace;font-size:10px;letter-spacing:1.4px;color:#8a8a8a;padding-bottom:6px;border-bottom:1px solid #e4e4e4">INSTRUCTION</div>
+            <textarea value="{{ instruction }}" onChange="{{ setInstruction }}" readOnly="{{ isGuest }}" placeholder="Anxious. The ribbons pulled tight, the cloth crowded under them." style="width:100%;box-sizing:border-box;margin-top:12px;min-height:92px;border:1px solid #bdbdbd;border-top-color:#a8a8a8;border-radius:3px;padding:9px 10px;font-family:Georgia,serif;font-size:13px;color:#333;background:{{ taBg }};resize:vertical"></textarea>
+
+            <div style="display:flex;align-items:center;gap:16px;margin-top:22px;padding-top:18px;border-top:1px solid #e4e4e4">
+              <a href="#" onClick="{{ pressGo }}" title="{{ goTitle }}" style="width:88px;height:88px;border-radius:50%;background:{{ goBg }};border:2px solid #2a2a2a;box-shadow:0 2px 4px rgba(0,0,0,.3), 0 0 0 4px rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:bold;text-shadow:0 1px 3px rgba(0,0,0,.9);text-decoration:none;opacity:{{ goOpacity }};background-image:{{ goImage }};background-size:cover;background-position:50% 22%;position:relative;overflow:hidden" style-hover="filter:brightness(1.12)"><span style="position:relative;z-index:1;padding:2px 8px;border-radius:3px;background:rgba(20,14,10,.55)">{{ goLabel }}</span></a>
+              <div>
+                <div style="font-size:12px;color:#333;font-weight:bold">{{ goHeadline }}</div>
+                <div style="font-size:11px;color:#8a8a8a;margin-top:3px">{{ goSub }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14)">
+            <div style="background:linear-gradient(#fbfbfb,#ededed);border-bottom:1px solid #d5d5d5;padding:8px 12px;font-size:11px;font-weight:bold;color:#444">Estimated spend</div>
+            <div style="padding:12px">
+              <div style="font-family:Menlo,Consolas,monospace;font-size:11px;color:#555;line-height:1.9">
+                <div style="display:flex;justify-content:space-between"><span>rounds</span><span>5</span></div>
+                <div style="display:flex;justify-content:space-between"><span>proposals</span><span>32</span></div>
+                <div style="display:flex;justify-content:space-between"><span>studies</span><span>{{ studyCount }}</span></div>
+                <div style="display:flex;justify-content:space-between"><span>judges</span><span>4</span></div>
+                <div style="display:flex;justify-content:space-between;border-top:1px solid #ededed;margin-top:6px;padding-top:6px;color:#222;font-weight:bold"><span>tokens</span><span>~1.9M</span></div>
+              </div>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14)">
+            <div style="background:linear-gradient(#fbfbfb,#ededed);border-bottom:1px solid #d5d5d5;padding:8px 12px;font-size:11px;font-weight:bold;color:#444">Who can fire a shift</div>
+            <div style="padding:12px;font-size:11px;color:#666;line-height:1.7">
+              <div><b style="color:#222">Admin</b> — composes the brief, fires Go!, pauses or aborts a run.</div>
+              <div style="margin-top:8px"><b style="color:#222">Guest</b> — reads the brief, watches the run arrive, reads verdicts and comments. No spend.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isLive }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <h1 style="margin:0;font-size:22px;font-weight:bold;color:#222;letter-spacing:-.3px">{{ runTitle }}</h1>
+        <div style="color:#777;font-size:11px;margin-top:6px;margin-bottom:22px">{{ runMeta }}</div>
+
+      <div style="display:grid;grid-template-columns:1fr 240px;gap:18px;align-items:start">
+        <div>
+        <sc-for list="{{ rounds }}" as="r" hint-placeholder-count="5">
+          <div style="margin-bottom:30px">
+            <div style="font-size:13px;font-weight:bold;color:#333;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid #c9c9c9">Round {{ r.num }} — {{ r.count }} images</div>
+            <div style="{{ r.grid }}">
+              <sc-for list="{{ r.images }}" as="im" hint-placeholder-count="0">
+                <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14);padding:5px">
+                  <img src="{{ im.src }}" alt="" style="display:block;width:100%;height:auto;background:#f2f2f2">
+                  <div style="padding:7px 3px 3px">
+                    <div style="font-family:Menlo,Consolas,monospace;font-size:10px;color:#8a8a8a">{{ im.model }}</div>
+                    <div style="font-family:Menlo,Consolas,monospace;font-size:10px;font-weight:bold;color:{{ im.verdictColor }};margin-top:4px">{{ im.verdict }}</div>
+                    <div style="display:flex;align-items:center;gap:5px;margin-top:6px">
+                      <div style="width:12px;height:12px;flex:none;border-radius:2px;background:{{ im.artistColor }};color:#fff;font-weight:bold;font-size:8px;line-height:12px;text-align:center">{{ im.artistInitial }}</div>
+                      <span style="font-family:Menlo,Consolas,monospace;font-size:9px;color:#666">{{ im.artist }}</span>
+                    </div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14);margin-top:14px">
+              <div style="background:linear-gradient(#fbfbfb,#ededed);border-bottom:1px solid #d5d5d5;padding:8px 12px;font-family:Menlo,Consolas,monospace;font-size:10px;letter-spacing:1.2px;color:#8a8a8a">{{ r.commentsLabel }}</div>
+              <div style="padding:6px 14px 4px">
+                <sc-for list="{{ r.comments }}" as="l" hint-placeholder-count="0">
+                  <div style="{{ l.wrap }}">
+                    <div style="width:36px;height:36px;flex:none;border-radius:3px;background:{{ l.color }};color:#fff;font-weight:bold;font-size:14px;display:flex;align-items:center;justify-content:center">{{ l.initial }}</div>
+                    <div>
+                      <div style="font-size:11px;color:#8a8a8a"><b style="color:#0d5aa7;font-size:12px">{{ l.name }}</b> {{ l.role }} · {{ l.date }}</div>
+                      <div style="font-size:12px;color:#333;line-height:1.6;margin-top:4px">{{ l.text }}</div>
+                      <div style="font-size:11px;color:#9a9a9a;margin-top:5px">(<a href="#" onClick="{{ noop }}">Reply</a>) (<a href="#" onClick="{{ noop }}">Thread</a>) (<a href="#" onClick="{{ noop }}">Link</a>)</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14)">
+            <div style="background:linear-gradient(#fbfbfb,#ededed);border-bottom:1px solid #d5d5d5;padding:8px 12px;font-size:11px;font-weight:bold;color:#444">Judges</div>
+            <div style="padding:6px 12px 10px">
+              <sc-for list="{{ judges }}" as="j" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #f2f2f2">
+                  <div style="width:26px;height:26px;border-radius:3px;background:{{ j.color }};color:#fff;font-weight:bold;font-size:11px;display:flex;align-items:center;justify-content:center">{{ j.initial }}</div>
+                  <div><div style="font-size:12px;font-weight:bold;color:#222">{{ j.name }}</div><div style="font-family:Menlo,Consolas,monospace;font-size:9px;color:#9a9a9a">{{ j.role }}</div></div>
+                  <div style="flex:1"></div>
+                  <div style="font-family:Menlo,Consolas,monospace;font-size:9px;color:#a8a8a8">{{ j.rounds }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14)">
+            <div style="background:linear-gradient(#fbfbfb,#ededed);border-bottom:1px solid #d5d5d5;padding:8px 12px;font-size:11px;font-weight:bold;color:#444">Generators</div>
+            <div style="padding:6px 12px 10px">
+              <sc-for list="{{ generators }}" as="g" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #f2f2f2">
+                  <div style="width:26px;height:26px;border-radius:3px;background:{{ g.color }};color:#fff;font-weight:bold;font-size:11px;display:flex;align-items:center;justify-content:center">{{ g.initial }}</div>
+                  <div><div style="font-size:12px;font-weight:bold;color:#222">{{ g.name }}</div><div style="font-family:Menlo,Consolas,monospace;font-size:9px;color:#9a9a9a">{{ g.tag }}</div></div>
+                  <div style="flex:1"></div>
+                  <div style="font-family:Menlo,Consolas,monospace;font-size:9px;color:#a8a8a8">{{ g.house }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isAbout }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:1fr 240px;gap:18px;align-items:start">
+        <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14);padding:26px 34px 34px">
+          <h1 style="margin:0;font-family:Georgia,serif;font-size:26px;font-weight:normal;color:#222">Rubens Syndicate</h1>
+          <div style="font-family:Georgia,serif;font-size:14px;color:#555;font-style:italic;margin-top:8px">Acrylic on canvas, composed by an algorithm written from my own brushwork.</div>
+          <div style="height:1px;background:#e0e0e0;margin:22px 0 24px"></div>
+
+          <h2 style="margin:0 0 10px;font-size:13px;font-weight:bold;color:#222;letter-spacing:.2px">The loop</h2>
+          <div style="font-family:Georgia,serif;font-size:13px;color:#333;line-height:1.75;text-align:justify;text-wrap:pretty">
+            <p style="margin:0 0 12px">I paint a colour study by hand: many dense parallel lines of one pure colour, laid in a single direction. One clean colour over an area, then another beside it, then another. Together they read as a gradient, but nothing is mixed — at arm's length the colours are separate touching lines, a raster made of paint.</p>
+            <p style="margin:0 0 12px">That technique is not applied to the algorithm. The algorithm was <b>derived from it</b>. A study is analysed: the direction of the strokes is measured, the pure colours are recovered by k-means in CIE Lab, and the gradient is stored not as a ramp but as a probability of each pure colour at every point along the stroke. The generator then lays synthetic strokes by drawing from that probability — so the boundaries interlock in the same combed fingers my brush leaves.</p>
+            <p style="margin:0 0 12px">A syndicate of agents searches the space that generator opens. It proposes compositions, renders them, argues about them across three model vendors, and ranks them by forced pairwise choice. I am the art director: I pick one.</p>
+            <p style="margin:0 0 12px">Then I paint it by hand, and it stops obeying. The tape edge runs straight where the cell is curved, the impasto stands up off the surface, a colour goes somewhere the model did not ask for. That divergence is measured too — the finished canvas is photographed and pushed back through the same analyser, and the delta between sketch and painting is published with the work.</p>
+            <p style="margin:0;font-style:italic;color:#555">Hand teaches the algorithm. Algorithm proposes to the hand.</p>
+          </div>
+
+          <div style="height:1px;background:#e0e0e0;margin:24px 0"></div>
+
+          <sc-for list="{{ updates }}" as="u" hint-placeholder-count="5">
+            <div style="margin-bottom:22px">
+              <h2 style="margin:0 0 8px;font-size:13px;font-weight:bold;color:#222">{{ u.title }}</h2>
+              <div style="font-family:Georgia,serif;font-size:13px;color:#333;line-height:1.75;text-align:justify;text-wrap:pretty">{{ u.body }}</div>
+            </div>
+          </sc-for>
+
+          <div style="height:1px;background:#e0e0e0;margin:24px 0"></div>
+
+          <h2 style="margin:0 0 12px;font-size:13px;font-weight:bold;color:#222">What is in this repository</h2>
+          <div style="border:1px solid #e2e2e2">
+            <sc-for list="{{ repoParts }}" as="p" hint-placeholder-count="6">
+              <div style="display:flex;gap:14px;padding:9px 12px;border-bottom:1px solid #f0f0f0">
+                <span style="font-family:Menlo,Consolas,monospace;font-size:11px;color:#0d5aa7;width:118px;flex:none">{{ p.path }}</span>
+                <span style="font-family:Georgia,serif;font-size:12px;color:#444;line-height:1.55">{{ p.what }}</span>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-family:Georgia,serif;font-size:13px;color:#333;line-height:1.75;text-align:justify;margin-top:14px">The <span style="font-family:Menlo,Consolas,monospace;font-size:11px;color:#0d5aa7">runs/</span> folder is the point. Every verdict carries the model that produced it, its version, the timestamp and the request id. Where the vendors disagreed on the same pair, the disagreement is kept rather than averaged away — it is usually the most interesting thing in the file.</div>
+
+          <div style="height:1px;background:#e0e0e0;margin:24px 0"></div>
+
+          <h2 style="margin:0 0 10px;font-size:13px;font-weight:bold;color:#222">Method, honestly stated</h2>
+          <div style="font-family:Georgia,serif;font-size:13px;color:#333;line-height:1.75;text-align:justify;text-wrap:pretty">
+            <p style="margin:0 0 12px">The agents do not invent the mechanics. They search a space I built. Every structural idea in the generator — the ribbon deformation, the cell-bounded dye, the layer stack — came from the hand and the eye, not from a model.</p>
+            <p style="margin:0">The judges see a rendered image at the size of a postcard. They read composition, proportion and colour distribution well. They are blind to impasto, to the ridge a loaded brush leaves, to what the surface does in raking light. That is the boundary of the instrument, and it is why a human still paints the result.</p>
+          </div>
+
+          <div style="font-family:Georgia,serif;font-size:12px;color:#8a8a8a;font-style:italic;margin-top:24px;padding-top:14px;border-top:1px solid #e0e0e0">Uccle, Belgium. 2026.</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14)">
+            <div style="background:linear-gradient(#fbfbfb,#ededed);border-bottom:1px solid #d5d5d5;padding:8px 12px;font-size:11px;font-weight:bold;color:#444">The repository</div>
+            <div style="padding:12px;font-family:Menlo,Consolas,monospace;font-size:11px;color:#555;line-height:1.9">
+              <div style="display:flex;justify-content:space-between"><span>repo</span><span>forma78/rubens</span></div>
+              <div style="display:flex;justify-content:space-between"><span>branch</span><span>main</span></div>
+              <div style="display:flex;justify-content:space-between"><span>commits</span><span>76</span></div>
+              <div style="display:flex;justify-content:space-between"><span>licence</span><span>MIT</span></div>
+              <div style="margin-top:8px;padding-top:8px;border-top:1px solid #ededed"><a href="https://github.com/forma78/rubens">github.com/forma78/rubens</a></div>
+              <div><a href="https://rubens-pearl.vercel.app">rubens-pearl.vercel.app</a></div>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14)">
+            <div style="background:linear-gradient(#fbfbfb,#ededed);border-bottom:1px solid #d5d5d5;padding:8px 12px;font-size:11px;font-weight:bold;color:#444">Running a shift</div>
+            <div style="padding:12px;font-family:Georgia,serif;font-size:12px;color:#555;line-height:1.7">
+              Live shift — ordinary endpoints, pooled, minutes. Night shift — batch APIs, cheaper, hours. Set by <span style="font-family:Menlo,Consolas,monospace;font-size:10px;color:#0d5aa7">judging.useBatchApi</span>.
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isWork }}" hint-placeholder-val="{{ false }}">
+      <div style="display:grid;grid-template-columns:1fr 240px;gap:18px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14);padding:16px">
+            <div style="font-family:Menlo,Consolas,monospace;font-size:10px;letter-spacing:1.4px;color:#8a8a8a;padding-bottom:6px;border-bottom:1px solid #e4e4e4;display:flex">
+              <span>PAIRWISE VIEW</span><span style="flex:1"></span><span style="letter-spacing:0;text-transform:none">What a judge is actually shown, A against B</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:18px;margin-top:16px">
+              <div style="flex:1;border:1px solid #d5d5d5;padding:6px;position:relative">
+                <img src="{{ pairA }}" alt="" style="display:block;width:100%;height:auto;background:#f2f2f2">
+                <span style="position:absolute;top:11px;left:11px;background:#1c1c1c;color:#fff;font-family:Menlo,Consolas,monospace;font-size:9px;padding:2px 5px">A · 01</span>
+              </div>
+              <div style="font-family:Menlo,Consolas,monospace;font-size:11px;color:#9a9a9a">vs</div>
+              <div style="flex:1;border:1px solid #d5d5d5;padding:6px;position:relative">
+                <img src="{{ pairB }}" alt="" style="display:block;width:100%;height:auto;background:#f2f2f2">
+                <span style="position:absolute;top:11px;left:11px;background:#1c1c1c;color:#fff;font-family:Menlo,Consolas,monospace;font-size:9px;padding:2px 5px">B · 02</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14);padding:16px">
+            <div style="font-family:Menlo,Consolas,monospace;font-size:10px;letter-spacing:1.4px;color:#8a8a8a;padding-bottom:6px;border-bottom:1px solid #e4e4e4">COMMENT THREAD</div>
+
+            <div style="display:flex;gap:10px;margin:16px 0 6px">
+              <div style="width:38px;height:38px;flex:none;border-radius:3px;background:{{ avatarBg }};color:#fff;font-weight:bold;display:flex;align-items:center;justify-content:center">{{ avatarLetter }}</div>
+              <div style="flex:1">
+                <textarea value="{{ draft }}" onChange="{{ setDraft }}" readOnly="{{ isGuest }}" placeholder="{{ commentPlaceholder }}" style="width:100%;box-sizing:border-box;min-height:66px;border:1px solid #bdbdbd;border-top-color:#a8a8a8;border-radius:3px;padding:8px 9px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#333;background:{{ taBg }};resize:vertical"></textarea>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:7px">
+                  <a href="#" onClick="{{ postComment }}" style="padding:6px 13px;border:1px solid #a8a8a8;border-radius:3px;background:{{ postBg }};color:{{ postFg }};font-size:11px;font-weight:bold;text-decoration:none">Post a comment</a>
+                  <span style="font-size:11px;color:#9a9a9a">{{ commentNote }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:14px">
+              <sc-for list="{{ comments }}" as="c" hint-placeholder-count="4">
+                <div style="{{ c.wrap }}">
+                  <div style="width:36px;height:36px;flex:none;border-radius:3px;background:{{ c.color }};color:#fff;font-weight:bold;font-size:14px;display:flex;align-items:center;justify-content:center">{{ c.initial }}</div>
+                  <div>
+                    <div style="font-size:11px;color:#8a8a8a"><b style="color:#0d5aa7;font-size:12px">{{ c.name }}</b> {{ c.role }} · {{ c.date }}</div>
+                    <div style="font-size:12px;color:#333;line-height:1.6;margin-top:4px">{{ c.text }}</div>
+                    <div style="font-size:11px;color:#9a9a9a;margin-top:5px">(<a href="#" onClick="{{ noop }}">Reply</a>) (<a href="#" onClick="{{ noop }}">Thread</a>) (<a href="#" onClick="{{ noop }}">Link</a>)</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14);padding:12px;text-align:center">
+            <a href="#" onClick="{{ appreciate }}" style="display:block;padding:9px 0;border:1px solid #1e4f80;border-radius:3px;background:{{ apprBg }};color:#fff;font-size:12px;font-weight:bold;text-shadow:0 -1px 0 rgba(0,0,0,.35);text-decoration:none">{{ apprLabel }}</a>
+            <div style="font-family:Menlo,Consolas,monospace;font-size:10px;color:#8a8a8a;margin-top:8px">{{ apprCount }} appreciations · anyone may</div>
+          </div>
+          <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14)">
+            <div style="background:linear-gradient(#fbfbfb,#ededed);border-bottom:1px solid #d5d5d5;padding:8px 12px;font-size:11px;font-weight:bold;color:#444">Judges</div>
+            <div style="padding:6px 12px 10px">
+              <sc-for list="{{ judges }}" as="j" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #f2f2f2">
+                  <div style="width:26px;height:26px;border-radius:3px;background:{{ j.color }};color:#fff;font-weight:bold;font-size:11px;display:flex;align-items:center;justify-content:center">{{ j.initial }}</div>
+                  <div><div style="font-size:12px;font-weight:bold;color:#222">{{ j.name }}</div><div style="font-family:Menlo,Consolas,monospace;font-size:9px;color:#9a9a9a">{{ j.role }}</div></div>
+                  <div style="flex:1"></div>
+                  <div style="font-family:Menlo,Consolas,monospace;font-size:9px;color:#a8a8a8">{{ j.rounds }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="background:#fff;border:1px solid #c4c4c4;box-shadow:0 1px 2px rgba(0,0,0,.14)">
+            <div style="background:linear-gradient(#fbfbfb,#ededed);border-bottom:1px solid #d5d5d5;padding:8px 12px;font-size:11px;font-weight:bold;color:#444">Generators</div>
+            <div style="padding:6px 12px 10px">
+              <sc-for list="{{ generators }}" as="g" hint-placeholder-count="6">
+                <div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #f2f2f2">
+                  <div style="width:26px;height:26px;border-radius:3px;background:{{ g.color }};color:#fff;font-weight:bold;font-size:11px;display:flex;align-items:center;justify-content:center">{{ g.initial }}</div>
+                  <div><div style="font-size:12px;font-weight:bold;color:#222">{{ g.name }}</div><div style="font-family:Menlo,Consolas,monospace;font-size:9px;color:#9a9a9a">{{ g.tag }}</div></div>
+                  <div style="flex:1"></div>
+                  <div style="font-family:Menlo,Consolas,monospace;font-size:9px;color:#a8a8a8">{{ g.house }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="margin-top:34px;padding-top:14px;border-top:1px solid #c2c2c2;font-size:11px;color:#7d7d7d">
+      RubensJournal — a syndicate of agents searching the space a hand-derived generator opens. Prototype: front-end architecture for admin and guest.
+    </div>
+  </div>
+
+  <sc-if value="{{ showConfirm }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(20,20,20,.55);display:flex;align-items:center;justify-content:center;z-index:40">
+      <div style="width:430px;background:#fff;border:1px solid #8f8f8f;box-shadow:0 8px 26px rgba(0,0,0,.4)">
+        <div style="background:linear-gradient(#4a4a4a,#1c1c1c);padding:9px 14px;color:#fff;font-size:12px;font-weight:bold;text-shadow:0 -1px 0 #000">Fire the shift?</div>
+        <div style="padding:18px">
+          <div style="font-size:13px;color:#333;line-height:1.6">A real shift, real spend — not a preview. Five rounds, 32 proposals, four judges. Roughly <b>1.9M tokens</b> on the studio's account.</div>
+          <div style="font-family:Menlo,Consolas,monospace;font-size:11px;color:#777;margin-top:12px;padding:9px 10px;background:#f6f6f6;border:1px solid #e6e6e6">canvas {{ size }} · studies {{ studyCount }} · instruction {{ instrLen }} chars</div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+            <a href="#" onClick="{{ closeConfirm }}" style="padding:7px 14px;border:1px solid #a8a8a8;border-radius:3px;background:linear-gradient(#fff,#e8e8e8);color:#333;font-size:12px;font-weight:bold;text-decoration:none">Cancel</a>
+            <a href="#" onClick="{{ confirmGo }}" style="padding:7px 16px;border:1px solid #1e4f80;border-radius:3px;background:linear-gradient(#5b9bd8,#2b6fb0);color:#fff;font-size:12px;font-weight:bold;text-shadow:0 -1px 0 rgba(0,0,0,.35);text-decoration:none">Go! — spend it</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ showSignin }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(20,20,20,.55);display:flex;align-items:center;justify-content:center;z-index:40">
+      <div style="width:340px;background:#fff;border:1px solid #8f8f8f;box-shadow:0 8px 26px rgba(0,0,0,.4)">
+        <div style="background:linear-gradient(#4a4a4a,#1c1c1c);padding:9px 14px;color:#fff;font-size:12px;font-weight:bold;text-shadow:0 -1px 0 #000">Studio only</div>
+        <div style="padding:18px">
+          <div style="font-size:13px;color:#333;line-height:1.6">Firing a shift spends the studio's tokens, so Go! is signed-in only. Guests read every brief, every render and every verdict.</div>
+          <input placeholder="Email" style="width:100%;box-sizing:border-box;margin-top:14px;border:1px solid #bdbdbd;border-radius:3px;padding:8px 9px;font-size:12px">
+          <input type="password" placeholder="Password" style="width:100%;box-sizing:border-box;margin-top:8px;border:1px solid #bdbdbd;border-radius:3px;padding:8px 9px;font-size:12px">
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+            <a href="#" onClick="{{ closeSignin }}" style="padding:7px 14px;border:1px solid #a8a8a8;border-radius:3px;background:linear-gradient(#fff,#e8e8e8);color:#333;font-size:12px;font-weight:bold;text-decoration:none">Keep watching</a>
+            <a href="#" onClick="{{ signInAsAdmin }}" style="padding:7px 16px;border:1px solid #1e4f80;border-radius:3px;background:linear-gradient(#5b9bd8,#2b6fb0);color:#fff;font-size:12px;font-weight:bold;text-shadow:0 -1px 0 rgba(0,0,0,.35);text-decoration:none">Sign in</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1120,&quot;height&quot;:900}}">
+const IMG = ['uploads/Unknown.png','uploads/Unknown-1.png'];
+const MODELS = ['Grok 4.6','GPT-2','Opus 5'];
+const PALS = [
+  ['#2b3ea8','#5b3fa8','#8f4fb0','#d9a0b8'],
+  ['#c8103c','#e0567a','#2b2f8a','#f0c8cc'],
+  ['#e8c032','#e86a8a','#f2e0c8','#8a2f5a'],
+  ['#c98a2e','#e0a878','#d86a7a','#f0d8c0']
+];
+function tile(i, ribbon, h) { // legacy, unused
+  return { display:'none' };
+}
+function _oldTile(i, ribbon, h) {
+  const p = PALS[i % 4];
+  const rib = ribbon === undefined ? (i % 2 ? 112 : 68) : ribbon;
+  return {
+    height: h || 126, width: '100%',
+    backgroundImage: [
+      'linear-gradient(' + rib + 'deg, transparent 44%, rgba(255,255,255,.34) 44%, rgba(255,255,255,.34) 48%, transparent 48%)',
+      'repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 2px, rgba(255,255,255,.08) 2px 7px)',
+      'repeating-linear-gradient(90deg, ' + p[0] + ' 0 7px, ' + p[1] + ' 7px 12px, ' + p[2] + ' 12px 15px, ' + p[3] + ' 15px 22px)'
+    ].join(','),
+    backgroundColor: p[0]
+  };
+}
+const GENS = [
+  ['Bernard','gen-tight','anthropic','#1c2a4a'],
+  ['Dolores','gen-loose','xai','#b8461c'],
+  ['Akecheta','gen-quiet','anthropic','#4a4238'],
+  ['Akane','gen-colour','xai','#c9902e'],
+  ['Clementine','gen-soften','openai','#d68aa8'],
+  ['Felix','gen-grain','openai','#6b5230']
+];
+const JUDGES = [
+  { name:'Ford', role:'(architect, Anthropic)', short:'architect', rounds:'rounds 1-5', color:'#1a4fd0', initial:'F' },
+  { name:'Arnold', role:'(old-master, xAI)', short:'old-master', rounds:'rounds 3-5', color:'#7a5aa8', initial:'A' },
+  { name:'Maeve', role:'(gallerist, Anthropic)', short:'gallerist', rounds:'rounds 1-5', color:'#c2265a', initial:'M' },
+  { name:'Angela', role:'(child, OpenAI)', short:'child', rounds:'rounds 4-5', color:'#1f8a5a', initial:'A' }
+];
+const LINES = {
+  Ford: ['B is calmer and more evenly weighted, with broader taut ribbons and a warmer ochre-rose balance.',
+         'A holds its proportion better; the crossing sits where the structure wants it.'],
+  Arnold: ['The proportion holds, but the weave reads mechanical where it should read composed.',
+           'Warmer, yes — and the diagonal still cuts the figure at the wrong height.'],
+  Maeve: ['A feels calmer and more evenly balanced, with a clearer warm rose-ochre read and tighter ribbon tension.',
+          'B would hang better: the crowding under the ribbons carries the whole picture.'],
+  Angela: ['It looks like a woven blanket that got pulled tight. I like the pink bit best.',
+           'This one is too stripy. The other one is squishier.']
+};
+const VERDICTS = [
+  'B is calmer and more evenly weighted, with broader taut ribbons and a warmer ochre-rose balance.',
+  'A feels calmer and more evenly balanced, with a clearer warm rose-ochre read and tighter ribbon tension.',
+  'The proportion holds, but the weave reads mechanical where it should read composed.',
+  'It looks like a woven blanket that got pulled tight. I like the pink bit best.',
+  'The crowding under the ribbons is doing the work here; the field behind it is too polite.',
+  'Warmer, but the diagonal cuts the figure at the wrong height.'
+];
+
+class Component extends DCLogic {
+  state = {
+    page: 'feed', role: 'admin', size: '70x100',
+    instruction: 'Anxious. The ribbons pulled tight, the cloth crowded under them.',
+    running: false, paused: false, feed: [], log: [], tick: 0,
+    showConfirm: false, showSignin: false, attached: false,
+    appreciated: false, appr: 148, draft: '',
+    comments: [
+      { name:'Ford', role:'(architect, Anthropic)', date:'Aug 19, 2026 · 22:50', text:VERDICTS[0], color:'#1a4fd0', initial:'F', indent:0 },
+      { name:'Maeve', role:'(gallerist, Anthropic)', date:'Aug 19, 2026 · 22:50', text:VERDICTS[1], color:'#c2265a', initial:'M', indent:1 },
+      { name:'Arnold', role:'(old-master, xAI)', date:'round 3', text:VERDICTS[2], color:'#7a5aa8', initial:'A', indent:0 },
+      { name:'Angela', role:'(child, OpenAI)', date:'round 4', text:VERDICTS[3], color:'#1f8a5a', initial:'A', indent:1 },
+      { name:'kseniya_m', role:'(visitor)', date:'Aug 20, 2026 · 09:12', text:'Отвал всего. Round 3 was the good one.', color:'#8a8a8a', initial:'K', indent:0 }
+    ]
+  };
+
+  componentWillUnmount() { clearInterval(this._t); }
+
+  startClock() {
+    clearInterval(this._t);
+    this._t = setInterval(() => {
+      if (this.state.paused || !this.state.running) return;
+      const n = this.state.feed.length;
+      if (n >= 16) { clearInterval(this._t); this.setState({ running: false }); return; }
+      const g = GENS[n % 6];
+      const item = { num: String(n + 1).padStart(2, '0'), gen: g[1], source: g[2], pal: n % 4 };
+      const next = this.state.feed.concat([item]);
+      let log = this.state.log;
+      if (n % 2 === 1) {
+        const k = (n >> 1) % 4;
+        const j = JUDGES[k];
+        const lines = LINES[j.name];
+        log = [{ name:j.name, role:j.role, initial:j.initial, color:j.color,
+                 text:lines[(n >> 3) % lines.length], time:'just now' }].concat(log);
+      }
+      this.setState({ feed: next, log });
+    }, 1700);
+  }
+
+  go(page) { return (e) => { e.preventDefault(); this.setState({ page }); }; }
+
+  renderVals() {
+    const s = this.state;
+    const admin = s.role === 'admin';
+    const nav = (p) => ({ fg: s.page === p ? '#fff' : '#c8c8c8', bg: s.page === p ? 'rgba(255,255,255,.14)' : 'transparent' });
+    const nf = nav('feed'), nl = nav('live'), nw = nav('work'), nb = nav('brief');
+    const done = s.feed.length;
+
+    const shifts = [
+      { title:'Shift 07 — ribbons pulled tight', meta:'2026-08-20 · 70x100 · running', appr:'12', views:'1.1K', comments:'9', pal:0, live:true },
+      { title:'Shift 06 — rose against ochre', meta:'2026-08-19 · 70x100 · 5 rounds', appr:'148', views:'29.2K', comments:'34', pal:1, live:false },
+      { title:'Shift 05 — the quiet weave', meta:'2026-08-17 · 90x120 · 5 rounds', appr:'96', views:'11.4K', comments:'21', pal:2, live:false },
+      { title:'Shift 04 — crowded cloth', meta:'2026-08-14 · 60x80 · 5 rounds', appr:'71', views:'8.9K', comments:'12', pal:3, live:false },
+      { title:'Shift 03 — mechanical read', meta:'2026-08-11 · 100x100 · aborted r2', appr:'23', views:'3.2K', comments:'6', pal:1, live:false },
+      { title:'Shift 02 — first paid run', meta:'2026-08-08 · 120x160 · 5 rounds', appr:'44', views:'5.6K', comments:'15', pal:0, live:false },
+      { title:'Shift 01 — the dry test', meta:'2026-08-05 · 70x100 · 2 rounds', appr:'18', views:'2.1K', comments:'4', pal:1, live:false },
+      { title:'Study — ribbon angles', meta:'2026-08-03 · 60x80 · unpaid', appr:'9', views:'900', comments:'2', pal:2, live:false },
+      { title:'Study — palette four', meta:'2026-08-01 · 90x120 · unpaid', appr:'27', views:'3.4K', comments:'7', pal:3, live:false },
+      { title:'Shift 00 — the first weave', meta:'2026-07-28 · 100x100 · 5 rounds', appr:'62', views:'7.2K', comments:'19', pal:0, live:false }
+    ].map((x, i) => ({ ...x, src: IMG[i % 2],
+        open: (e) => { e.preventDefault(); this.setState({ page: x.live ? 'live' : 'work' }); } }));
+
+    return {
+      crumb: { feed:'rubens-pearl / archive', brief:'rubens-pearl / new', live:'rubens-pearl / shift-07 / live', work:'rubens-pearl / shift-06 / round-3', about:'rubens-pearl / about' }[s.page],
+      isFeed: s.page === 'feed', isBrief: s.page === 'brief', isLive: s.page === 'live', isWork: s.page === 'work', isAbout: s.page === 'about',
+      goAbout: this.go('about'),
+      navAbout: nav('about').fg, navAboutBg: nav('about').bg,
+      updates: [
+        { title: 'Update 1 — a third vendor', body: "The syndicate started with two model vendors, Anthropic and xAI, each judging the other's proposals so disagreement meant something. It is now three — OpenAI joined both sides, generating and judging. Three independent opinions land on an unusual finalist more often than two do, and disagreement across three reads more like a jury than a coin flip. It costs more per shift. That is a deliberate trade, not an oversight — the syndicate searches, I still paint, and a canvas sold pays that back." },
+        { title: 'Update 2 — names, and cloth that behaves like cloth', body: "Every judge and every generator now has a name instead of a role id — Ford, Maeve, Arnold and Angela judge; Bernard, Dolores, Akecheta, Akane, Clementine and Felix propose. A jury of models arguing under real names, in the open, is more interesting to watch than a table of scores. The generators also learned what canvas they are sketching for: the range an agent may propose in is the range real stretched cloth occupies, and it changes with the physical canvas." },
+        { title: 'Update 3 — RubensJournal', body: "Judging used to be treated as something to hide until it was finished. RubensJournal makes it the opposite: the point. A brief is created on the site — pick a canvas size, attach a reference photograph, write the instruction — and a shift runs live: each variant appears the moment it renders, and the named judges' verdicts trickle in underneath it as each vendor actually returns them. The site itself stays static; a shift runs in GitHub Actions, dispatched by the site, writing to Supabase as it goes." },
+        { title: 'Update 4 — two speeds', body: "Live shift: every call goes out on the ordinary endpoint, proposals, renders and judgments each pooled, all three vendors sharing one pool — minutes, with verdicts streaming to the feed as they land. Night shift: the original batch path, kept intact for large unattended runs where the discount is worth the queue. Determinism survived the change — variant ids and seeds derive from the job index, and everything under runs/ is evidence." },
+        { title: 'Update 5 — a brief can carry up to four references', body: "A brief now carries references, 1–4 entries, one per colour layer it wants to override; a slot it leaves out keeps the generator's own built-in study for that layer, declared by name rather than silently substituted. Which of the four studies a layer shows is patchable too — a generator agent can propose moving a study from one layer to another, which it never could before." }
+      ],
+      repoParts: [
+        { path: 'generator/', what: 'The parametric generator. One HTML file, no build, no dependencies.' },
+        { path: 'src/engine/', what: 'The same drawing code as a library, so the browser and the command line render identically.' },
+        { path: 'src/syndicate/', what: 'The agents: proposal, rendering, pairwise judging, ranking.' },
+        { path: 'runs/', what: 'Every shift, kept whole: proposals, renders, verdicts, disagreements.' },
+        { path: 'studies/', what: 'The hand-painted colour studies the palettes are read from.' },
+        { path: 'canvases/', what: 'Finished paintings and their deviation reports.' }
+      ],
+      isAdmin: admin, isGuest: !admin,
+      whoami: admin ? 'signed in — studio' : 'not signed in — visitor',
+      avatarBg: admin ? '#a3123c' : '#6a6a6a', avatarLetter: admin ? 'T' : 'G',
+      briefLock: admin ? '' : '🔒',
+      navFeed: nf.fg, navFeedBg: nf.bg, navLive: nl.fg, navLiveBg: nl.bg,
+      navWork: nw.fg, navWorkBg: nw.bg, navBrief: nb.fg, navBriefBg: nb.bg,
+      goFeed: this.go('feed'), goLive: this.go('live'), goWork: this.go('work'), goBrief: this.go('brief'),
+      setAdmin: (e) => { e.preventDefault(); this.setState({ role: 'admin' }); },
+      setGuest: (e) => { e.preventDefault(); this.setState({ role: 'guest' }); },
+      segAdminBg: admin ? 'linear-gradient(#5b9bd8,#2b6fb0)' : 'linear-gradient(#fff,#e8e8e8)',
+      segAdminFg: admin ? '#fff' : '#555',
+      segGuestBg: !admin ? 'linear-gradient(#5b9bd8,#2b6fb0)' : 'linear-gradient(#fff,#e8e8e8)',
+      segGuestFg: !admin ? '#fff' : '#555',
+      shifts,
+
+      sizes: ['60x80','70x100','90x120','100x100','120x160'].map(l => ({
+        label: l, bc: s.size === l ? '#2b6fb0' : '#c4c4c4',
+        bg: s.size === l ? '#eaf2fb' : 'linear-gradient(#fff,#f2f2f2)',
+        fg: s.size === l ? '#0d5aa7' : '#555',
+        pick: (e) => { e.preventDefault(); if (admin) this.setState({ size: l }); }
+      })),
+      studies: [
+        { name:'color_01', slot:'L[0] default', src: IMG[0] },
+        { name:'color_02', slot:'L[1] default', src: IMG[1] },
+        { name:'color_03', slot:'L[2] default', src: IMG[0] },
+        { name:'color_04', slot:'L[3], L[4] default', src: IMG[1] }
+      ],
+      size: s.size, instruction: s.instruction, instrLen: s.instruction.length,
+      studyCount: s.attached ? 5 : 4,
+      setInstruction: (e) => this.setState({ instruction: e.target.value }),
+      taBg: admin ? '#fff' : '#f4f4f4',
+      pressGo: (e) => { e.preventDefault(); admin ? this.setState({ showConfirm: true }) : this.setState({ showSignin: true }); },
+      goBg: admin ? 'radial-gradient(circle at 40% 30%, #6b5a48, #2a211a)' : 'radial-gradient(circle at 40% 30%, #9a9a9a, #5c5c5c)',
+      goImage: 'url("uploads/rubens.jpeg")',
+      attach: (e) => { e.preventDefault(); if (admin) this.setState({ attached: true }); },
+      hasAttached: !!s.attached,
+      removeAttached: (e) => { e.preventDefault(); this.setState({ attached: false }); },
+      attachBc: admin ? '#9a9a9a' : '#cfcfcf',
+      attachBg: admin ? 'linear-gradient(#fff,#f2f2f2)' : '#f6f6f6',
+      attachFg: admin ? '#444' : '#aaa',
+      attachNote: admin ? 'PNG or JPG — enters the run as a fifth study.' : 'Studio only.',
+      goOpacity: admin ? 1 : 0.55,
+      goLabel: admin ? 'Go!' : '🔒',
+      goTitle: admin ? 'Fires a real, paid shift' : 'Studio only — guests cannot spend tokens',
+      goHeadline: admin ? 'A real shift, real spend — not a preview.' : 'Go! is disabled for visitors.',
+      goSub: admin ? 'Confirms before it fires.' : 'You can still read the brief and watch the run.',
+
+      runTitle: 'Shift 07 — ribbons pulled tight',
+      runMeta: 'Round 1. canvas 70x100 · 4 judges · 32 generators',
+      rounds: [32, 16, 8, 4, 2].map((count, ri) => ({
+        num: ri + 1, count,
+        grid: { display: 'grid', gridTemplateColumns: 'repeat(' + [8, 8, 4, 2, 2][ri] + ',minmax(0,1fr))', gap: 12 },
+        images: Array.from({ length: count }, (_, i) => ({
+          src: IMG[i % 2],
+          model: MODELS[(ri + i) % 3],
+          verdict: i % 2 === 0 ? 'approved' : 'rejected',
+          verdictColor: i % 2 === 0 ? '#1f8a5a' : '#a3123c',
+          artist: GENS[(ri + i) % 6][0],
+          artistInitial: GENS[(ri + i) % 6][0][0],
+          artistColor: GENS[(ri + i) % 6][3]
+        })),
+        commentsLabel: ri === 4 ? 'FINAL VERDICTS' : 'COMMENTS',
+        comments: [0, 1, 2].map(j => {
+          const jg = JUDGES[(ri + j) % 4];
+          const lines = LINES[jg.name];
+          return {
+            name: jg.name, role: jg.role, initial: jg.initial, color: jg.color,
+            text: lines[(ri + j) % lines.length],
+            date: j === 0 ? 'round ' + (ri + 1) : 'round ' + (ri + 1) + ' · reply',
+            wrap: { display: 'flex', gap: 9, padding: '12px 0', borderTop: j === 0 ? 'none' : '1px solid #f0f0f0', marginLeft: j % 2 === 1 ? 44 : 0, background: j % 2 === 1 ? '#f7f7f7' : 'transparent', paddingLeft: j % 2 === 1 ? 10 : 0 }
+          };
+        })
+      })),
+
+      pairA: IMG[0], pairB: IMG[1],
+      judges: JUDGES.map(j => ({ ...j, role: j.short })),
+      generators: GENS.map(g => ({ name:g[0], tag:g[1], house:g[2], color:g[3], initial:g[0][0] })),
+      comments: s.comments.map(c => ({ ...c, wrap: { display:'flex', gap:10, padding:'12px 0', borderTop:'1px solid #efefef', marginLeft: c.indent ? 48 : 0, background: c.indent ? '#f7f7f7' : 'transparent', paddingLeft: c.indent ? 10 : 0 } })),
+      draft: s.draft, setDraft: (e) => this.setState({ draft: e.target.value }),
+      commentPlaceholder: admin ? 'Answer the judges…' : 'Sign in to leave a comment — reading is open to everyone.',
+      commentNote: admin ? 'Studio replies are marked.' : 'Visitors read; comments need an account.',
+      postBg: admin ? 'linear-gradient(#5b9bd8,#2b6fb0)' : 'linear-gradient(#f4f4f4,#e4e4e4)',
+      postFg: admin ? '#fff' : '#a0a0a0',
+      postComment: (e) => {
+        e.preventDefault();
+        if (!admin) { this.setState({ showSignin: true }); return; }
+        if (!s.draft.trim()) return;
+        this.setState({ draft: '', comments: s.comments.concat([{ name:'Theo (studio)', role:'(admin)', date:'just now', text:s.draft, color:'#a3123c', initial:'T', indent:0 }]) });
+      },
+      appreciate: (e) => { e.preventDefault(); this.setState({ appreciated: !s.appreciated, appr: s.appr + (s.appreciated ? -1 : 1) }); },
+      apprLabel: s.appreciated ? '✓ Appreciated' : '▲ Appreciate',
+      apprBg: s.appreciated ? 'linear-gradient(#2f7f55,#1f6040)' : 'linear-gradient(#5b9bd8,#2b6fb0)',
+      apprCount: s.appr,
+
+      showConfirm: s.showConfirm, showSignin: s.showSignin,
+      closeConfirm: (e) => { e.preventDefault(); this.setState({ showConfirm: false }); },
+      confirmGo: (e) => { e.preventDefault(); this.setState({ showConfirm: false, page: 'live', running: true, paused: false, feed: [], log: [] }, () => this.startClock()); },
+      closeSignin: (e) => { e.preventDefault(); this.setState({ showSignin: false }); },
+      signInAsAdmin: (e) => { e.preventDefault(); this.setState({ showSignin: false, role: 'admin' }); },
+      noop: (e) => e.preventDefault()
+    };
+  }
+}
+
+</script>
+</body>
+</html>
