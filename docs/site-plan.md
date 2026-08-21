@@ -132,17 +132,35 @@ just does so at reading speed instead of overnight.
       polling swap on `/new`) using the slug the DB just generated.
       2026-08-21.
 
-      **Needs a schema.sql run the owner hasn't done yet** — paste
-      `schema.sql` into the Supabase SQL editor again (safe to run twice):
-      adds `next_shift_slug()` (atomic `YYYYMMDD`+daily-counter slugs,
-      replacing the old `brief-<timestamp>-<uuid>` scheme), flips
-      `briefs.published`'s default to `true` (every shift is public the
-      moment Go! fires now — no manual publish step was ever built), adds
-      the Realtime publication for `briefs`/`variants`/`comparisons`
-      (without it Live's subscription has nothing to stream even though
-      RLS already allows it), and narrows anon's `briefs` grant to named
-      columns so `cost_usd` never reaches the public pages. Existing rows
-      keep their old slugs — only new ones get the new format.
+      `schema.sql` run by the owner in the Supabase SQL editor, 2026-08-21
+      ("Success. No rows returned"): `next_shift_slug()` (atomic
+      `YYYYMMDD`+daily-counter slugs), `briefs.published` default `true`,
+      the Realtime publication for `briefs`/`variants`/`comparisons`,
+      anon's `briefs` grant narrowed so `cost_usd` stays owner-only.
+      **First real Go! click, same day**: hit `new row violates row-level
+      security policy for table "shift_counters"` — `next_shift_slug()`
+      ran as the calling (`authenticated`) role, which had no grant on
+      the new counter table (Supabase enables RLS by default on tables
+      made in the SQL editor). Fixed by making the function `security
+      definer`; `shift_counters` itself stays RLS-on/zero-policies —
+      nothing outside that one function should ever touch it. Re-run
+      confirmed working.
+
+      **One real round, not five** (2026-08-21, after the first real
+      shift's own results prompted the question): re-running
+      `proposeRound`/`judgeRound` every round burned tokens generating
+      fresh mutations with no discussion payoff a single well-judged
+      round doesn't already give. `briefs.rounds` now defaults to `1`;
+      `config/roles.json`'s `old-master` and `child` judges (previously
+      gated to round 3+/4+, which no longer runs) now judge round 1 too,
+      so all four judges weigh in on the round that actually decides
+      things. Live/Canon still show a shift narrowing 32 → 16 → 8 → 4 →
+      2 like `rubens-claude-design`'s own spec says — `lib/shift.ts`'s
+      `narrowingSizes()` halves round 1's real, final rating instead of
+      running four more paid rounds to get there. A pre-2026-08-21 shift
+      that really ran 5 rounds (e.g. Shift 07) renders exactly as it
+      always did — the site tells the two apart by whether more than one
+      real `round` value exists on the brief's own variants.
 - [ ] C2. The owner's "pick the finalist" action, on-site, writing to
       `reactions`.
 

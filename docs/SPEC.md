@@ -369,7 +369,9 @@ Static, on Vercel free. Reads Supabase directly with the anon key; no server of
 its own, no secrets.
 
 - shift index, newest first
-- one shift: the five rounds, each a grid of renders with rating and
+- one shift: the round (2026-08-21 — one real round of generation and
+  judging now, not five; `Round 2-5` on the site is that same round's own
+  ranking halved, not fresh judging), a grid of renders with rating and
   disagreement, the argument underneath each pair
 - the disagreement column given its own view — where the vendors split
 - the owner's like, and how often his choice differed from the ranking
