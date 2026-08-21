@@ -34,8 +34,10 @@ just does so at reading speed instead of overnight.
       instruction text, and the circular Rubens-self-portrait **Go**
       button — disabled until a format and at least one reference are set,
       and a real `window.confirm()` before it fires (a real shift, real
-      spend). Built on `docs/design-canon.md`'s tokens directly (copied
-      into `site/app/globals.css`, not reinterpreted). 2026-08-20.
+      spend). Originally built on `docs/design-canon.md`'s tokens; that
+      file is retired as of 2026-08-21 (see C1) and this form was
+      restyled onto the new canon in the same pass, without changing its
+      own logic. 2026-08-20.
 
       Required `reference_urls` jsonb column and migration on `briefs`
       (`schema.sql`, additive — `reference` untouched for old rows) plus a
@@ -69,9 +71,26 @@ just does so at reading speed instead of overnight.
         `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` added.
       - `site/package-lock.json` is committed, so Vercel's own
         `npm install` is reproducible.
-      Not yet done: a real deploy hasn't been confirmed working, and B3
-      has never actually fired `workflow_dispatch` for real — see B3's own
-      note below.
+      - [x] **Deploy confirmed working, 2026-08-20** — production URL now
+        renders `/login` correctly. Two real Vercel misconfigurations found
+        and fixed along the way, neither one in this repo's code:
+        - **Framework Preset was stuck on "Other"** (a leftover from
+          before Root Directory pointed at `site` — the repo root itself
+          has no framework). With "Other", Vercel skipped Next.js-aware
+          building entirely: no serverless functions, no framework
+          routing — a "successful" build that 404'd on every route. Fixed
+          by setting Framework Preset to Next.js and turning **off**
+          Output Directory override specifically (an explicit
+          `.next` override reproduces the same bug — Next.js on Vercel is
+          not "serve this folder as static," the framework builder needs
+          to own that setting).
+        - **Deployment Protection → Vercel Authentication ("Require Log
+          In") was on**, gating every deployment, including production,
+          behind a Vercel-team login — orthogonal to the app's own
+          Supabase auth and wrong for a public site. Turned off.
+      Not yet done: B3 has never actually fired `workflow_dispatch` for
+      real — see B3's own note above; the owner's first real Go click is
+      still the actual first test.
 - [x] B4. GitHub Actions repository secrets: `ANTHROPIC_API_KEY`,
       `XAI_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
       `SUPABASE_EMAIL`, `SUPABASE_PASSWORD` — set via `gh secret set`
@@ -96,8 +115,34 @@ just does so at reading speed instead of overnight.
 
 ## C — Display (the actual RubensJournal feed)
 
-- [ ] C1. Real RubensJournal feed page, reading published shifts from
-      Supabase — implements the mockup already approved as beta.
+- [x] C1. Real RubensJournal feed — `/` (Archive), `/shift/[slug]` (Live,
+      real-time via Supabase Realtime on `briefs`/`variants`/
+      `comparisons`), `/shift/[slug]/round/[n]` (Canon — every real
+      pairwise comparison for that round, never an invented verdict),
+      `/about` (built from `README.md`). Design canon swapped: the
+      Claude-Design prototype in `rubens-claude-design/` (Behance-style —
+      grey bordered panels, gradient top bar, monospace metadata)
+      replaces `docs/design-canon.md` (deleted) as the one source of
+      truth; `/new` and `/login` were restyled onto it too so the whole
+      site reads as one system. No guest write access anywhere (no
+      signup flow exists — Appreciate/comments were in the prototype but
+      dropped, owner's call, 2026-08-21) — Judges' verdicts
+      (`comparisons.why`) are real, read-only, shown to everyone.
+      Go! now redirects straight to `/shift/[slug]` (no more inline
+      polling swap on `/new`) using the slug the DB just generated.
+      2026-08-21.
+
+      **Needs a schema.sql run the owner hasn't done yet** — paste
+      `schema.sql` into the Supabase SQL editor again (safe to run twice):
+      adds `next_shift_slug()` (atomic `YYYYMMDD`+daily-counter slugs,
+      replacing the old `brief-<timestamp>-<uuid>` scheme), flips
+      `briefs.published`'s default to `true` (every shift is public the
+      moment Go! fires now — no manual publish step was ever built), adds
+      the Realtime publication for `briefs`/`variants`/`comparisons`
+      (without it Live's subscription has nothing to stream even though
+      RLS already allows it), and narrows anon's `briefs` grant to named
+      columns so `cost_usd` never reaches the public pages. Existing rows
+      keep their old slugs — only new ones get the new format.
 - [ ] C2. The owner's "pick the finalist" action, on-site, writing to
       `reactions`.
 

@@ -9,6 +9,44 @@ create extension if not exists pgcrypto;
 alter table if exists public.briefs
   add column if not exists reference_urls jsonb not null default '[]'::jsonb;
 
+-- 2026-08-21: RubensJournal front end (Archive/Live/Canon — docs/site-plan.md
+-- C1). Two changes the new pages depend on:
+--
+-- 1. A human URL slug, generated on the DB side so two shifts fired the
+--    same second can never collide. One row per calendar day holds that
+--    day's count; the function is atomic (insert .. on conflict ..
+--    returning), so concurrent inserts can't hand out the same number
+--    twice — the old client-side `brief-${Date.now()}-uuid` scheme gave no
+--    such guarantee and wasn't a URL anyone would want to read anyway.
+-- 2. `published` now defaults true. RubensJournal is a live feed, not a
+--    curated gallery waiting on a manual publish step that was never
+--    built — CLAUDE.md's "a feed that fills in as it happens is the
+--    reason the site exists" applies from the moment Go! is pressed, not
+--    after the fact.
+create table if not exists public.shift_counters (
+  day   date primary key,
+  count int  not null default 0
+);
+
+create or replace function public.next_shift_slug()
+returns text language plpgsql as $$
+declare
+  d date := current_date;
+  n int;
+begin
+  insert into public.shift_counters (day, count) values (d, 1)
+  on conflict (day) do update set count = shift_counters.count + 1
+  returning count into n;
+  return to_char(d, 'YYYYMMDD') || lpad(n::text, 2, '0');
+end;
+$$;
+
+alter table if exists public.briefs
+  alter column slug set default public.next_shift_slug();
+
+alter table if exists public.briefs
+  alter column published set default true;
+
 -- ---------------------------------------------------------------- sketches
 -- states saved by hand from the generator's Archive panel
 create table if not exists public.sketches (
@@ -157,7 +195,36 @@ grant usage on schema public to authenticated, anon;
 grant select, insert, update, delete
   on public.sketches, public.briefs, public.variants, public.comparisons, public.reactions
   to authenticated;
-grant select on public.briefs, public.variants, public.comparisons to anon;
+grant select on public.variants, public.comparisons to anon;
+-- briefs gets a column-scoped grant, not the blanket one above: cost_usd
+-- is real spend (CLAUDE.md's "costs are real"), visible to the owner
+-- (authenticated's own full-table grant above) but not to anyone reading
+-- the public Archive/Live pages.
+grant select (
+  id, user_id, slug, instruction, canvas_format, base_state, palette,
+  reference, reference_urls, rounds, published, status, created_at
+) on public.briefs to anon;
+
+-- ---------------------------------------------------------------- realtime
+-- Live and Archive both watch a shift as it happens — without these,
+-- Postgres Changes has nothing to stream even though RLS above already
+-- lets anon read the rows. Guarded with pg_publication_tables checks
+-- because `alter publication .. add table` has no native IF NOT EXISTS.
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables
+                 where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'briefs') then
+    alter publication supabase_realtime add table public.briefs;
+  end if;
+  if not exists (select 1 from pg_publication_tables
+                 where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'variants') then
+    alter publication supabase_realtime add table public.variants;
+  end if;
+  if not exists (select 1 from pg_publication_tables
+                 where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'comparisons') then
+    alter publication supabase_realtime add table public.comparisons;
+  end if;
+end $$;
 
 -- ---------------------------------------------------------------- storage
 -- reference images uploaded from the brief-creation form. Public read (the
