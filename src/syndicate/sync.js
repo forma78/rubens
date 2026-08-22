@@ -92,6 +92,10 @@ async function insertBrief({ supabaseUrl, apikey, accessToken, brief, fetchImpl 
       slug: brief.id,
       instruction: brief.instruction,
       canvas_format: brief.canvasFormat ?? null,
+      // which generator actually ran. Without it the row would default to 1
+      // and a model-2 shift would be published as a model-1 one — the record
+      // describing something other than what happened (CLAUDE.md).
+      generator: brief.generator ?? 1,
       reference_urls: brief.references ?? [],
       rounds: brief.rounds,
       status: 'running',

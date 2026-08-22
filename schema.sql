@@ -70,6 +70,12 @@ alter table if exists public.briefs
 alter table if exists public.briefs
   alter column rounds set default 1;
 
+-- The second generator, 2026-08-22. Additive: existing rows get 1, which is
+-- what they ran. Like the alters above, this is the half that reaches a live
+-- table — `create table if not exists` is a no-op once it exists.
+alter table if exists public.briefs
+  add column if not exists generator int not null default 1;
+
 -- ---------------------------------------------------------------- sketches
 -- states saved by hand from the generator's Archive panel
 create table if not exists public.sketches (
@@ -103,6 +109,13 @@ create table if not exists public.briefs (
   -- with fresh mutations every round burned tokens with no discussion
   -- payoff a single well-judged round doesn't already give.
   rounds       int  not null default 1,
+  -- which generator this shift searches: 1 = dyed cloth (generator/index.html,
+  -- src/engine), 2 = ruled ink bars (generator/index2.html, src/engine2).
+  -- Defaults to 1 because every brief written before there were two meant
+  -- that, and every shift in runs/ ran it. src/syndicate/models.js refuses
+  -- any other value rather than falling back — a shift that quietly ran the
+  -- wrong generator would spend real money rendering the wrong thing.
+  generator    int  not null default 1,
   published    boolean not null default false,
   status       text not null default 'pending',   -- pending | running | done | aborted
   cost_usd     numeric(10,4) not null default 0,

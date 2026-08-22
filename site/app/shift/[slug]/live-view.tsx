@@ -46,9 +46,14 @@ type Brief = {
   slug: string;
   instruction: string;
   canvas_format: string | null;
+  /* 1 = dyed cloth, 2 = ruled ink bars. Null on every brief written before
+     there were two, all of which ran 1 — see src/syndicate/models.js. */
+  generator: number | null;
   rounds: number;
   status: string;
 };
+
+const GENERATOR_NAMES: Record<number, string> = { 1: "dyed cloth", 2: "ruled cloth" };
 
 function WorkCard({ v, verdict }: { v: Variant; verdict: { text: string; cls: string } }) {
   const gen = generatorById(v.agent_id);
@@ -175,8 +180,9 @@ export function LiveView({
     <>
       <h1 className="page-title">{shiftTitle(brief.slug, brief.instruction)}</h1>
       <div className="run-meta">
-        {statusLabel(status, realRounds || brief.rounds)} · canvas {brief.canvas_format ?? "—"} · {JUDGES.length}{" "}
-        judges · {field.length} proposals
+        {statusLabel(status, realRounds || brief.rounds)} · canvas {brief.canvas_format ?? "—"} ·{" "}
+        {GENERATOR_NAMES[brief.generator ?? 1] ?? `generator ${brief.generator}`} · {JUDGES.length} judges ·{" "}
+        {field.length} proposals
       </div>
 
       <div className="layout-with-sidebar">

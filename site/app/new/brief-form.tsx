@@ -9,6 +9,15 @@ import { createClient } from "@/lib/supabase/client";
 const CANVAS_FORMATS = ["60x80", "70x100", "90x120", "100x100", "120x90"] as const;
 type CanvasFormat = (typeof CANVAS_FORMATS)[number];
 
+// src/syndicate/models.js is the runtime authority; this mirrors it the same
+// way CANVAS_FORMATS mirrors canvas.js. Model 2 has no colour studies at all
+// — its inks are named in its own state — so choosing it changes what the
+// rest of this form even asks for.
+const GENERATORS = [
+  { id: 1, name: "Model 1 — dyed cloth", note: "colour fields, read out of your painted studies", usesStudies: true },
+  { id: 2, name: "Model 2 — ruled cloth", note: "short ink bars from the generator's own ink library", usesStudies: false },
+] as const;
+
 // config/syndicate.json's real defaults, mirrored the same way
 // lib/roles.ts mirrors config/roles.json — Vercel's Root Directory is
 // `site`, so nothing outside it is guaranteed to exist in the build.
@@ -30,6 +39,7 @@ export function BriefForm({ userId }: { userId: string | null }) {
   const isGuest = userId === null;
   const router = useRouter();
   const [canvasFormat, setCanvasFormat] = useState<CanvasFormat | null>(null);
+  const [generator, setGenerator] = useState<1 | 2 | null>(null);
   const [slots, setSlots] = useState<Slot[]>(emptySlots);
   const [instruction, setInstruction] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -37,7 +47,18 @@ export function BriefForm({ userId }: { userId: string | null }) {
   const fileInputs = useRef<(HTMLInputElement | null)[]>([]);
 
   const hasReference = slots.some((s) => s.status === "done");
-  const canSubmit = !isGuest && canvasFormat !== null && hasReference && instruction.trim().length > 0 && !submitting;
+  // A reference is required whichever generator runs. Model 2 does not read
+  // it as a palette — its inks are named in its own state — but the judges
+  // are shown the first one as the tonal target either way (run.js's
+  // referenceJpeg), and run.js assumes at least one exists.
+  const readsPalette = GENERATORS.find((g) => g.id === generator)?.usesStudies ?? true;
+  const canSubmit =
+    !isGuest &&
+    canvasFormat !== null &&
+    generator !== null &&
+    hasReference &&
+    instruction.trim().length > 0 &&
+    !submitting;
 
   async function handleFileChosen(index: number, file: File) {
     const previewUrl = URL.createObjectURL(file);
@@ -97,6 +118,7 @@ export function BriefForm({ userId }: { userId: string | null }) {
       .insert({
         instruction: instruction.trim(),
         canvas_format: canvasFormat,
+        generator,
         reference_urls: referenceUrls,
         status: "pending",
       })
@@ -135,6 +157,27 @@ export function BriefForm({ userId }: { userId: string | null }) {
           </span>
         </div>
         <div className="panel-body">
+          <div className="section-label">Generator</div>
+          <div className="formats" role="radiogroup" aria-label="Generator" style={{ marginBottom: 8 }}>
+            {GENERATORS.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                className="fmt"
+                role="radio"
+                aria-checked={generator === g.id}
+                onClick={() => setGenerator(g.id)}
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
+          <p className="gonote" style={{ marginBottom: 26 }}>
+            {generator === null
+              ? "Two parametric models, both drawing the same cloth. What differs is what gets laid inside the cells."
+              : GENERATORS.find((g) => g.id === generator)?.note}
+          </p>
+
           <div className="section-label">Canvas size</div>
           <div className="formats" role="radiogroup" aria-label="Canvas format" style={{ marginBottom: 26 }}>
             {CANVAS_FORMATS.map((fmt) => (
@@ -151,7 +194,16 @@ export function BriefForm({ userId }: { userId: string | null }) {
             ))}
           </div>
 
-          <div className="section-label">Colour — four hand-painted studies</div>
+          <div className="section-label">
+            {readsPalette ? "Colour — four hand-painted studies" : "Colour — the target, not the palette"}
+          </div>
+          {!readsPalette && (
+            <p className="gonote" style={{ marginBottom: 14 }}>
+              Model 2 names its own inks, so nothing here is read as a palette. The first image is still what
+              the judges are shown as the tonal target — red stripes and a green ribbon will steer how they
+              argue, just not what the generator has to paint with.
+            </p>
+          )}
           <div className="studies" style={{ marginBottom: 8 }}>
             {slots.map((slot, i) => (
               <div key={i} className={slot.status === "empty" ? undefined : "study"}>

@@ -149,6 +149,20 @@ test('insertBrief creates a running row and includes canvas_format', async () =>
   assert.equal(insertCall.body.canvas_format, '60x80');
   assert.deepEqual(insertCall.body.reference_urls, ['studies/x.jpg']);
   assert.equal(insertCall.body.status, 'running', 'inserted as running immediately, not done at the end');
+  assert.equal(insertCall.body.generator, 1, 'a brief that names no generator ran model 1');
+});
+
+/* The published row has to describe the shift that actually happened. Without
+   this the column would take its default of 1 and a model-2 shift would be
+   archived as a model-1 one — a record saying something other than what ran. */
+test('insertBrief records which generator the shift ran', async () => {
+  const { fetchImpl, calls } = makeFakeSupabase();
+  await insertBrief({
+    ...ctx(fetchImpl),
+    brief: { id: 'brief-08', instruction: 'Ruled.', canvasFormat: '70x100', references: ['studies/x.jpg'], rounds: 1, generator: 2 },
+  });
+  const insertCall = calls.find(c => c.url.endsWith('/rest/v1/briefs') && c.method === 'POST');
+  assert.equal(insertCall.body.generator, 2);
 });
 
 test('closeBrief patches the final status/cost/base_state onto an existing row', async () => {

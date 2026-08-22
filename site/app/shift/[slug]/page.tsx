@@ -11,7 +11,7 @@ export default async function ShiftPage({ params }: { params: Promise<{ slug: st
 
   const { data: brief } = await supabase
     .from("briefs")
-    .select("id,slug,instruction,canvas_format,rounds,status,created_at")
+    .select("id,slug,instruction,canvas_format,generator,rounds,status,created_at")
     .eq("slug", slug)
     .maybeSingle();
 

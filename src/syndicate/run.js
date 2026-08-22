@@ -94,6 +94,7 @@ async function resolveBriefSource({
     instruction: claimed.instruction,
     ratio: profile.ratio,
     canvasFormat: claimed.canvas_format,
+    generator: claimed.generator ?? 1,
     references: claimed.reference_urls,
     rounds: claimed.rounds,
   }, fileConfig, `brief ${briefId} (from Supabase)`);

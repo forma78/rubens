@@ -255,6 +255,39 @@ just does so at reading speed instead of overnight.
       with no verified price — the old failure mode was discovering it
       inside `costTracker.add()`, after the call was already paid for.
 
+- [x] C1c. **Choosing a generator** (2026-08-22). `generator/index2.html` is
+      a second hand-derived model — the same cloth, ruled with ink bars
+      instead of dyed. Extracted into `src/engine2` (see the commit for how
+      that was proven byte for byte), and now a brief can name it and the
+      whole runner obeys.
+
+      `src/syndicate/models.js` states the fork once — validator, mutation
+      pool, agent vocabulary, base state, renderer all read it. An absent
+      generator is 1, which is what every existing brief and every shift in
+      `runs/` meant; an unrecognised one throws rather than falling back,
+      because a shift that quietly ran the wrong generator would spend real
+      money rendering 32 real variants of the wrong thing.
+
+      The end-to-end test earned its keep immediately: `loadBrief()` returns
+      a whitelist of fields, `generator` was not in it, and a brief asking
+      for model 2 was silently running model 1.
+
+      A reference image is still required for both. Model 2 does not read it
+      as a palette — its inks are named in its own state, and the analyser is
+      skipped for it — but `run.js` shows the first one to the judges as the
+      tonal target either way, and assumes at least one exists. The form says
+      exactly that rather than pretending the upload is pointless.
+
+      **Manual step, owner:** paste into the Supabase SQL editor —
+
+      ```sql
+      alter table if exists public.briefs
+        add column if not exists generator int not null default 1;
+      ```
+
+      Until that runs, the picker's insert will fail on the missing column.
+      Existing rows get 1, which is what they ran.
+
 - [ ] C2. The owner's "pick the finalist" action, on-site, writing to
       `reactions`.
 
