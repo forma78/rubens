@@ -132,7 +132,10 @@ function showProgress(at) {
       : st.kind === 'turn' ? `stroke ${n} · turn to the next lane` : `travel · brush off the canvas`;
   }
   $('#now').textContent = now;
-  $('#btnPlay').textContent = S.playing ? '❚❚ Pause' : '▶ Play';
+  // Only when it changes: Safari drops a click on a button whose text is
+  // replaced between mouse down and up, and this runs every frame.
+  const btn = $('#btnPlay'), label = S.playing ? '❚❚ Pause' : '▶ Play';
+  if (btn.textContent !== label) btn.textContent = label;
 }
 
 // ---------- the view ----------
@@ -222,11 +225,17 @@ function render() {
   showProgress(at); draw(at);
 }
 
-$('#btnPlay').onclick = () => play(!S.playing);
+// A clicked button drops the focus, so Space is not taken by it as well.
+$('#btnPlay').onclick = e => { e.currentTarget.blur(); play(!S.playing); };
 $('#btnRestart').onclick = () => { S.t = 0; render(); };
 $('#scrub').addEventListener('input', e => { if (S.tl) { S.t = e.target.value / 1000 * S.tl.total; render(); } });
 addEventListener('keydown', e => {
-  if (e.code === 'Space' && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName || '')) { e.preventDefault(); play(!S.playing); }
+  if (e.code !== 'Space' || e.repeat) return;
+  const tag = document.activeElement?.tagName || '';
+  if (/INPUT|SELECT|TEXTAREA/.test(tag)) return;
+  if (tag === 'BUTTON') document.activeElement.blur();   // or the button would click on key up as well
+  e.preventDefault();
+  play(!S.playing);
 });
 function syncSpeed() { document.querySelectorAll('#speedSeg button').forEach(b => b.classList.toggle('on', +b.dataset.k === S.speed)); }
 $('#speedSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; S.speed = +b.dataset.k; syncSpeed(); savePrefs(); };
