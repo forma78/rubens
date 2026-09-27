@@ -255,7 +255,7 @@ $('#btnSaveJob').onclick = async () => {
   const body = JSON.stringify(file, null, 1);
   try {
     const r = await fetch('/job', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body });
-    $('#saved').textContent = !r.ok ? 'NOT SAVED' : `job.json saved · ${S.steps.length} steps` + (S.onMachine ? ` · ${S.onMachine.blocks.length} machine blocks` : ' · artboard only, no canvas corners yet');
+    $('#saved').textContent = !r.ok ? 'NOT SAVED' : `job.json saved · ${S.steps.length} steps` + (S.onMachine ? ` · ${S.onMachine.blocks.length} machine blocks` : ' · artboard only, the canvas is not placed on the machine');
   } catch { $('#saved').textContent = 'NOT SAVED · start rubens.py'; }
 };
 
