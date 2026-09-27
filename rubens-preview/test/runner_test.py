@@ -42,6 +42,8 @@ class FakeBoard:
                 return f"ok {c[0]} {float(c.split()[1]):.1f}"
             if c == "G":
                 self.log.append("G")
+                if not self.queue:
+                    return "? очередь пуста"
                 self.running = True
                 return "ok G"
             if self.edge_on and self.edge_on in c:
@@ -139,6 +141,13 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(r.state, "error")
         self.assertIn("cannot run a path", r.message)
         self.assertEqual([c for c in b.log if c != "S"], [])   # not even the brush
+
+    def test_a_travel_to_where_the_carriage_is_is_skipped(self):
+        b = FakeBoard()
+        empty = {"kind": "move", "cmds": ["T 100", "G"], "paintMM": 0}   # its M was too short to queue
+        r = run(b, [arm(True), empty, arm(False), paint(3)])
+        self.assertEqual(r.state, "done", r.message)
+        self.assertIn("L 3.00 50.00", b.log)
 
     def test_parse_ping(self):
         self.assertEqual(parse_ping("ok P X 800 Y 267 путь 3"), {"x": 800, "y": 267, "path": 3})

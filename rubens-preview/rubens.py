@@ -167,9 +167,14 @@ class Runner:
         return self.send("/raw?c=" + quote(cmd))
 
     def _go(self):
+        # False: nothing to run — every piece was too short to queue (a travel
+        # to where the carriage already is)
         r = self._raw("G")
+        if "очередь пуста" in r:
+            return False
         if r != "ok G":
             raise Abort(f"G: {r}")
+        return True
 
     def _move(self, b):
         pieces = [c for c in b["cmds"] if c != "G"]
@@ -185,8 +190,7 @@ class Runner:
                     break
                 if "очередь полна" in r:
                     if not started:
-                        self._go()
-                        started = True
+                        started = self._go()
                     self._wait(0.1)
                     continue
                 raise Abort(f"{c}: {r}")
@@ -194,11 +198,10 @@ class Runner:
                 sent += 1
                 room = int(r.split()[-1])
                 if room == 0 and not started:
-                    self._go()
-                    started = True
+                    started = self._go()
         if not started:
-            self._go()
-        self._finish(True, base, share, sent, total)
+            started = self._go()
+        self._finish(started, base, share, sent, total)
 
     def _finish(self, started, base=None, share=0, sent=0, total=0):
         # the block is over when the board no longer reports a path
