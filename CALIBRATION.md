@@ -112,6 +112,36 @@ offset (15 mm on each side), the top ones 10 mm below the edge with ↑ 10.
 - The Y scale was checked with a pencil line and a ruler: it matches
   26.667 steps per mm.
 
+### The first path run: pencil squares (night)
+
+The pass firmware draft (`RAIL-drawing_machine/drafts/rubens-pass/`) and the
+bridge patch were put in; the first path found a bug at once — a piece that
+starts past a wall was refused, and a parked carriage always stands a little
+past its wall — fixed and flashed again. Then a 50 × 50 mm square at
+X 200–250, Y 200–250, at 10 mm/s, four times in the same place.
+
+- **The carriage:** every run 20.0–20.5 s, back at X 200.00 / Y 200.00 to the
+  hundredth; sides straight to the hundredth in the counter.
+- **On the canvas, by ruler:** about 48 mm along X and 45 mm along Y. The
+  scale is right (checked earlier on a long Y line), so the tip lags behind
+  the carriage by a few mm: about 2 mm along X, along the arm, where only the
+  clamp springs give, and about 5 mm along Y, across the arm, where the
+  shoulder and elbow give as well. Photos: `images_CNC_drawing_machine/`
+  `photo_2026-09-27 22.19.57.jpeg` (square and ruler), `22.20.01` (the
+  holder), `22.20.28` (the pencil leaning in the ring of the clamp).
+- **Repeatability:** the first square (after a travel move) and the second
+  (after the brush went off and on in the corner) did not coincide; the third
+  and the fourth, with the same history as the second, lay on it so exactly
+  that the owner did not see the fourth had been drawn. **Same history, same
+  line.** In a RUBENS job every pass has the same history (brush off, travel,
+  brush on, bottom to top), so the lag is one constant shift, not a wobble.
+- **The holder, open:** the pencil leans in a ring much wider than it and
+  the side springs let it go sideways. The idea to discuss: soft along the
+  pencil (so it cannot pierce a sagging canvas), stiff sideways — a tube the
+  pencil slides in, a light spring or a weight on top. The owner's concern:
+  a stiff holder would tear the canvas; the answer is that pressure comes
+  from the spring along the axis, not from stiffness sideways.
+
 ### Home — every time after power-on
 
 1. X down to its stop, level 1, stop at the first sound.
