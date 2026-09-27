@@ -51,7 +51,7 @@ off its stop; the board brakes before a wall and stops at it.
 | | stop, mm | wall, mm | wall, steps |
 |---|---|---|---|
 | X bottom | −9.45 | 0.0 | 0 |
-| X top | +860.55 on the left (with knocks); about 10 cm more on the right, by eye — **to measure** | +870.0 | +69600 |
+| X top | +870 (one knock at the 870 wall, on the right) | +865.0 | +69200 |
 | Y left | −8.3 | 0.0 | 0 |
 | Y right | about +569.5 — **to confirm** | +568.5 — **to move** | +15160 |
 
@@ -70,9 +70,13 @@ off its stop; the board brakes before a wall and stops at it.
   stop had been measured at 860.55 (three knocks). Claude advised against
   going past it: the beam is one piece, and if its left end is blocked at
   860.55, a wall at 870 lets the motor push on and may rack the gantry. The
-  owner looked at the machine and kept 870. Next: approach the top on the left
-  on level 1; if it knocks, the left measurement stands and the wall comes
-  back under it.
+  owner looked at the machine and kept 870. On the next run up, on the right
+  (Y 570.4), there was one knock — at the stop or from the acceleration, not
+  certain. **Settled: the top stop is 870, the wall 865** — the owner's
+  compromise, the fuel-tank reserve of 5 mm. Still to check: the top on the
+  left on level 1, since the morning measurement put a stop there at 860.55.
+  After that knock the X count may be off by up to 0.8 mm; the next home at
+  power-on clears it.
 - **Top right: nothing in the way.** The very first X zero was taken at the
   top right, where the carriage seemed to stop 5–6 cm below the top stop on
   the left. Later, with the walls in place, the carriage went up on the right
@@ -115,5 +119,5 @@ are backed up outside it.
 
 - Speed per axis: `LEVEL_MHZ = { 800000, 266667 }` — one level is 10 mm/s on
   both axes.
-- Walls: `WALL_MIN = { 0, 0 }`, `WALL_MAX = { +69600, +15160 }` (the top X wall was +68000 = 850.0, then +68800 = 860.0, the same evening).
+- Walls: `WALL_MIN = { 0, 0 }`, `WALL_MAX = { +69200, +15160 }` (the top X wall that evening went 850.0 → 860.0 → 870.0 → 865.0).
 - The pendant page (`web/index.html`): `STEPS_PER_MM = { x: 80, y: 26.667 }`.

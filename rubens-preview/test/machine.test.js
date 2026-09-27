@@ -14,10 +14,10 @@ test('steps to mm: 80 per mm on X, 3200 per 120 mm on Y', () => {
 
 test('home and walls: zero at the walls, the reserve to each stop is minus', () => {
   assert.equal(WALLS.x.min, 0); assert.equal(WALLS.y.min, 0);
-  assert.equal(WALLS.x.max, 870);
+  assert.equal(WALLS.x.max, 865);
   assert.equal(toMm('x', HOME_STEPS.x), STOPS.x.min);
   assert.ok(near(toMm('y', HOME_STEPS.y), -8.325));
-  assert.equal(STOPS.x.max, null);   // the top stop is not the same across Y yet (CALIBRATION.md)
+  assert.equal(STOPS.x.max - WALLS.x.max, 5);   // the owner's fuel-tank reserve at the top
   assert.ok(near(WALLS.y.max, 568.5) && STOPS.y.max - WALLS.y.max > 10);
 });
 
