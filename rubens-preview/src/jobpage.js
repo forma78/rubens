@@ -317,12 +317,11 @@ async function pollRun() {
 }
 function showRun() {
   const st = S.run;
-  $('#runBox').hidden = !st || st.state === 'idle';
+  $('#runState').hidden = !st || st.state === 'idle';
   if (!st || st.state === 'idle') return;
   const blocks = st.blocks ? ` · block ${st.block + 1} of ${st.blocks}` : '';
   $('#runState').innerHTML = `<b>Machine: ${st.state}</b> · ${fmt(st.percent || 0, 1)} % painted${blocks}`
     + (st.message ? `<br><span class="warn">${st.message}</span>` : '');
-  $('#btnRunStop').disabled = $('#btnRunKill').disabled = !runLive();
   render();
 }
 // The brush by hand: the wrist to +90° (off the canvas) or 0° (on it).
@@ -336,9 +335,17 @@ async function brush(where) {
 $('#btnBrushOff').onclick = e => { e.currentTarget.blur(); brush('off'); };
 $('#btnBrushOn').onclick = e => { e.currentTarget.blur(); brush('on'); };
 
-$('#btnRunStop').onclick = () => fetch('/run/stop', { method: 'POST' }).then(pollRun);
-$('#btnRunKill').onclick = () => fetch('/run/kill', { method: 'POST' }).then(pollRun);
-addEventListener('keydown', e => { if (e.key === 'Escape' && runLive()) fetch('/run/stop', { method: 'POST' }).then(pollRun); });
+// STOP and HARD STOP never depend on the state: each one goes to the runner
+// (so the job ends) and straight to the motors (so they stop even if the
+// runner or the page are wrong). 2026-09-27: they once did nothing.
+function machineStop(hard) {
+  const a = hard ? 'K' : 'S';
+  fetch('/machine/cmd?a=' + a + '&n=0').catch(() => {});
+  fetch(hard ? '/run/kill' : '/run/stop', { method: 'POST' }).catch(() => {}).then(pollRun);
+}
+$('#btnRunStop').onclick = e => { e.currentTarget.blur(); machineStop(false); };
+$('#btnRunKill').onclick = e => { e.currentTarget.blur(); machineStop(true); };
+addEventListener('keydown', e => { if (e.key === 'Escape') machineStop(false); });
 
 // ---------- start ----------
 loadPrefs();

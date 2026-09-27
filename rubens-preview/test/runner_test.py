@@ -19,12 +19,13 @@ class FakeBoard:
         self.log, self.queue, self.running = [], [], False
         self.zero, self.rate, self.edge_on, self.paths = zero, rate, edge_on, paths
         self.max_queue, self.on_sleep = 0, None
+        self.y = 267
 
     def send(self, path):
         u = urlparse(path)
         q = parse_qs(u.query)
         if u.path == "/ping":
-            xy = "X 800 Y 267" if self.zero else "X ? Y ?"
+            xy = f"X 800 Y {self.y}" if self.zero else "X ? Y ?"
             return f"ok P {xy}" + (f" путь {len(self.queue)}" if self.running else "")
         if u.path == "/servo":
             self.log.append(f"J 3 {q['d'][0]}")
@@ -127,6 +128,40 @@ class RunnerTest(unittest.TestCase):
         self.assertIn("S", b.log)
         self.assertNotIn("J 3 90", b.log)          # the next blocks never ran
         self.assertIn("brush on the canvas", r.message)
+
+    def test_hard_stop_after_stop_still_reaches_the_board(self):
+        b = FakeBoard(rate=1)
+        r = Runner(b.send, sleep=b.sleep, swing_s=0.2)
+        ticks = {"n": 0}
+
+        def later():
+            ticks["n"] += 1
+            if ticks["n"] == 5:
+                r.stop()
+                r.stop(hard=True)
+        b.on_sleep = later
+        r.start([arm(False), paint(30)])
+        r.thread.join(10)
+        self.assertEqual([c for c in b.log if c in "SK"][:2], ["S", "K"])
+
+    def test_a_stop_goes_to_the_board_even_when_idle(self):
+        b = FakeBoard()
+        r = Runner(b.send, sleep=b.sleep)
+        r.stop(hard=True)
+        self.assertEqual(b.log, ["K"])
+
+    def test_a_runaway_past_a_wall_is_hard_stopped(self):
+        b = FakeBoard(rate=0)                   # the path never ends by itself
+        ticks = {"n": 0}
+
+        def run_away():                         # Y counts on and on, like on 2026-09-27
+            ticks["n"] += 1
+            b.y = 267 + 2000 * ticks["n"]
+        b.on_sleep = run_away
+        r = run(b, [arm(False), paint(3)])
+        self.assertEqual(r.state, "error")
+        self.assertIn("runaway: Y", r.message)
+        self.assertIn("K", b.log)
 
     def test_no_zero_no_motion(self):
         b = FakeBoard(zero=False)

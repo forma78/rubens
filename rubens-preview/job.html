@@ -50,12 +50,13 @@
         </div>
       </div>
       <p class="read">Play is on screen only: the machine does not move. Space = play / pause.</p>
-      <div class="run" id="runBox" hidden>
-        <p class="read" id="runState"></p>
+      <div class="run">
+        <p class="read" id="runState" hidden></p>
         <div class="stops">
-          <button class="btn" id="btnRunStop" title="Brake along the path (Esc)">STOP</button>
-          <button class="btn danger" id="btnRunKill" title="Stop at once, no braking">HARD STOP</button>
+          <button class="btn" id="btnRunStop" title="Stop the machine, braking (Esc)">STOP</button>
+          <button class="btn danger" id="btnRunKill" title="Stop the machine at once, no braking">HARD STOP</button>
         </div>
+        <p class="read">Always here, always on: they go straight to the motors, whatever this page thinks is running.</p>
       </div>
     </section>
 

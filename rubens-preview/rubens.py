@@ -39,6 +39,12 @@ BRIDGE = "http://127.0.0.1:8765"
 FILES = {"/calibration": os.path.join(HERE, "calibration.json"), "/job": os.path.join(HERE, "job.json")}
 PASS = {"/ping", "/look", "/cmd", "/origin/x", "/origin/y"}
 STEPS_PER_MM = (80.0, 3200.0 / 120.0)   # X, Y — the same as src/machine.js
+# The walls in mm (src/machine.js, the firmware). A carriage counted more
+# than RUNAWAY_MM past one means the board is sending steps it should not:
+# the runner stops the motors at once (2026-09-27: the watchdog could not,
+# because the runner kept pinging while the Y motor ground on the stop).
+WALLS_MM = ((0.0, 865.0), (0.0, 15160 / (3200.0 / 120.0)))
+RUNAWAY_MM = 5.0
 # Runs are off until the pass firmware is fixed and tested in the air: on
 # 2026-09-27 a diagonal pass sent the Y axis far past its target (moveTimed
 # slices re-sent after a partial add). CALIBRATION.md has the details.
@@ -106,12 +112,14 @@ class Runner:
         return True, "started"
 
     def stop(self, hard=False):
+        # A stop is never refused and never depends on what the runner thinks
+        # is going on: the board always gets it. (2026-09-27: HARD STOP after
+        # STOP did nothing, because STOP had already moved the state on.)
         with self.lock:
-            if self.state != "running":
-                return
-            self._stop = "K" if hard else "S"
-            self.state = "stopping"
-        self.send("/cmd?a=K&n=0" if hard else "/cmd?a=S&n=0")
+            if self.state in ("running", "stopping"):
+                self._stop = "K" if hard else "S"
+                self.state = "stopping"
+        return self.send("/cmd?a=K&n=0" if hard else "/cmd?a=S&n=0")
 
     # ---- the run ----
     def run(self):
@@ -149,6 +157,13 @@ class Runner:
         p = parse_ping(self.send("/ping"))
         with self.lock:
             self.pos = p
+        if p and p["x"] is not None and p["y"] is not None:
+            for i, v in enumerate((p["x"], p["y"])):
+                lo, hi = WALLS_MM[i]
+                mm = v / STEPS_PER_MM[i]
+                if mm < lo - RUNAWAY_MM or mm > hi + RUNAWAY_MM:
+                    self.send("/cmd?a=K&n=0")
+                    raise Abort(f"runaway: {'XY'[i]} at {mm:.1f} mm, past the wall — HARD STOP sent")
         return p
 
     def _wait(self, seconds):
@@ -298,11 +313,9 @@ class Handler(SimpleHTTPRequestHandler):
                 RUNNER.brush_on = deg == 0
             return self.reply(200, r)
         if path == "/run/stop":
-            RUNNER.stop()
-            return self.reply(200, "ok")
+            return self.reply(200, RUNNER.stop())
         if path == "/run/kill":
-            RUNNER.stop(hard=True)
-            return self.reply(200, "ok")
+            return self.reply(200, RUNNER.stop(hard=True))
         if path != "/run":
             return self.reply(404, "")
         if not RUNS_ENABLED:
