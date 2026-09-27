@@ -9,6 +9,7 @@ import { toSrgb, linOf, pigmentMix } from './color.js';
 import { samplePath } from './geometry.js';
 import { filleted } from './fillet.js';
 import { cleanReachMM } from './paint.js';
+import { strokeDir } from './cnc.js';
 
 // ---------- stamp strips ----------
 // One row of pixels across the trace width, for every paint level (K_LEV)
@@ -99,7 +100,12 @@ export function renderPath(ctx, p, k, colors, paint) {
   const strips = getStrips(colors, st.mix, st.brush, N, p.seed);
   const step = 0.6 / k, hpx = 1.7;
   const reach = cleanReachMM(p, paint) / PT_MM;  // in pt
-  const samples = samplePath({ segs: filleted(p, paint.cornerR).segs }, step);
+  const axis = filleted(p, paint.cornerR).segs, samples = samplePath({ segs: axis }, step);
+  // Fresh paint where the passes start: at the bottom end when the brush leaves
+  // the canvas after every pass. In a snake the lanes alternate; until the
+  // preview is drawn lane by lane, it follows lane 1 (the drawing direction).
+  const total = samples.length ? samples[samples.length - 1].s : 0;
+  const up = (paint.lift ?? true) ? strokeDir(axis) : 1;
   const R = rng(p.seed ^ 0x5bd1);
   let n = 0, variant = 0;
   ctx.imageSmoothingEnabled = true;
@@ -107,7 +113,7 @@ export function renderPath(ctx, p, k, colors, paint) {
   const ph1 = R() * TAU, ph2 = R() * TAU, per = Math.max(st.weight * 2.2, 40);
   const press = s => 0.9 + 0.06 * Math.sin(s / per * TAU + ph1) + 0.04 * Math.sin(s / (per * 0.37) * TAU + ph2);
   const stamp = (x, y, dx, dy, s) => {
-    const pr = s / reach; if (pr >= P_MAX) return;
+    const pr = (up > 0 ? s : total - s) / reach; if (pr >= P_MAX) return;
     const lev = Math.min(K_LEV - 1, Math.floor(pr / P_MAX * K_LEV));
     if ((n++ % 7) === 0) variant = (R() * N_VAR) | 0;
     // stamp x axis runs across the travel, left to right; y axis runs along it

@@ -101,6 +101,7 @@
       <div class="seg" id="brushSeg"></div>
       <p class="read" id="bRead"></p>
       <label class="inline">Inner corner radius <input id="cornerR" type="number" step="1" min="0"> mm</label>
+      <label class="inline check" title="On: after every pass the wrist swings the brush off the canvas and the machine travels back; every pass paints bottom to top. Off: the passes run as a snake, turning in a semicircle."><input id="lift" type="checkbox"> Brush off after each pass</label>
     </section>
 
     <section class="sec">
@@ -110,11 +111,11 @@
     </section>
 
     <section class="sec">
-      <h3>Paint load <span class="hint">8 drops · lane 1 = left edge</span></h3>
+      <h3>Paint load <span class="hint">8 drops · lane 1 = edge marked 1</span></h3>
       <div id="palettes"></div>
       <div class="xsec-wrap">
         <canvas id="xsec" height="44"></canvas>
-        <div class="xsec-lab"><span>1</span><span>travel ↑</span><span>8</span></div>
+        <div class="xsec-lab"><span>1</span><span>drawing ↑</span><span>8</span></div>
       </div>
     </section>
 

@@ -20,6 +20,7 @@ import { makeLine, snapArc, fitSegment, pushSeg } from './gesture.js';
 import { traceMM, lengthMM, mlPerDrop, beadMM, blobMM } from './paint.js';
 import { getStrips, renderPaint } from './render.js';
 import { cncPlan, cncSvg } from './cnc.js';
+import { jobSteps } from './job.js';
 import { drawingSvg, simplify } from './svg.js';
 
 // ---------- state ----------
@@ -34,7 +35,7 @@ const S = {
   penArc: false,
   angleSnap: 15,
   defaults: { weight: 200, brush: 'flat12', mix: 35, palette: 'L1', load: 'auto', ml: 1 },
-  paint: { film: 0.3, retention: 25, nozzle: 6, maxDrop: 1, cornerR: 10 },
+  paint: { film: 0.3, retention: 25, nozzle: 6, maxDrop: 1, cornerR: 10, lift: true },   // lift: brush off after each pass
   view: { wires: false, drops: false, grid: false, snapGrid: false, cnc: false },
   nextId: 1,
 };
@@ -416,6 +417,7 @@ $('#ret').onchange = e => { S.paint.retention = Math.max(0, +e.target.value || 0
 $('#nozzle').onchange = e => { S.paint.nozzle = Math.max(0.3, +e.target.value || 6); invalidate(); };
 $('#cornerR').onchange = e => { S.paint.cornerR = Math.max(0, +e.target.value || 0); invalidate(); };
 $('#maxdrop').onchange = e => { S.paint.maxDrop = Math.max(0.05, +e.target.value || 1); invalidate(); };
+$('#lift').onchange = e => { S.paint.lift = e.target.checked; invalidate(); };
 document.querySelectorAll('input[name=load]').forEach(r => r.onchange = () => setStyle('load', r.value));
 $('#ml').onchange = e => { setStyle('ml', Math.max(0.01, +e.target.value || 0.1)); setStyle('load', 'manual'); };
 
@@ -493,6 +495,7 @@ function updatePanel() {
   $('#mix').value = st.mix; $('#mixVal').textContent = st.mix + '%';
   document.querySelectorAll('input[name=load]').forEach(r => r.checked = r.value === st.load);
   if (document.activeElement !== $('#ml')) $('#ml').value = st.ml;
+  $('#lift').checked = S.paint.lift ?? true;
   for (const [id, v] of [['film', S.paint.film], ['ret', S.paint.retention], ['nozzle', S.paint.nozzle], ['maxdrop', S.paint.maxDrop ?? 1], ['cornerR', S.paint.cornerR ?? 10]]) if (document.activeElement !== $('#' + id)) $('#' + id).value = v;
   document.querySelectorAll('.pal').forEach(el => el.classList.toggle('on', el.dataset.pal === st.palette));
   drawXsec();
@@ -551,6 +554,15 @@ function drawCnc(c, k) {
   c.lineJoin = 'round'; c.lineCap = 'round';
   c.font = '600 10px ' + getComputedStyle(document.body).getPropertyValue('--sans');
   c.textAlign = 'center'; c.textBaseline = 'middle';
+  // the moves between passes: travel with the brush off (dotted), snake turns (solid)
+  for (const st of jobSteps(S.paths, colorsOf, S.paint)) {
+    if (st.kind === 'paint') continue;
+    c.globalAlpha = S.sel && st.stroke !== S.sel ? 0.45 : 1;
+    c.beginPath(); tracePath(c, st.segs, k);
+    if (st.kind === 'travel') { c.setLineDash([2, 5]); c.strokeStyle = 'rgba(36,34,31,.45)'; c.lineWidth = 1; }
+    else { c.strokeStyle = 'rgba(36,34,31,.75)'; c.lineWidth = 1.6; }
+    c.stroke(); c.setLineDash([]);
+  }
   for (const p of S.paths) {
     if (!p.segs.length) continue;
     const plan = planOf(p), dim = S.sel && p.id !== S.sel;
@@ -563,6 +575,7 @@ function drawCnc(c, k) {
       c.strokeStyle = 'rgba(36,34,31,.55)'; c.lineWidth = 3; c.stroke();         // "pencil"
       c.beginPath(); tracePath(c, ps.segs, k);
       c.strokeStyle = ps.color; c.lineWidth = 1.6; c.stroke();
+      chevron(c, ps.segs, k);                                                   // painting direction
       ps.drops.forEach((d, j) => {
         const x = d.at.x * k, y = d.at.y * k;
         c.beginPath(); c.arc(x, y, j ? 5 : 7, 0, TAU);
@@ -581,6 +594,19 @@ function drawCnc(c, k) {
     }
   }
   c.textAlign = 'start'; c.textBaseline = 'alphabetic'; c.lineCap = 'butt';
+}
+
+// A small arrowhead halfway along a pass, pointing the way it is painted.
+function chevron(c, segs, k) {
+  let d = segs.reduce((a, g) => a + segLen(g), 0) / 2;
+  for (const g of segs) {
+    const L = segLen(g);
+    if (d > L) { d -= L; continue; }
+    const q = segAt(g, d), x = q.x * k, y = q.y * k, nx = -q.dy, ny = q.dx;
+    c.beginPath(); c.moveTo(x - q.dx * 6 + nx * 4, y - q.dy * 6 + ny * 4); c.lineTo(x, y); c.lineTo(x - q.dx * 6 - nx * 4, y - q.dy * 6 - ny * 4);
+    c.strokeStyle = '#24221F'; c.lineWidth = 1.6; c.stroke();
+    return;
+  }
 }
 
 // ---------- export ----------

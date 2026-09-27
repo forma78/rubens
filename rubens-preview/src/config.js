@@ -24,7 +24,7 @@ export const WEIGHT_PRESETS = [1, 2, 3, 5, 8, 10, 15, 20, 30, 40, 50, 75, 100, 1
 export const PAPER = '#EEEAE2';
 export const K_LEV = 32, N_VAR = 3, P_MAX = 1.35;   // paint-level steps in the stamp strips
 export const HOLD_MS = 350;                          // how long to hold the mouse still before a segment snaps
-export const LANE_ORDER_NOTE = 'Lanes 1–8 run from the left edge to the right edge of the brush, looking along the travel direction.';
+export const LANE_ORDER_NOTE = 'Lanes 1–8 run from the left edge to the right edge of the line, looking along the drawing direction, whichever way a pass is painted.';
 
 export const DEFAULT_PALETTES = [
   { id: 'L1', name: 'Ember',   colors: ['#D63A22', '#EC7422', '#5A2B2B', '#5A2B2B', '#5A2B2B', '#EC7422', '#F2C12E', '#FAF8F3'] },
