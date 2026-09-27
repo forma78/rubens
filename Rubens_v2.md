@@ -265,10 +265,19 @@ command over HTTP, write it to the port, return the board's reply.
 - `P`, `V`, `S`, `K`, `O`, `J`, `Z` — exist.
 - `M <x> <y>` — to a point, absolute position in whole steps. For travel
   moves it can work as in RUBENS.md: from zero speed to zero speed.
-- **A painting pass runs without stopping at line/arc joints.** How exactly
-  is open: a whole arc in one command, or a chain of segments the board takes
-  on the move. Decide before the first brush run. Same for how the watchdog
-  behaves during a long pass.
+- **A painting pass runs without stopping at line/arc joints.** *Claude's
+  decision, 2026-09-27; a draft, not flashed yet*
+  (`RAIL-drawing_machine/drafts/rubens-pass/`): the host sends a chain of
+  pieces in machine mm — `L x y`, `A cx cy x y ±1`, travel `M x y` — into a
+  queue of 16 on the board, then `G`; more pieces can follow on the move. The
+  board moves the tip along the chain on a 20 ms clock with a trapezoid speed
+  (250 mm/s²), always able to stop at the end of what it has; no slowdown at
+  smooth joints, a stop at a kink over 10° and around every travel move. Each
+  tick both axes get their own steps for the same time (`moveTimed` in
+  FastAccelStepper), so lines stay straight and arcs round although the axes
+  have different steps per mm. Walls are checked when a piece is queued. S
+  brakes along the path, K stops at once, the watchdog brakes like S; while a
+  path runs, X, Y, J and O are refused. The planner is tested on the Mac.
 - `U <0|1>` — brush on / off the canvas. Done by J3 swinging sideways
   (confirmed 2026-09-27); the fourth servo is not needed for this. `U` moves
   J3 between 0° and ±90°; RUBENS picks the side for each pass (section 4.5).
@@ -399,7 +408,8 @@ plausible value is filled in.
    lanes?
 2. **Axes.** Which axis runs along the long side of the frame, bottom to top
    of the picture: X (as in `RAIL.md`) or Y? Which way is plus?
-3. **How the board runs a smooth pass** (section 6).
+3. ~~**How the board runs a smooth pass** (section 6)~~ — decided
+   2026-09-27, a draft to flash and test together with the owner.
 4. **Flat or round brush.** Flat cannot be turned with the line (section 4.8).
 5. **Manual mode on the Paint tab:** is the dry tail intended texture (then no
    refills) or should it refill (then the preview shows fresh paint after each
