@@ -164,16 +164,16 @@ Paint tab switches to it. How it works and in what order to build it —
 
 | where in `app.js` | what |
 |---|---|
-| "геометрия сегментов" | `L` and `A`, points, tangents, `samplePath` |
-| "выравнивание жеста" | `fitSegment`: mouse trail → line (15° step) or arc (sweep to 45°), tangent continuation |
-| "правка якорей" | anchors, Shift selection; an arc keeps its sweep while edited |
-| "скругление углов" | `filleted(p)` — centre line with arcs at kinks; `offsetSegs` — a parallel copy |
-| "полоски-штампы" | brush cross-section, pigment mixing, dry brush |
-| "CNC Trace" | `cncPlan(p)`: passes, lengths, drops; `exportCNC` |
-| "экспорт SVG" / "импорт SVG" | the app's own file is restored exactly from `<metadata id="rubens-state">` |
+| segment geometry | `L` and `A`, points, tangents, `samplePath` |
+| gesture fitting | `fitSegment`: mouse trail → line (15° step) or arc (sweep to 45°), tangent continuation |
+| anchor editing | anchors, Shift selection; an arc keeps its sweep while edited |
+| corner rounding | `filleted(p)` — centre line with arcs at kinks; `offsetSegs` — a parallel copy |
+| stamp strips | brush cross-section, pigment mixing, dry brush |
+| CNC Trace | `cncPlan(p)`: passes, lengths, drops; `exportCNC` |
+| SVG export / import | the app's own file is restored exactly from `<metadata id="rubens-state">` |
 
-The section names above are the current Russian comment headers in `app.js`;
-they become English with the module split.
+The comment headers in `app.js` are still in Russian; they become English with
+the module split (item 3.6).
 
 State lives in `localStorage` (`rubens.v01`); undo history is JSON snapshots.
 

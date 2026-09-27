@@ -55,7 +55,7 @@ Unchanged from RUBENS.md:
 ## 2. What it is
 
 RUBENS is the second project on the Motor Brush machine (machine
-`CLAUDE.md`, "Два проекта на одной машине"). A person draws strokes and picks
+`CLAUDE.md`, section "Two projects on one machine"). A person draws strokes and picks
 paint; the machine drives the brush across the canvas. Paint is squeezed onto
 the canvas beforehand, the brush spreads it. The arm holds its pose for the
 whole layer; the X and Y axes do the drawing.
@@ -306,14 +306,14 @@ not urgent.
   together already;
 - the shoulder and elbow rotate about vertical axes: the arm moves parallel
   to the canvas;
-- **J3, the wrist ("кисть" on the pendant), swings the holder sideways like a
+- **J3, the wrist (WRIST on the pendant), swings the holder sideways like a
   clock hand, up to 90°, like a broom** (confirmed 2026-09-27). Stick straight
   down — it paints; turned 90° — it lies flat, tip in the air;
 - a spring-loaded holder: the stick is pressed down softly. These are the
   "3 cm of soft travel" planned in `RAIL.md`;
 - the holder has a gel pen and a purple marker for now; no brush yet.
 
-**The arm drawing ("Лапа")** — `images_CNC_drawing_machine/3DOF_lapa.jpeg`,
+**The arm drawing ("Lapa")** — `images_CNC_drawing_machine/arm-lapa-drawing.jpeg`,
 drawn 2026-09-27. Top view, arm stretched straight across the beam:
 
 | what | mm |
