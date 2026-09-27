@@ -133,3 +133,74 @@ export function reach() {
   const lim = (ax, side) => WALLS[ax][side] ?? STOPS[ax][side];
   return { x: { min: lim('x', 'min'), max: lim('x', 'max') }, y: { min: lim('y', 'min'), max: lim('y', 'max') } };
 }
+
+// ---------- the job on the machine ----------
+// The job file (job.js, jobFile: artboard mm, x right, y down) turned into
+// what the board runs, through the canvas fit (canvasReport(...).fit, which
+// maps the artboard (u, v) to the machine (x, y)). The result is a list of
+// blocks in order; the runner sends one block, waits for it, sends the next:
+//   { kind: 'arm',  cmd: 'J 3 90', off: true }   the brush swings off (J3)
+//   { kind: 'move', cmds: [...], lengthMM, paintMM }   pieces + G
+// A move block is one travel (T, M, G), or the passes and turns that paint
+// without leaving the canvas (F, L/A…, G). Arcs keep their centre and end
+// point; the sweep turns the same way on the machine when the map keeps
+// orientation, the other way when it mirrors. The firmware draws circles, so
+// a skewed map (axes not square) bends arcs slightly; lines are exact.
+// Which side J3 swings to is not decided yet (Rubens_v2.md, section 4.5).
+export const SWING_DEG = 90;
+
+const f2 = v => (Math.round(v * 100) / 100).toFixed(2);
+export function jobToMachine(job, fit, { paintMMs = 20, travelMMs = 100 } = {}) {
+  const det = fit.a * fit.e - fit.b * fit.d;
+  const at = q => fit.at(q.x, q.y);
+  const blocks = [], outside = [], R = reach();
+  const check = (q, what) => {
+    const out = (R.x.min != null && q.x < R.x.min - 1e-6) || (R.x.max != null && q.x > R.x.max + 1e-6) ||
+                (R.y.min != null && q.y < R.y.min - 1e-6) || (R.y.max != null && q.y > R.y.max + 1e-6);
+    if (out) outside.push({ ...what, x: q.x, y: q.y });
+  };
+  const arm = off => blocks.push({ kind: 'arm', cmd: `J 3 ${off ? SWING_DEG : 0}`, off });
+  let run = null, off = true;
+  const flush = () => { if (run) { run.cmds.push('G'); blocks.push(run); run = null; } };
+
+  arm(true);
+  job.steps.forEach((st, i) => {
+    const what = { step: i, stroke: st.stroke, lane: st.lane };
+    if (st.kind === 'travel') {
+      flush();
+      if (!off) { arm(true); off = true; }
+      const end = at(st.segs[st.segs.length - 1].b);
+      check(end, what);
+      blocks.push({ kind: 'move', cmds: [`T ${travelMMs}`, `M ${f2(end.x)} ${f2(end.y)}`, 'G'], lengthMM: st.length, paintMM: 0 });
+      return;
+    }
+    // paint or turn: brush on the canvas, pieces into the current run
+    if (!run) {
+      if (i === 0) {
+        // the very first pass: travel to its start from wherever the carriage is
+        const s0 = st.segs[0], p0 = at(s0.t === 'L' ? s0.a : { x: s0.c.x + s0.r * Math.cos(s0.a0), y: s0.c.y + s0.r * Math.sin(s0.a0) });
+        check(p0, what);
+        blocks.push({ kind: 'move', cmds: [`T ${travelMMs}`, `M ${f2(p0.x)} ${f2(p0.y)}`, 'G'], lengthMM: null, paintMM: 0 });
+      }
+      if (off) { arm(false); off = false; }
+      run = { kind: 'move', cmds: [`F ${paintMMs}`], lengthMM: 0, paintMM: 0 };
+    }
+    for (const g of st.segs) {
+      if (g.t === 'L') {
+        const b = at(g.b); check(b, what);
+        run.cmds.push(`L ${f2(b.x)} ${f2(b.y)}`);
+      } else {
+        const c = at(g.c), end = at({ x: g.c.x + g.r * Math.cos(g.a0 + g.s), y: g.c.y + g.r * Math.sin(g.a0 + g.s) });
+        check(end, what);
+        // the arc's extreme points on the machine, for the walls
+        for (let k = 1; k < 8; k++) check(at({ x: g.c.x + g.r * Math.cos(g.a0 + g.s * k / 8), y: g.c.y + g.r * Math.sin(g.a0 + g.s * k / 8) }), what);
+        run.cmds.push(`A ${f2(c.x)} ${f2(c.y)} ${f2(end.x)} ${f2(end.y)} ${Math.sign(g.s) * Math.sign(det) > 0 ? 1 : -1}`);
+      }
+    }
+    run.lengthMM += st.length;
+    if (st.kind === 'paint') run.paintMM += st.length;
+  });
+  flush();
+  if (!off) arm(true);
+  return { blocks, outside };
+}

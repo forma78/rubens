@@ -8,11 +8,12 @@ import { fmt, clamp } from './util.js';
 import { luminance } from './color.js';
 import { segLen } from './geometry.js';
 import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, TIME_MODEL } from './job.js';
+import { canvasReport, jobToMachine, CORNERS } from './machine.js';
 
 const $ = s => document.querySelector(s);
 const INK = '#24221F', ORANGE = '#EB7A25';
 
-const S = { doc: null, steps: [], tl: null, t: 0, playing: false, speed: 10, model: { ...TIME_MODEL } };
+const S = { doc: null, steps: [], tl: null, t: 0, playing: false, speed: 10, model: { ...TIME_MODEL }, cal: null, onMachine: null };
 
 // ---------- the drawing and the plan ----------
 // The Paint tab keeps its drawing in this browser; read it from there.
@@ -73,6 +74,40 @@ function summary() {
     <tr><td>Mode</td><td class="r">${lift ? 'brush off after each pass' : 'snake'}</td></tr>
     <tr><td>Estimated time</td><td class="r"><b>${minutes(S.tl.total)}</b></td></tr>
   </table>`;
+}
+
+// Where the canvas lies on the machine: the corners recorded on the
+// Calibration tab (calibration.json through rubens.py). With three corners or
+// more the job can be turned into what the board runs.
+async function loadCalibration() {
+  try {
+    const r = await fetch('/calibration', { cache: 'no-store' });
+    S.cal = r.ok ? await r.json() : null;
+  } catch { S.cal = null; }
+}
+function machine() {
+  const el = $('#machine');
+  S.onMachine = null;
+  if (!S.doc) { el.innerHTML = ''; return; }
+  const corners = S.cal?.corners || {}, n = CORNERS.filter(k => corners[k]).length;
+  if (!S.cal) { el.innerHTML = '<p class="none">No calibration: start rubens.py.</p>'; return; }
+  if (n < 3) { el.innerHTML = `<p class="none">Record at least three canvas corners on the Calibration tab (${n} so far). Until then the job stays on the artboard.</p>`; return; }
+  if (S.cal.format !== S.doc.format) {
+    el.innerHTML = `<p class="warn">The corners were recorded for ${FORMATS[S.cal.format]?.label || S.cal.format}, the drawing is ${FORMATS[S.doc.format].label}.</p>`;
+    return;
+  }
+  const F = FORMATS[S.doc.format], rep = canvasReport(corners, F.w, F.h);
+  const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint });
+  S.onMachine = { ...jobToMachine(file, rep.fit, { paintMMs: S.model.paintMMs, travelMMs: S.model.travelMMs }), corners: n };
+  const b = S.onMachine.blocks, out = S.onMachine.outside;
+  const pieces = b.reduce((a, x) => a + (x.cmds ? x.cmds.length : 1), 0);
+  el.innerHTML = `<table>
+    <tr><td>Canvas from</td><td class="r">${n} corners</td></tr>
+    <tr><td>Blocks</td><td class="r">${b.length} · ${pieces} commands</td></tr>
+    <tr><td>Brush off / on</td><td class="r">${b.filter(x => x.kind === 'arm').length}×</td></tr>
+  </table>` + (out.length
+    ? `<p class="warn">${out.length} points past the walls, first at X ${fmt(out[0].x)} · Y ${fmt(out[0].y)} (stroke ${[...new Set(S.steps.map(s => s.stroke))].indexOf(out[0].stroke) + 1}).</p>`
+    : '<p>Everything is inside the walls.</p>');
 }
 
 function showProgress(at) {
@@ -195,21 +230,25 @@ for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#
   el.addEventListener('change', () => {
     const v = +el.value;
     if (!(v > 0 || (key === 'swingS' && v === 0))) { el.value = S.model[key]; return; }
-    S.model[key] = v; savePrefs(); build(); summary(); render();
+    S.model[key] = v; savePrefs(); build(); summary(); machine(); render();
   });
 }
 
 // The drawing changed on the Paint tab (another tab of this browser).
-addEventListener('storage', e => { if (e.key === 'rubens.v01') { build(); summary(); render(); } });
+addEventListener('storage', e => { if (e.key === 'rubens.v01') { build(); summary(); machine(); render(); } });
+// Back from the Calibration tab: the corners may have changed.
+addEventListener('focus', async () => { await loadCalibration(); machine(); });
 addEventListener('resize', () => render());
 
 $('#btnSaveJob').onclick = async () => {
   if (!S.doc) return;
   const F = FORMATS[S.doc.format];
-  const body = JSON.stringify(jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint }), null, 1);
+  const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint });
+  if (S.onMachine) file.machine = { paintMMs: S.model.paintMMs, travelMMs: S.model.travelMMs, ...S.onMachine };
+  const body = JSON.stringify(file, null, 1);
   try {
     const r = await fetch('/job', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body });
-    $('#saved').textContent = r.ok ? `job.json saved · ${S.steps.length} steps` : 'NOT SAVED';
+    $('#saved').textContent = !r.ok ? 'NOT SAVED' : `job.json saved · ${S.steps.length} steps` + (S.onMachine ? ` · ${S.onMachine.blocks.length} machine blocks` : ' · artboard only, no canvas corners yet');
   } catch { $('#saved').textContent = 'NOT SAVED · start rubens.py'; }
 };
 
@@ -218,3 +257,4 @@ loadPrefs();
 for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#mSwing', 'swingS']]) $(id).value = S.model[key];
 syncSpeed();
 build(); summary(); render();
+await loadCalibration(); machine();

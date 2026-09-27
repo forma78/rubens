@@ -2,7 +2,11 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { STEPS_PER_MM, HOME_STEPS, STOPS, WALLS, toMm, parsePing, cornerAt, fitAffine, canvasReport, artboardCorner } from '../src/machine.js';
+import { STEPS_PER_MM, HOME_STEPS, STOPS, WALLS, toMm, parsePing, cornerAt, fitAffine, canvasReport, artboardCorner, jobToMachine } from '../src/machine.js';
+import { jobSteps, jobFile } from '../src/job.js';
+import { PT_MM } from '../src/config.js';
+import { P } from '../src/util.js';
+import { poly, shape, EIGHT, PAINT } from './shapes.js';
 
 const near = (a, b, eps = 1e-6) => Math.abs(a - b) < eps;
 
@@ -67,4 +71,60 @@ test('two corners: edges are measured, no fit yet', () => {
 test('fit needs three points off one line', () => {
   assert.equal(fitAffine([{ u: 0, v: 0, x: 0, y: 0 }, { u: 1, v: 0, x: 0, y: 1 }]), null);
   assert.equal(fitAffine([{ u: 0, v: 0, x: 0, y: 0 }, { u: 1, v: 0, x: 0, y: 1 }, { u: 2, v: 0, x: 0, y: 2 }]), null);
+});
+
+// ---------- the job on the machine ----------
+
+// A 600 × 800 canvas lying straight: its top left corner at X 800, Y 0.
+// Artboard u (right) → machine +Y, v (down) → machine −X.
+const straight = () => canvasReport({ tl: { x: 800, y: 0 }, tr: { x: 800, y: 600 }, br: { x: 0, y: 600 }, bl: { x: 0, y: 0 } }, 600, 800);
+const fileOf = (paths, paint) => jobFile(jobSteps(paths, () => EIGHT, paint), { formatKey: 'p60x80', format: { w: 600, h: 800 }, paint });
+const MM = v => v / PT_MM;   // mm → document units
+
+test('job on the machine: brush off, travel, brush on, pass… brush off at the end', () => {
+  const p = poly([[MM(100), MM(700)], [MM(100), MM(100)]]);   // drawn upwards, 600 mm
+  const { blocks, outside } = jobToMachine(fileOf([p], { ...PAINT, lift: true }), straight().fit);
+  assert.deepEqual(outside, []);
+  const kinds = blocks.map(b => b.kind === 'arm' ? (b.off ? 'off' : 'on') : b.cmds.some(c => c[0] === 'M') ? 'travel' : 'pass');
+  assert.deepEqual(kinds.slice(0, 5), ['off', 'travel', 'on', 'pass', 'off']);
+  assert.equal(kinds[kinds.length - 1], 'off');
+  assert.equal(kinds.filter(k => k === 'pass').length, 8);
+  for (const b of blocks) if (b.kind === 'move') assert.equal(b.cmds[b.cmds.length - 1], 'G');
+});
+
+test('job on the machine: a pass from the bottom up runs towards +X', () => {
+  const p = poly([[MM(100), MM(700)], [MM(100), MM(100)]]);
+  const { blocks } = jobToMachine(fileOf([p], { ...PAINT, lift: true }), straight().fit);
+  const first = blocks.find(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
+  const [, x, y] = first.cmds[1].split(' ').map(Number);
+  assert.ok(Math.abs(x - 700) < 1, `ends at X ${x}`);                 // v = 100 mm → X = 700
+  const travel = blocks[1].cmds.find(c => c[0] === 'M').split(' ').map(Number);
+  assert.ok(Math.abs(travel[1] - 100) < 1, `starts at X ${travel[1]}`); // v = 700 mm → X = 100
+  assert.ok(Math.abs(first.paintMM - 600) < 1);
+});
+
+test('job on the machine: an arc keeps its centre, end and turning direction', () => {
+  // a quarter circle in mm, radius 100 around (300, 400), clockwise on screen
+  const job = { steps: [{ kind: 'paint', stroke: 1, lane: 1, length: 157.08, segs: [{ t: 'A', c: { x: 300, y: 400 }, r: 100, a0: 0, s: Math.PI / 2 }] }] };
+  const { blocks } = jobToMachine(job, straight().fit);
+  const cmd = blocks.find(b => b.kind === 'move' && b.cmds[0].startsWith('F')).cmds.find(c => c[0] === 'A');
+  const [, cx, cy, x, y, dir] = cmd.split(' ').map(Number);
+  assert.deepEqual([cx, cy, x, y], [400, 300, 300, 300]);   // centre (u 300, v 400) → (X 400, Y 300); end (300, 500) → (300, 300)
+  assert.equal(dir, 1);                                      // on the machine it turns from +X towards +Y
+});
+
+test('job on the machine: the snake paints a whole stroke in one run', () => {
+  const p = shape([['L', MM(400)]], { start: P(MM(100), MM(300)), weight: 272 });
+  const { blocks } = jobToMachine(fileOf([p], { ...PAINT, lift: false }), straight().fit);
+  const runs = blocks.filter(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0].cmds.filter(c => c[0] === 'A').length, 7);   // seven semicircle turns
+});
+
+test('job on the machine: points past the walls are reported', () => {
+  // the canvas shifted down by 50 mm: its bottom edge below the X wall
+  const low = canvasReport({ tl: { x: 750, y: 0 }, tr: { x: 750, y: 600 }, br: { x: -50, y: 600 }, bl: { x: -50, y: 0 } }, 600, 800);
+  const p = poly([[MM(100), MM(790)], [MM(100), MM(500)]]);
+  const { outside } = jobToMachine(fileOf([p], { ...PAINT, lift: true }), low.fit);
+  assert.ok(outside.length > 0 && outside.every(o => o.x < 0));
 });

@@ -184,8 +184,13 @@ Paint tab switches to it. How it works and in what order to build it —
 **Status 2026-09-27, first version:** `job.html` reads the drawing the Paint
 tab keeps in the browser, plays the job on screen (percent by painted length,
 minutes left, ×1…×300) with an editable time model (estimates), and writes
-`job.json` through `rubens.py`. **Left:** the artboard placed on the machine
-from `calibration.json`, the brush from the ping, running the job.
+`job.json` through `rubens.py`. With three canvas corners recorded on the
+Calibration tab, the Machine section turns the job into what the board runs
+(`jobToMachine` in `machine.js`: brush off / travel / brush on / pass blocks,
+`L`, `A`, `M`, `G` in machine mm) and lists points past the walls; they go
+into `job.json` as `machine.blocks`. **Left:** the view of the job on the
+machine, the brush from the ping, `rubens.py` running the blocks — after the
+firmware draft (`RAIL-drawing_machine/drafts/rubens-pass/`) is tested.
 
 ---
 
@@ -202,7 +207,7 @@ from `calibration.json`, the brush from the ping, running the job.
 | `src/paint.js` | paint math: lengths, ml, clean reach, bead size |
 | `src/cnc.js` | `cncPlan(p, colors, paint)`: passes, lengths, drops; `cncSvg` — the machine file |
 | `src/job.js` | `jobSteps`: paint / travel / turn in machine order; `jobTimeline`, `jobAt` — the job on a clock; `jobFile` — `job.json` |
-| `src/machine.js` | the machine: steps per mm, stops, walls, home, the ping; the canvas from its corners |
+| `src/machine.js` | the machine: steps per mm, stops, walls, home, the ping; the canvas from its corners; `jobToMachine` — the job as board commands |
 | `src/svg.js` | `drawingSvg` — the drawing with its full state in `<metadata id="rubens-state">`; `simplify` for foreign SVG |
 | `src/render.js` | stamp strips (brush cross-section, pigment mixing, dry brush) and painting on a canvas |
 | `src/app.js` | the Paint tab: state, input, panels, CNC Trace on screen, export and import |
