@@ -51,7 +51,7 @@ off its stop; the board brakes before a wall and stops at it.
 | | stop, mm | wall, mm | wall, steps |
 |---|---|---|---|
 | X bottom | −9.45 | 0.0 | 0 |
-| X top (measured on the left) | +860.55 | +850.0 | +68000 |
+| X top | +860.55 on the left; more on the right — **to measure** | +860.0 | +68800 |
 | Y left | −8.3 | 0.0 | 0 |
 | Y right | about +569.5 — **to confirm** | +568.5 — **to move** | +15160 |
 
@@ -64,6 +64,14 @@ off its stop; the board brakes before a wall and stops at it.
   lost at the right stop, not 12. So the right stop is probably near 569.5 mm
   and the right wall (568.5) must move to about 559.5. Next session: re-take
   Y at the left stop, find the right stop with one knock only.
+- **Top wall moved to 860.0 — the owner's decision.** At 850 the carriage
+  stood at 851.0 on the right, and the owner saw about 10 cm more to the stop
+  there, while on the left the stop was measured at 860.55 (with knocks). So
+  the top stop is not the same across Y: something on the left stops the
+  carriage about 10 cm lower, or the left measurement was off. With the wall
+  at 860.0 the left top is 0.55 mm from that stop — expect a knock there.
+  Next: measure the gap to the stop on the right with a ruler, and find what
+  stops the carriage on the left.
 - **Top right: nothing in the way.** The very first X zero was taken at the
   top right, where the carriage seemed to stop 5–6 cm below the top stop on
   the left. Later, with the walls in place, the carriage went up on the right
@@ -106,5 +114,5 @@ are backed up outside it.
 
 - Speed per axis: `LEVEL_MHZ = { 800000, 266667 }` — one level is 10 mm/s on
   both axes.
-- Walls: `WALL_MIN = { 0, 0 }`, `WALL_MAX = { +68000, +15160 }`.
+- Walls: `WALL_MIN = { 0, 0 }`, `WALL_MAX = { +68800, +15160 }` (the top X wall was +68000 = 850.0 until the evening).
 - The pendant page (`web/index.html`): `STEPS_PER_MM = { x: 80, y: 26.667 }`.
