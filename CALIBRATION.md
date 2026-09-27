@@ -167,9 +167,10 @@ stop. The owner stopped it; nothing else moved.
   the count ran down to the wall at 0 with the motor slipping. Stopped there
   at −1.16, the carriage stood in the stop, which is −8.3 by the calibration:
   so the count was 7.14 mm high. It was corrected with `origin/y` at the right
-  wall (count 569.96 → 562.84 mm), without moving anything. Check: Y left to
-  its wall on level 1 must stop with no knock. The bottom canvas corners,
-  recorded again by mistake at the walls, were put back from git.
+  wall (count 569.96 → 562.84 mm), without moving anything. **Checked:** Y
+  left to its wall on level 1 stopped at −1.8 with no knock. The canvas did
+  not move; the four canvas corners of the evening were put back from git
+  (600.1 × 801.6 mm).
 
 ### Home — every time after power-on
 
