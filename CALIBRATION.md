@@ -84,6 +84,34 @@ off its stop; the board brakes before a wall and stops at it.
   is in the way up to there; the early stop in the morning was a count gone
   wrong after knocks, not an obstacle.
 
+### The canvas on the machine (evening)
+
+Recorded on the Calibration tab (`rubens-preview/calibration.json`), paper
+format 60 × 80 cm. The tip went to each corner of the canvas; the sides are
+past the Y walls, so those corners were recorded at the wall with a ruler
+offset (15 mm on each side), the top ones 10 mm below the edge with ↑ 10.
+
+| corner | X, mm | Y, mm |
+|---|---|---|
+| top left | 827.9 | −16.0 |
+| top right | 827.9 | 584.6 |
+| bottom right | 26.3 | 584.1 |
+| bottom left | 26.3 | −16.0 |
+
+- Size 600.1 × 801.6 mm (nominal 600 × 800), diagonals 1001.3 and 1001.6
+  (nominal 1000.0); the four corners fit one straight grid within 0.13 mm.
+  The canvas lies square to the axes (0.04°).
+- Out of reach: 16.0 mm on the left and 16.1 mm on the right; the full
+  height is inside.
+- On the way the owner recorded the walls instead of the canvas (866.9 ×
+  571.9) and once typed offsets 25 + 20 for what is 15 + 15. Both would have
+  stretched a job; the pages now flag any edge more than 1.5 % off the format.
+- **The canvas moved once when touched.** Clamp it outside the work area
+  before any run: a canvas that moves loses the registration with the
+  machine, and layers stop matching (Rubens_v2.md, section 7).
+- The Y scale was checked with a pencil line and a ruler: it matches
+  26.667 steps per mm.
+
 ### Home — every time after power-on
 
 1. X down to its stop, level 1, stop at the first sound.
