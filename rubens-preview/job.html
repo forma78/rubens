@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUBENS · Job</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- RUBENS · Job — the drawing from the Paint tab as the machine will run it:
+     every pass, travel and turn in order, played on screen with percent and
+     minutes. The machine is not driven from here yet. -->
+<header class="top">
+  <div class="brand">
+    <span class="logo">RUBENS</span>
+    <nav class="tabs" aria-label="Pages">
+      <a href="index.html">Paint</a>
+      <a href="calibration.html">Calibration</a>
+      <a href="job.html" class="on">Job</a>
+    </nav>
+    <span class="ver">v0.1</span>
+  </div>
+  <div class="top-mid"></div>
+  <div class="top-right">
+    <button class="btn" id="btnSaveJob" title="Write job.json next to the pages, for the machine">Save job.json</button>
+  </div>
+</header>
+
+<main class="cal">
+  <section class="stage" id="stage">
+    <canvas id="jobView"></canvas>
+  </section>
+
+  <aside class="panel">
+    <section class="sec">
+      <h3>Progress <span class="hint">by painted length</span></h3>
+      <div class="progress">
+        <span class="pct" id="pct">0 %</span>
+        <span class="left" id="left">—</span>
+      </div>
+      <div class="bar"><i id="bar"></i></div>
+      <input id="scrub" type="range" min="0" max="1000" value="0" class="slider" aria-label="Time">
+      <div class="scale"><span id="elapsed">0:00</span><span id="now">—</span><span id="total">0:00</span></div>
+      <div class="row play-row">
+        <button class="btn primary" id="btnPlay">▶ Play</button>
+        <button class="btn" id="btnRestart" title="Back to the start">⟲</button>
+        <div class="seg speed-seg" id="speedSeg">
+          <button data-k="1">×1</button><button data-k="10">×10</button><button data-k="60">×60</button><button data-k="300">×300</button>
+        </div>
+      </div>
+      <p class="read">On screen only: the machine does not move. Space = play / pause.</p>
+    </section>
+
+    <section class="sec">
+      <h3>Job <span class="hint">from the Paint tab</span></h3>
+      <div id="summary" class="math"></div>
+    </section>
+
+    <section class="sec">
+      <h3>Time model <span class="hint">estimate — measure on the first run</span></h3>
+      <div class="grid4">
+        <label>Paint <input id="mPaint" type="number" step="1" min="1"><em>mm/s</em></label>
+        <label>Travel <input id="mTravel" type="number" step="5" min="1"><em>mm/s</em></label>
+        <label>Brush off / on <input id="mSwing" type="number" step="0.1" min="0"><em>s</em></label>
+      </div>
+      <p class="read">Paint and turns run at the paint speed. Every travel move costs one swing off the canvas and one back.</p>
+    </section>
+  </aside>
+</main>
+
+<footer class="status">
+  <span id="hint">Job: the drawing as the machine will run it. Bottom of the picture at the bottom.</span>
+  <span id="saved"></span>
+</footer>
+
+<script type="module" src="src/jobpage.js"></script>
+</body>
+</html>

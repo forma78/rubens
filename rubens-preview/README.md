@@ -1,8 +1,13 @@
 # RUBENS · Brush Preview v0.1
 
 A prototype that previews brush strokes for Motor Brush. Draw a path, pick
-eight drops of paint, see what you will get, export an SVG. It does not touch
-the hardware: no bridge, no `M`/`U` commands.
+eight drops of paint, see what you will get, export an SVG. Three tabs:
+
+- **Paint** — draw and preview. Does not touch the hardware.
+- **Calibration** — the machine from above, live; jog the axes, set home,
+  record where the canvas lies. Drives the axes through the machine bridge.
+- **Job** — the drawing as the machine will run it, played on screen with
+  percent and minutes; writes `job.json`. Does not touch the hardware yet.
 
 The design is a draft.
 
@@ -13,12 +18,15 @@ of RUBENS is **`../Rubens_v2.md`**.
 
 ```
 cd ~/Rubens/rubens-preview
-python3 -m http.server 8766
+python3 rubens.py
 ```
 
-Open http://localhost:8766. Port 8766 keeps clear of the bridge on 8765.
-Or double-click `start.command`. The page must be served over http: the code
-is ES modules, and browsers do not load them from `file://`.
+Open http://localhost:8766, or double-click `start.command`. `rubens.py`
+serves the pages and passes a short list of machine commands to the bridge
+(`RAIL-drawing_machine/bridge.py`, port 8765): the ping, the look, the axes
+and the axis zero — not the arm. Calibration needs the bridge running; Paint
+and Job work without it. The pages must be served over http: the code is ES
+modules, and browsers do not load them from `file://`.
 
 ## Tests
 
@@ -40,10 +48,15 @@ drawing is kept in the browser between reloads anyway.
 
 | file | what |
 |---|---|
-| `index.html` | markup, English UI |
+| `index.html` | the Paint tab, English UI |
+| `calibration.html` | the Calibration tab |
+| `job.html` | the Job tab |
+| `rubens.py` | the server on 8766: pages, machine commands to the bridge, `calibration.json` and `job.json` |
+| `calibration.json` | where the canvas lies on the machine, written by the Calibration tab |
+| `job.json` | the job in mm, in the order it runs, written by the Job tab (not in git) |
 | `style.css` | Braun style, `#EDEAE4` / `#EB7A25`, as MELNICOMM |
 | `src/` | the code as ES modules, no libraries, no build step — see `HANDOFF.md`, section 4 |
-| `test/` | tests for the geometry, paint math, CNC plan and SVG files |
+| `test/` | tests for the geometry, paint math, CNC plan, the job and its clock, the machine model, SVG files |
 | `package.json` | only tells Node that `.js` files are modules, for the tests |
 
 ## Units

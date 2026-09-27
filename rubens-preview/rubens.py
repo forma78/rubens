@@ -2,12 +2,14 @@
 """RUBENS server: serves this folder on http://localhost:8766 and talks to
 the machine through its bridge (Rubens_v2.md, section 6).
 
-- Static files: the Paint page (index.html) and Calibration (calibration.html).
+- Static files: the Paint page (index.html), Calibration (calibration.html)
+  and Job (job.html).
 - /machine/<command> goes to the machine bridge (RAIL-drawing_machine,
   bridge.py, port 8765), which stays the only owner of the serial port.
   Only the commands in PASS get through: the ping, the look, the axes, and
   the axis zero. The arm is not among them.
-- /calibration: GET returns calibration.json, PUT saves it.
+- /calibration and /job: GET returns calibration.json / job.json, PUT saves
+  it. The Job tab writes job.json — the job in mm, in the order it runs.
 
 Run:  python3 rubens.py
 Listens on this Mac only: the machine is driven from here, not from the
@@ -24,7 +26,7 @@ from urllib.request import urlopen
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = 8766
 BRIDGE = "http://127.0.0.1:8765"
-CALIBRATION = os.path.join(HERE, "calibration.json")
+FILES = {"/calibration": os.path.join(HERE, "calibration.json"), "/job": os.path.join(HERE, "job.json")}
 PASS = {"/ping", "/look", "/cmd", "/origin/x", "/origin/y"}
 
 
@@ -54,10 +56,10 @@ class Handler(SimpleHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path.startswith("/machine/"):
             return self.machine(u)
-        if u.path == "/calibration":
-            if not os.path.exists(CALIBRATION):
+        if u.path in FILES:
+            if not os.path.exists(FILES[u.path]):
                 return self.reply(200, "{}", "application/json")
-            with open(CALIBRATION, "rb") as f:
+            with open(FILES[u.path], "rb") as f:
                 return self.reply(200, f.read(), "application/json")
         return super().do_GET()
 
@@ -73,17 +75,18 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(502, "no bridge", board="none")
 
     def do_PUT(self):
-        if urlparse(self.path).path != "/calibration":
+        path = FILES.get(urlparse(self.path).path)
+        if not path:
             return self.reply(404, "")
         body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         try:
             json.loads(body)
         except ValueError:
             return self.reply(400, "not JSON")
-        tmp = CALIBRATION + ".tmp"
+        tmp = path + ".tmp"
         with open(tmp, "wb") as f:
             f.write(body)
-        os.replace(tmp, CALIBRATION)
+        os.replace(tmp, path)
         return self.reply(200, "saved")
 
 

@@ -75,6 +75,14 @@ through firmware yet (the firmware has no `M` and `U` commands yet).
 
 ### 3.1. Take the brush off and travel back after every pass — REQUIRED
 
+**Status 2026-09-27:** the plan does it (`cncPlan`: every pass bottom to top
+with the option on, a snake with the option off; `job.js`: paint, travel and
+turn steps in machine order), CNC Trace shows direction, travel and turns,
+the preview puts fresh paint at the lower end. The toggle is "Brush off after
+each pass" in the Brush panel. **Left:** the preview lane by lane (in a snake
+it still follows lane 1), and `data-kind` in Export CNC (`job.json` from the
+Job tab already has the kinds). The owner has not looked at it yet.
+
 The user's words (translated): "after every paint run — bottom to top — the
 3DOF around the wrist lifts and the machine travels back idle, as an option".
 
@@ -134,12 +142,11 @@ paint-use parameters. Do not fill in plausible numbers without a measurement
 
 ### 3.5. Machine work area
 
-X between the walls is 877 mm (−302.0 … +575.0); Y travel is not recorded
-yet. A 100 × 100 canvas does not fit along X. With the arm straight, the
-bottom 170 mm of the canvas are out of reach (`Rubens_v2.md`, section 7).
-Draw the work area over the canvas and warn when a stroke leaves it. Binding
-the canvas zero to the machine zero is a separate procedure; there are no end
-stops.
+Measured 2026-09-27 (`../CALIBRATION.md`): X walls 0 … 865 mm, Y walls
+0 … 568.5 mm (the right Y stop still to confirm). Zero is at the walls, home
+is the bottom left corner. The Calibration tab records the canvas corners and
+reports the strips out of reach. Left: draw the work area over the artboard
+on the Paint tab and warn when a stroke leaves it.
 
 ### 3.6. Code
 
@@ -174,6 +181,12 @@ percent done and minutes left, like a 3D printer. The ⚡️ Do Job button on th
 Paint tab switches to it. How it works and in what order to build it —
 `Rubens_v2.md`, sections 3, 4.6, 6 and 10.
 
+**Status 2026-09-27, first version:** `job.html` reads the drawing the Paint
+tab keeps in the browser, plays the job on screen (percent by painted length,
+minutes left, ×1…×300) with an editable time model (estimates), and writes
+`job.json` through `rubens.py`. **Left:** the artboard placed on the machine
+from `calibration.json`, the brush from the ping, running the job.
+
 ---
 
 ## 4. How it is built (short)
@@ -188,12 +201,16 @@ Paint tab switches to it. How it works and in what order to build it —
 | `src/fillet.js` | `filleted(p, cornerR)` — centre line with arcs at kinks; `offsetSegs` — a parallel copy |
 | `src/paint.js` | paint math: lengths, ml, clean reach, bead size |
 | `src/cnc.js` | `cncPlan(p, colors, paint)`: passes, lengths, drops; `cncSvg` — the machine file |
+| `src/job.js` | `jobSteps`: paint / travel / turn in machine order; `jobTimeline`, `jobAt` — the job on a clock; `jobFile` — `job.json` |
+| `src/machine.js` | the machine: steps per mm, stops, walls, home, the ping; the canvas from its corners |
 | `src/svg.js` | `drawingSvg` — the drawing with its full state in `<metadata id="rubens-state">`; `simplify` for foreign SVG |
 | `src/render.js` | stamp strips (brush cross-section, pigment mixing, dry brush) and painting on a canvas |
-| `src/app.js` | the page: state, input, panels, CNC Trace on screen, export and import |
+| `src/app.js` | the Paint tab: state, input, panels, CNC Trace on screen, export and import |
+| `src/calibration.js` | the Calibration tab |
+| `src/jobpage.js` | the Job tab |
 | `test/` | `node --test`; `test/shapes.js` builds the test strokes |
 
-Everything except `render.js` and `app.js` runs without a browser, so the
+Everything except `render.js` and the three page modules runs without a browser, so the
 tests import it in Node. The pure modules never read the page state: the
 paint settings and colours are passed in as arguments.
 

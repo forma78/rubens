@@ -632,6 +632,8 @@ function exportPNG() {
 $('#btnSvg').onclick = exportSVG;
 $('#btnPng').onclick = exportPNG;
 $('#btnCnc').onclick = exportCNC;
+// ⚡️ Do Job: the Job tab reads the drawing from this browser, so save it first.
+$('#btnJob').onclick = () => { finishAll(); saveNow(); location.href = 'job.html'; };
 
 // ---------- import ----------
 $('#btnImport').onclick = () => $('#fileIn').click();
@@ -697,9 +699,11 @@ function importGeneric(doc) {
 let saveT = 0;
 function save() {
   clearTimeout(saveT);
-  saveT = setTimeout(() => {
-    try { localStorage.setItem('rubens.v01', JSON.stringify({ format: S.format, paths: S.paths.filter(p => p.segs.length), palettes: S.palettes, defaults: S.defaults, paint: S.paint, view: S.view, angleSnap: S.angleSnap, nextId: S.nextId })); } catch (e) { }
-  }, 300);
+  saveT = setTimeout(saveNow, 300);
+}
+function saveNow() {
+  clearTimeout(saveT);
+  try { localStorage.setItem('rubens.v01', JSON.stringify({ format: S.format, paths: S.paths.filter(p => p.segs.length), palettes: S.palettes, defaults: S.defaults, paint: S.paint, view: S.view, angleSnap: S.angleSnap, nextId: S.nextId })); } catch (e) { }
 }
 function load() {
   try {

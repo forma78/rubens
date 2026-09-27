@@ -3,3 +3,6 @@
 
 # Claude Code personal settings (not for the public repo)
 .claude/settings.local.json
+
+# The Job tab's output, rebuilt from the drawing at any time
+job.json

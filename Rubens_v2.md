@@ -420,12 +420,15 @@ plausible value is filled in.
 3. The screen must not lie: refills show in the preview; "Drops" and CNC Trace
    show the same drops.
 4. Bottom-to-top passes, the swing off the canvas, the snake with a semicircle
-   (section 4.5).
-5. The file for the machine as in section 5.
-6. Job tab with an on-screen run: the plan plays on screen, percent, minutes.
-   The hardware is not touched.
+   (section 4.5) — the plan and CNC Trace done 2026-09-27; the preview lane by
+   lane left.
+5. The file for the machine as in section 5 — `job.json` from the Job tab
+   (mm, execution order, kinds) done 2026-09-27; the SVG export left.
+6. ~~Job tab with an on-screen run: the plan plays on screen, percent,
+   minutes. The hardware is not touched~~ — first version 2026-09-27.
 7. `rubens.py`: the page, the job, the bridge. The brush on screen from the
-   ping.
+   ping — serves the pages and passes the axis commands since 2026-09-27
+   (Calibration tab); running the job left.
 8. Firmware: the smooth pass, `U`.
 9. Dry run, the first stroke, calibration from photos.
 
