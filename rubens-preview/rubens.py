@@ -39,6 +39,10 @@ BRIDGE = "http://127.0.0.1:8765"
 FILES = {"/calibration": os.path.join(HERE, "calibration.json"), "/job": os.path.join(HERE, "job.json")}
 PASS = {"/ping", "/look", "/cmd", "/origin/x", "/origin/y"}
 STEPS_PER_MM = (80.0, 3200.0 / 120.0)   # X, Y — the same as src/machine.js
+# Runs are off until the pass firmware is fixed and tested in the air: on
+# 2026-09-27 a diagonal pass sent the Y axis far past its target (moveTimed
+# slices re-sent after a partial add). CALIBRATION.md has the details.
+RUNS_ENABLED = False
 
 
 def parse_ping(text):
@@ -301,6 +305,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(200, "ok")
         if path != "/run":
             return self.reply(404, "")
+        if not RUNS_ENABLED:
+            return self.reply(503, "runs are off: the pass firmware is being fixed after a diagonal pass ran the Y axis away (2026-09-27)")
         try:
             with open(FILES["/job"], encoding="utf-8") as f:
                 blocks = json.load(f)["machine"]["blocks"]

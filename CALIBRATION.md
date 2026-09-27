@@ -142,6 +142,29 @@ X 200–250, Y 200–250, at 10 mm/s, four times in the same place.
   a stiff holder would tear the canvas; the answer is that pressure comes
   from the spring along the axis, not from stiffness sideways.
 
+### The first job run: a runaway on Y (late night)
+
+⚡️ Do Job with the owner's drawing. The first travel at 100 mm/s had stopped
+near its end with "moveTimed 4" (the motor queue not ready: X ran out of
+queued slices); the firmware was changed to retry such a slice instead of
+stopping, and the same travel then ran four times cleanly. The first real
+pass — diagonal, 54 mm along X and 25 mm along Y, 20 mm/s — went wrong: at
+about 8 mm/s along Y the library puts every step into the queue as several
+entries, the Y queue ran dry, and a slice that had been added in part was
+added again on retry — over and over (1 751 137 retries). The Y count ran to
+827.4 mm; the carriage cannot go past about 578, so it drove into the right
+stop. The owner stopped it; nothing else moved.
+
+- The squares never showed it: each side ran along one axis only.
+- **Runs are off** in `rubens.py` (`RUNS_ENABLED = False`) until the pass
+  core is rebuilt and tested in the air.
+- The fix: not `moveTimed` with retries, but the library's main mode — every
+  20 ms each axis gets a target and a speed, and lays out its own steps,
+  slow ones included. Test in the air first: diagonals at several angles and
+  speeds, a slow axis, arcs; the pencil only after that.
+- **The Y count is wrong now:** home must be set again (X down to its stop,
+  Y left to its stop, Set home) before any move to the right.
+
 ### Home — every time after power-on
 
 1. X down to its stop, level 1, stop at the first sound.
