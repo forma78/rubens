@@ -99,7 +99,7 @@ function machine() {
   const F = FORMATS[S.doc.format], rep = canvasReport(corners, F.w, F.h);
   // Corners that do not match the format would stretch the drawing: most
   // likely the tip went to the walls, not to the canvas. Do not place the job.
-  const off = rep.edges.filter(e => Math.abs(e.length / e.nominal - 1) > 0.03);
+  const off = rep.edges.filter(e => Math.abs(e.length / e.nominal - 1) > 0.015);
   if (off.length) {
     el.innerHTML = `<p class="warn">The canvas corners give ${off.map(e => `${e.name} ${fmt(e.length)} mm`).join(', ')} against the format's ${fmt(F.w)} × ${fmt(F.h)} mm — the job would be stretched. Record the corners of the canvas itself on the Calibration tab.</p>`;
     return;
