@@ -135,12 +135,13 @@ stops.
 
 ### 3.6. Code
 
-- `app.js` is 1246 lines in one file. Split into modules: geometry (segments,
-  gesture fitting, rounding, offsets), paint (stamp strips, ml math), CNC
-  (plan, export), UI. Translate comments to English along the way.
-- Automated geometry tests. The main one: "passes of one stroke do not cross"
-  on a set of shapes with sharp corners, zigzags and loops. For a loop the
-  axis crosses itself, so passes may cross only near that self-crossing.
+- ~~Split `app.js` into modules~~ — done 2026-09-27: `src/`, see section 4.
+  Comments are in English.
+- ~~Automated geometry tests~~ — done 2026-09-27: `node --test` in
+  `rubens-preview/`. The main one: the passes of one stroke keep their lane
+  spacing, so they never cross; for a loop they cross only where the centre
+  line crosses itself. Also: every pass is smooth, paint math, the drop plan,
+  gesture fitting, both SVG files.
 - Fix the SVG as the contract with RUBENS: groups, `data-*`, units — mm
   (`Rubens_v2.md`, section 5).
 
@@ -162,18 +163,24 @@ Paint tab switches to it. How it works and in what order to build it —
 
 ## 4. How it is built (short)
 
-| where in `app.js` | what |
+| module | what |
 |---|---|
-| segment geometry | `L` and `A`, points, tangents, `samplePath` |
-| gesture fitting | `fitSegment`: mouse trail → line (15° step) or arc (sweep to 45°), tangent continuation |
-| anchor editing | anchors, Shift selection; an arc keeps its sweep while edited |
-| corner rounding | `filleted(p)` — centre line with arcs at kinks; `offsetSegs` — a parallel copy |
-| stamp strips | brush cross-section, pigment mixing, dry brush |
-| CNC Trace | `cncPlan(p)`: passes, lengths, drops; `exportCNC` |
-| SVG export / import | the app's own file is restored exactly from `<metadata id="rubens-state">` |
+| `src/config.js` | units, formats, brush profiles, default palettes |
+| `src/util.js` | vectors, angles, number formatting, seeded random |
+| `src/color.js` | sRGB ↔ linear, HEX, pigment-like mixing |
+| `src/geometry.js` | `L` and `A` segments, points, tangents, `samplePath`; anchor editing (an arc keeps its sweep); SVG path data |
+| `src/gesture.js` | `fitSegment`: mouse trail → line (15° step) or arc (sweep to 45°), tangent continuation |
+| `src/fillet.js` | `filleted(p, cornerR)` — centre line with arcs at kinks; `offsetSegs` — a parallel copy |
+| `src/paint.js` | paint math: lengths, ml, clean reach, bead size |
+| `src/cnc.js` | `cncPlan(p, colors, paint)`: passes, lengths, drops; `cncSvg` — the machine file |
+| `src/svg.js` | `drawingSvg` — the drawing with its full state in `<metadata id="rubens-state">`; `simplify` for foreign SVG |
+| `src/render.js` | stamp strips (brush cross-section, pigment mixing, dry brush) and painting on a canvas |
+| `src/app.js` | the page: state, input, panels, CNC Trace on screen, export and import |
+| `test/` | `node --test`; `test/shapes.js` builds the test strokes |
 
-The comment headers in `app.js` are still in Russian; they become English with
-the module split (item 3.6).
+Everything except `render.js` and `app.js` runs without a browser, so the
+tests import it in Node. The pure modules never read the page state: the
+paint settings and colours are passed in as arguments.
 
 State lives in `localStorage` (`rubens.v01`); undo history is JSON snapshots.
 

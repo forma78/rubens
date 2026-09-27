@@ -407,9 +407,8 @@ plausible value is filled in.
 ## 10. Work order
 
 1. ~~git in `~/Rubens`~~ — done 2026-09-27, public at `github.com/forma78/rubens`.
-2. Split `app.js` into modules and translate its comments to English along
-   the way. Geometry tests: the passes of one stroke do not cross, every pass
-   is smooth.
+2. ~~Split `app.js` into modules, comments in English, geometry tests~~ —
+   done 2026-09-27 (`rubens-preview/src/`, `rubens-preview/test/`).
 3. The screen must not lie: refills show in the preview; "Drops" and CNC Trace
    show the same drops.
 4. Bottom-to-top passes, the swing off the canvas, the snake with a semicircle

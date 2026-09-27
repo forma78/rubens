@@ -1,2 +1,5 @@
 # macOS Finder metadata
 .DS_Store
+
+# Claude Code personal settings (not for the public repo)
+.claude/settings.local.json

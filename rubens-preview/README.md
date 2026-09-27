@@ -17,7 +17,17 @@ python3 -m http.server 8766
 ```
 
 Open http://localhost:8766. Port 8766 keeps clear of the bridge on 8765.
-Or double-click `start.command`.
+Or double-click `start.command`. The page must be served over http: the code
+is ES modules, and browsers do not load them from `file://`.
+
+## Tests
+
+```
+cd ~/Rubens/rubens-preview
+node --test
+```
+
+No packages to install. Tested with Node 25.
 
 ## Default drawing
 
@@ -32,7 +42,9 @@ drawing is kept in the browser between reloads anyway.
 |---|---|
 | `index.html` | markup, English UI |
 | `style.css` | Braun style, `#EDEAE4` / `#EB7A25`, as MELNICOMM |
-| `app.js` | everything else, no libraries, no build step |
+| `src/` | the code as ES modules, no libraries, no build step — see `HANDOFF.md`, section 4 |
+| `test/` | tests for the geometry, paint math, CNC plan and SVG files |
+| `package.json` | only tells Node that `.js` files are modules, for the tests |
 
 ## Units
 
