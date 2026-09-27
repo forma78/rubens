@@ -64,10 +64,12 @@ off its stop; the board brakes before a wall and stops at it.
   lost at the right stop, not 12. So the right stop is probably near 569.5 mm
   and the right wall (568.5) must move to about 559.5. Next session: re-take
   Y at the left stop, find the right stop with one knock only.
-- **Top right, to check.** The very first X zero was taken at the top right,
-  where the carriage stopped 5–6 cm below the top stop on the left. Either
-  something is in the way there (a bracket, the motor, a cable) or the count
-  was off. Measure the top stop on the right once the walls are settled.
+- **Top right: nothing in the way.** The very first X zero was taken at the
+  top right, where the carriage seemed to stop 5–6 cm below the top stop on
+  the left. Later, with the walls in place, the carriage went up on the right
+  (Y 570.4) to the top wall without a knock and stood at X 851.0. So nothing
+  is in the way up to there; the early stop in the morning was a count gone
+  wrong after knocks, not an obstacle.
 
 ### Home — every time after power-on
 
