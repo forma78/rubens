@@ -210,6 +210,11 @@ function report() {
     h += '<table><tr><td class="mono">edge</td><td class="r mono">measured</td><td class="r mono">nominal</td><td class="r mono">drift</td></tr>';
     for (const e of rep.edges) h += `<tr><td>${e.name}</td><td class="r">${fmt(e.length)}</td><td class="r">${fmt(e.nominal)}</td><td class="r">${fmt(e.drift)} mm · ${fmt(e.deg, 2)}°</td></tr>`;
     h += '</table><p class="mono">drift: how far the far corner is off the axis — the canvas is turned, or the axes are not square.</p>';
+    // An edge far off its nominal length: most likely the tip went to the
+    // walls, not to the canvas — a job placed from these corners would be
+    // stretched or squeezed.
+    const off = rep.edges.filter(e => Math.abs(e.length / e.nominal - 1) > 0.03);
+    if (off.length) h += `<p class="warn">${off.map(e => e.name).join(', ')}: ${off.map(e => fmt(e.length)).join(', ')} mm against ${off.map(e => fmt(e.nominal)).join(', ')}. These look like the corners of the machine's reach (the walls), not of the canvas. Bring the tip to the canvas marks; for a corner past a wall, record at the wall and type the ruler offset.</p>`;
   } else h += '<p class="none">Two neighbouring corners give an edge.</p>';
   if (rep.diag) h += `<p>Diagonals ${fmt(rep.diag.tlbr)} and ${fmt(rep.diag.trbl)} mm (nominal ${fmt(rep.diag.nominal)}).</p>`;
   if (rep.residual != null) h += `<p>The four corners fit one straight grid within ${fmt(rep.residual, 2)} mm.</p>`;
