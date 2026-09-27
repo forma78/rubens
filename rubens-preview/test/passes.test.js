@@ -17,6 +17,8 @@ const CLEAN = {
   'S of two half circles': shape([['L', 500], ['R', 300, 180], ['L', 500], ['T', 300, 180], ['L', 500]]),
   'demo stroke 1': shape([['L', 1130], ['R', 190, 180], ['L', 420], ['T', 170, 135], ['L', 1500]], { start: P(-60, 330), weight: 230 }),
   'demo stroke 3': shape([['L', 700], ['T', 190, 90], ['L', 120]], { start: P(-60, 2060), weight: 170 }),
+  // a kink just under 0.5° is not rounded: inner passes must not run backwards there
+  'a 0.49° kink': poly([[0, 0], [1000, 0], [1000 + 1000 * Math.cos(rad(0.49)), 1000 * Math.sin(rad(0.49))]]),
 };
 
 for (const [name, p] of Object.entries(CLEAN)) {
@@ -53,6 +55,21 @@ test('a zigzag too tight for the width is flagged', () => {
   const p = poly([[0, 0], [200, 0], [0, 60], [200, 120]], 272);
   assert.ok(filleted(p, PAINT.cornerR).warn.length > 0);
 });
+
+// Zigzags with segments too short for the rounding (marked "!" in the app).
+// There the inner passes must meet in a sharp point, not cross each other.
+const TIGHT = {
+  'tight zigzag 1': poly([[40, 300], [420, 300], [260, 560], [700, 560], [560, 820]], 200),
+  'tight zigzag 2': poly([[60, 1100], [380, 980], [330, 1200], [620, 1120], [760, 1350]], 200),
+};
+for (const [name, p] of Object.entries(TIGHT))
+  test(`${name}: too tight for the rounding, yet the passes do not cross`, () => {
+    assert.ok(filleted(p, PAINT.cornerR).warn.length > 0, 'the shape must be too tight');
+    const lines = cncPlan(p, EIGHT, PAINT).passes.map(ps => polyline(ps.segs));
+    for (let i = 0; i < 8; i++)
+      for (let j = i + 1; j < 8; j++)
+        assert.equal(crossings(lines[i], lines[j]).length, 0, `passes ${i + 1} and ${j + 1} cross`);
+  });
 
 test('an arc of the drawing smaller than W/2 is flagged', () => {
   const p = shape([['L', 300], ['R', 50, 90], ['L', 300]], { weight: 272 });

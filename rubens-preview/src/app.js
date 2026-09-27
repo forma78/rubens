@@ -513,7 +513,7 @@ function updateMath(p) {
     const refill = ps.filter(q => q.n > 1).length;
     let warn = '';
     if (S.paint.nozzle > lane) warn += `<p class="warn">Nozzle ${fmt(S.paint.nozzle, 1)} mm is wider than the pass pitch (${fmt(lane, 1)} mm): beads of neighbouring passes will touch.</p>`;
-    if (plan.warn.length) warn += `<p class="warn">${plan.warn.length} spot${plan.warn.length > 1 ? 's are' : ' is'} too tight for a ${fmt(traceMM(p), 0)} mm trace — inner passes would cross (marked ! in CNC Trace). Open the corner or thin the stroke.</p>`;
+    if (plan.warn.length) warn += `<p class="warn">${plan.warn.length} spot${plan.warn.length > 1 ? 's are' : ' is'} too tight for a ${fmt(traceMM(p), 0)} mm trace — the inner passes meet in a sharp point there (marked ! in CNC Trace).</p>`;
     if (refill) warn += `<p class="warn">${refill} pass${refill > 1 ? 'es need' : ' needs'} paint added along the way — see CNC Trace.</p>`;
     m.innerHTML = `<table>
       <tr><td>Centre line</td><td class="r">${fmt(L / 10, 1)} cm</td></tr>

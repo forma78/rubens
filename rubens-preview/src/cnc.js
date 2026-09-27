@@ -4,7 +4,8 @@
 // the centre line at ((i + 0.5)/8 − 0.5) × trace width; the pitch between
 // passes is stroke / 8 (96 mm = 272 pt for a 12 mm brush). Pass 1 is the left
 // edge looking along the drawing direction, as in the preview. Passes are
-// parallel copies of the rounded centre line (fillet.js), so they never cross.
+// parallel copies of the rounded centre line (fillet.js), so they never cross;
+// where a corner is too tight for the rounding, the inner passes meet in a point.
 // No DOM here.
 
 import { PT_MM } from './config.js';

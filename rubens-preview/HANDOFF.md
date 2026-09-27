@@ -60,6 +60,14 @@ through firmware yet (the firmware has no `M` and `U` commands yet).
 - **Small kinks (under 0.5°) stay unrounded** — texture, not a defect.
   **Spots marked "!"** are shown on the Job tab but do not block the start;
   the machine slows to zero there. Decided 2026-09-27.
+- **Lines may cross and overlap** — it is painting (the owner, 2026-09-27,
+  with an Illustrator example). Loops of the centre line cross by nature.
+- **Where the rounding does not fit ("!") the inner passes meet in a sharp
+  point**, like an offset path in Illustrator; so do the inner passes at a
+  kink under 0.5°. Before, a straight bridge ran backwards there and the
+  passes criss-crossed. This is not the rejected "inner pass is cut" variant
+  above: the centre line is still rounded everywhere; cutting is only the
+  fallback where the rounding cannot fit. Decided 2026-09-27.
 
 ---
 
@@ -151,6 +159,13 @@ stops.
 - Closed shapes: start and finish are just two ends now, drops at the joint.
 - Reverse a stroke's direction.
 - `default.svg`: the user will save a drawing next to `index.html`.
+
+### 3.8a. Small inconsistencies at tight corners — after v0.1
+
+The owner saw small inconsistencies at tight corners on 2026-09-27 and chose
+to keep v0.1 as it is and come back later. Screenshots:
+`images_CNC_drawing_machine/tight-corners-1.png` and `tight-corners-2.png`.
+Ask the owner what exactly to look at before changing anything.
 
 ### 3.8. Job tab and the ⚡️ Do Job button
 

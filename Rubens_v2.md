@@ -131,10 +131,12 @@ is not rounded. The machine takes it on the move, barely slowing down. This is
 painting, not a technical drawing: if such a joint shows, it is texture.
 *Claude's decision, 2026-09-27.*
 
-**At spots marked "!"** the rounding did not fit and the inner passes get a
-sharp corner. The machine slows to zero there and carries on, as at any
-corner. The Job tab shows such spots but does not block the start.
-*Claude's decision.*
+**At spots marked "!"** the rounding did not fit, and the inner passes meet
+in a sharp point, like an offset path in Illustrator. The machine slows to
+zero there and carries on, as at any corner. The Job tab shows such spots but
+does not block the start. *Claude's decision.*
+
+**Lines may cross and overlap** — this is painting (the owner, 2026-09-27).
 
 ### 4.5. Order, and taking the brush off the canvas
 
