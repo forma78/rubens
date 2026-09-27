@@ -388,6 +388,13 @@ is lost.
 
 ## 8. Measure by hand. Do not guess
 
+**Repeatability over accuracy** — the owner, 2026-09-27, after four pencil
+squares that came out 48 × 45 mm instead of 50 × 50 and lay exactly on each
+other: "we are not making architectural drawings; these errors are a plus;
+what matters is the trace itself — the brush follows the pencil line, and it
+matches perfectly". A few mm of absolute error are accepted; the line must
+repeat. Calibration work goes into repeatability first.
+
 Until a number is measured, the field in the app is marked as a guess and no
 plausible value is filled in.
 

@@ -212,6 +212,10 @@ class Runner:
                 with self.lock:
                     self.painted = base + share * max(0, sent - p["path"]) / total
             self.sleep(0.2)
+        if started:
+            # the flag can drop while the motors still run the last queued
+            # slices (older firmware): give them a moment before the arm moves
+            self._wait(0.4)
         if base is not None and not self._stop:
             with self.lock:
                 self.painted = base + share
