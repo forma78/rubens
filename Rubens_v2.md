@@ -293,11 +293,16 @@ reach is accounted for by itself; link lengths are not needed for this.
 *Claude's decision.* The arm geometry is needed to draw the tip's work area
 before zero is taken, and if the pose changes between layers.
 
-**X axis:** walls at −302.0 … +575.0 mm, 877.0 mm apart (machine
-`README.md`). A 100 cm side does not fit along X. **Y axis:** travel not
-recorded. The owner can measure it with the pendant once the motors are on,
-as X was measured on 2026-09-23. Needed for the work area on the Job tab,
-not urgent.
+**Axes, stops and walls — measured 2026-09-27** (full log:
+`CALIBRATION.md`). X runs along the long side, plus to the top of the
+picture; Y across, plus to the right. X: 20-tooth pulley, 80 steps per mm.
+Y: 60-tooth pulley, 26.667 steps per mm. The owner's decision: **zero is
+where the walls are, and the reserve up to each stop is minus**, like the
+reserve in a fuel tank. X: walls 0 … 850.0 mm, stops −9.45 and +860.55 (870 mm
+of travel on the left). Y: walls 0 … 568.5 mm, left stop −8.3; the right stop
+is to be confirmed (probably near 569.5, then the right wall moves to about
+559.5). Home is the bottom left corner, both stops, set from the Calibration
+page. A 100 cm side does not fit along X.
 
 **The machine from the photos of 2026-09-27** (`images_CNC_drawing_machine/`):
 
@@ -378,7 +383,8 @@ plausible value is filled in.
   compressed in the working pose.** Together they give the length of the swing
   mark (section 4.5).
 - **J3 angle for "on the canvas"** — is the stick vertical at 0°?
-- **Y travel** — with the pendant, as X on 2026-09-23.
+- ~~**Y travel**~~ — measured 2026-09-27 (`CALIBRATION.md`); the right stop
+  still to confirm.
 - **Arm pose** in which the brush sits right in the middle of the field.
 - **Pass speed** at which the brush lays paint evenly, and the acceleration
   that does not shake it at a line/arc joint.

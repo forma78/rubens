@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUBENS · Calibration</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- RUBENS · Calibration — the machine from above, live; where the canvas lies on it.
+     Served by rubens.py (it passes the machine commands to bridge.py). -->
+<header class="top">
+  <div class="brand">
+    <span class="logo">RUBENS</span>
+    <nav class="tabs" aria-label="Pages">
+      <a href="index.html">Paint</a>
+      <a href="calibration.html" class="on">Calibration</a>
+    </nav>
+    <span class="ver">v0.1</span>
+  </div>
+  <div class="top-mid"></div>
+  <div class="top-right">
+    <span class="link-state" id="linkState">…</span>
+  </div>
+</header>
+
+<main class="cal">
+  <section class="stage" id="stage">
+    <canvas id="top"></canvas>
+  </section>
+
+  <aside class="panel">
+    <section class="sec">
+      <h3>Jog <span class="hint">10 mm/s per level · Esc = STOP</span></h3>
+      <div class="axis" id="axX">
+        <div class="axis-head">
+          <span class="k">X</span>
+          <span class="pos" id="posX">—</span>
+          <span class="speed" id="jogXv">IDLE</span>
+        </div>
+        <div class="dir">↑ top of the picture · carriage, from the bottom wall</div>
+        <input id="jogX" class="jog-slider" type="range" min="-20" max="20" step="1" value="0" aria-label="X level">
+        <div class="ticks" id="tickX"></div>
+      </div>
+      <div class="axis" id="axY">
+        <div class="axis-head">
+          <span class="k">Y</span>
+          <span class="pos" id="posY">—</span>
+          <span class="speed" id="jogYv">IDLE</span>
+        </div>
+        <div class="dir">→ right, from the left wall</div>
+        <input id="jogY" class="jog-slider" type="range" min="-9" max="9" step="1" value="0" aria-label="Y level">
+        <div class="ticks" id="tickY"></div>
+      </div>
+      <p class="read" id="posNote"></p>
+      <div class="stops">
+        <button class="btn" id="btnStop" title="Stop both axes, braking (Esc)">STOP</button>
+        <button class="btn danger" id="btnKill" title="Stop both axes at once, no braking">HARD STOP</button>
+      </div>
+      <p class="read">The slider stays where you put it, like a throttle. The arm is not driven from here.</p>
+    </section>
+
+    <section class="sec">
+      <h3>Home <span class="hint">bottom left, both stops</span></h3>
+      <p class="read">Zero is at the walls; the reserve up to each stop is minus. After power-on: X down to its stop, then Y left to its stop, both on level 1; stop at the first sound. Then set home: X becomes −9.45 mm, Y −8.3 mm.</p>
+      <div class="row home-row">
+        <button class="btn" id="btnHome">Set home…</button>
+        <button class="btn primary" id="btnHomeYes" hidden>Both at the stops — set</button>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h3>Canvas <span class="hint">bring the tip to a corner, Record</span></h3>
+      <label class="field cal-format"><span>Format</span><select id="calFormat"></select></label>
+      <div id="corners"></div>
+      <p class="read">A corner out of reach: record the nearest point and type how far the corner is from the tip, measured with a ruler (↑ up, → right; minus for down and left).</p>
+    </section>
+
+    <section class="sec">
+      <h3>Result</h3>
+      <div id="report" class="math"></div>
+    </section>
+  </aside>
+</main>
+
+<footer class="status">
+  <span id="hint">Calibration: the machine from above. Bottom of the picture is at the bottom, where the beam is.</span>
+  <span id="saved"></span>
+</footer>
+
+<script type="module" src="src/calibration.js"></script>
+</body>
+</html>

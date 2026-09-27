@@ -136,3 +136,54 @@ main{display:grid;grid-template-columns:60px 1fr 340px;min-height:0}
 .inline{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px;color:var(--mute)}
 .inline.check input{width:auto;margin:0}
 .inline input{width:56px;border:1px solid var(--line);background:#fff;border-radius:4px;padding:4px 6px;font:12px var(--mono)}
+
+/* ---------- pages ---------- */
+.tabs{display:flex;gap:2px;align-self:center}
+.tabs a{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);text-decoration:none;padding:5px 9px;border-radius:4px}
+.tabs a.on{background:var(--ink);color:var(--bg)}
+.tabs a:not(.on):hover{background:var(--panel)}
+.btn[disabled]{opacity:.45;cursor:default}
+.btn.danger{background:#B3470C;border-color:#B3470C;color:#fff;font-weight:600}
+
+/* ---------- calibration ---------- */
+main.cal{grid-template-columns:1fr 340px}
+.cal .stage{display:block}
+#top{position:absolute;inset:0;width:100%;height:100%;display:block}
+.link-state{font:11px var(--mono);letter-spacing:.06em;white-space:nowrap}
+.link-state.ok{color:var(--ink)}
+.link-state.bad{color:var(--orange)}
+.axis{padding:4px 0 14px}
+.axis + .axis{border-top:1px solid #E8E4DC;padding-top:12px}
+.axis-head{display:flex;align-items:baseline;gap:10px}
+.axis-head .k{font:600 15px var(--mono);width:14px}
+.pos{font:21px var(--mono);letter-spacing:-.01em;white-space:nowrap}
+.pos.none{color:var(--orange);font-size:15px}
+.speed{margin-left:auto;font:600 12px var(--mono);white-space:nowrap}
+.axis.live .speed{color:var(--orange)}
+.dir{margin:2px 0 6px 24px;font-size:11px;color:var(--mute)}
+/* the jog slider: a fixed 18 px thumb, so the ticks line up with the levels */
+.jog-slider{-webkit-appearance:none;appearance:none;width:100%;height:22px;margin:0;background:transparent;display:block}
+.jog-slider::-webkit-slider-runnable-track{height:4px;border-radius:2px;background:var(--line)}
+.jog-slider::-moz-range-track{height:4px;border-radius:2px;background:var(--line)}
+.jog-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-7px;border-radius:50%;background:#fff;border:1.5px solid var(--ink)}
+.jog-slider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:1.5px solid var(--ink);box-sizing:border-box}
+.axis.live .jog-slider::-webkit-slider-thumb{background:var(--orange);border-color:var(--orange)}
+.axis.live .jog-slider::-moz-range-thumb{background:var(--orange);border-color:var(--orange)}
+.ticks{position:relative;height:22px}
+.ticks i{position:absolute;top:0;width:1px;height:4px;background:var(--mute);transform:translateX(-.5px)}
+.ticks i.major{height:7px;background:var(--ink)}
+.ticks i span{position:absolute;top:9px;left:0;transform:translateX(-50%);font:10px var(--mono);font-style:normal;color:var(--mute);white-space:nowrap}
+.stops{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.stops .btn{padding:10px}
+.home-row{gap:8px;margin-top:10px}
+.warn{color:#B3470C}
+.cal-format{margin-bottom:8px}
+.corner{display:grid;grid-template-columns:92px 1fr auto;gap:6px 8px;align-items:center;padding:8px 0;border-bottom:1px solid #E8E4DC;font-size:12px}
+.corner .nm{font-weight:600}
+.corner .xy{font:11.5px var(--mono);color:var(--mute);white-space:nowrap}
+.corner .xy.set{color:var(--ink)}
+.corner .acts{display:flex;gap:8px;align-items:center}
+.corner .off{grid-column:1 / 4;display:flex;gap:10px;align-items:center;font:11px var(--mono);color:var(--mute)}
+.corner .off input{width:60px;border:1px solid var(--line);background:#fff;border-radius:4px;padding:3px 5px;font:11px var(--mono)}
+#report p{margin:8px 0 0}
+#saved{font-family:var(--mono)}
