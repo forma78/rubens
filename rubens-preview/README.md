@@ -3,11 +3,13 @@
 A prototype that previews brush strokes for Motor Brush. Draw a path, pick
 eight drops of paint, see what you will get, export an SVG. Three tabs:
 
-- **Paint** — draw and preview. Does not touch the hardware.
+- **Create** — draw and preview (called Paint until 2026-09-27). Does not
+  touch the hardware. **🖨 Open Job** opens the Job tab.
 - **Calibration** — the machine from above, live; jog the axes, set home,
   record where the canvas lies. Drives the axes through the machine bridge.
 - **Job** — the drawing as the machine will run it, played on screen with
-  percent and minutes; writes `job.json`. Does not touch the hardware yet.
+  percent and minutes; writes `job.json`. **⚡️ Do Job** runs it on the
+  machine through `rubens.py` — once the pass firmware is flashed.
 
 The design is a draft.
 
@@ -51,7 +53,7 @@ drawing is kept in the browser between reloads anyway.
 
 | file | what |
 |---|---|
-| `index.html` | the Paint tab, English UI |
+| `index.html` | the Create tab, English UI |
 | `calibration.html` | the Calibration tab |
 | `job.html` | the Job tab |
 | `rubens.py` | the server on 8766: pages, machine commands to the bridge, `calibration.json` and `job.json` |

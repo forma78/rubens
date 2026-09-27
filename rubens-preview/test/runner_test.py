@@ -15,9 +15,9 @@ class FakeBoard:
     """Answers like the draft firmware behind the bridge. Time passes only in
     sleep(): a running path eats `rate` pieces per 0.2 s."""
 
-    def __init__(self, zero=True, rate=3, edge_on=None):
+    def __init__(self, zero=True, rate=3, edge_on=None, paths=True):
         self.log, self.queue, self.running = [], [], False
-        self.zero, self.rate, self.edge_on = zero, rate, edge_on
+        self.zero, self.rate, self.edge_on, self.paths = zero, rate, edge_on, paths
         self.max_queue, self.on_sleep = 0, None
 
     def send(self, path):
@@ -34,6 +34,8 @@ class FakeBoard:
             self.running, self.queue = False, []
             return f"ok {q['a'][0]}"
         if u.path == "/raw":
+            if not self.paths:                 # the old bridge: no /raw at all
+                return "bridge answers 404 to /raw"
             c = unquote(q["c"][0])
             if c[0] in "FT":
                 self.log.append(c)
@@ -86,7 +88,7 @@ class RunnerTest(unittest.TestCase):
         b = FakeBoard()
         r = run(b, [arm(True), travel(10, 20), arm(False), paint(5), arm(True)])
         self.assertEqual(r.state, "done", r.message)
-        self.assertEqual(b.log, ["J 3 90", "T 100", "M 10 20", "G", "J 3 0", "F 20"]
+        self.assertEqual(b.log, ["T 100", "J 3 90", "T 100", "M 10 20", "G", "J 3 0", "F 20"]
                          + [f"L {i}.00 50.00" for i in range(1, 6)] + ["G", "J 3 90"])
         self.assertEqual(r.status()["percent"], 100.0)
         self.assertFalse(r.brush_on)
@@ -130,6 +132,13 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(r.state, "error")
         self.assertIn("zero", r.message)
         self.assertEqual([c for c in b.log if c != "S"], [])
+
+    def test_without_the_pass_firmware_nothing_moves(self):
+        b = FakeBoard(paths=False)
+        r = run(b, [arm(True), travel(10, 20), arm(False), paint(5)])
+        self.assertEqual(r.state, "error")
+        self.assertIn("cannot run a path", r.message)
+        self.assertEqual([c for c in b.log if c != "S"], [])   # not even the brush
 
     def test_parse_ping(self):
         self.assertEqual(parse_ping("ok P X 800 Y 267 путь 3"), {"x": 800, "y": 267, "path": 3})

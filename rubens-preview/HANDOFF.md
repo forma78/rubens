@@ -146,7 +146,7 @@ Measured 2026-09-27 (`../CALIBRATION.md`): X walls 0 … 865 mm, Y walls
 0 … 568.5 mm (the right Y stop still to confirm). Zero is at the walls, home
 is the bottom left corner. The Calibration tab records the canvas corners and
 reports the strips out of reach. Left: draw the work area over the artboard
-on the Paint tab and warn when a stroke leaves it.
+on the Create tab and warn when a stroke leaves it.
 
 ### 3.6. Code
 
@@ -178,7 +178,7 @@ Ask the owner what exactly to look at before changing anything.
 
 The second tab is technical: top view, the pass plan, where the brush is now,
 percent done and minutes left, like a 3D printer. The ⚡️ Do Job button on the
-Paint tab switches to it. How it works and in what order to build it —
+Create tab switches to it. How it works and in what order to build it —
 `Rubens_v2.md`, sections 3, 4.6, 6 and 10.
 
 **Status 2026-09-27, first version:** `job.html` reads the drawing the Paint
@@ -210,7 +210,7 @@ firmware draft (`RAIL-drawing_machine/drafts/rubens-pass/`) is tested.
 | `src/machine.js` | the machine: steps per mm, stops, walls, home, the ping; the canvas from its corners; `jobToMachine` — the job as board commands |
 | `src/svg.js` | `drawingSvg` — the drawing with its full state in `<metadata id="rubens-state">`; `simplify` for foreign SVG |
 | `src/render.js` | stamp strips (brush cross-section, pigment mixing, dry brush) and painting on a canvas |
-| `src/app.js` | the Paint tab: state, input, panels, CNC Trace on screen, export and import |
+| `src/app.js` | the Create tab: state, input, panels, CNC Trace on screen, export and import |
 | `src/calibration.js` | the Calibration tab |
 | `src/jobpage.js` | the Job tab |
 | `test/` | `node --test`; `test/shapes.js` builds the test strokes |

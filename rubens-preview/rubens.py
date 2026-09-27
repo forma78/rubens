@@ -2,7 +2,7 @@
 """RUBENS server: serves this folder on http://localhost:8766 and talks to
 the machine through its bridge (Rubens_v2.md, section 6).
 
-- Static files: the Paint page (index.html), Calibration (calibration.html)
+- Static files: the Create page (index.html), Calibration (calibration.html)
   and Job (job.html).
 - /machine/<command> goes to the machine bridge (RAIL-drawing_machine,
   bridge.py, port 8765), which stays the only owner of the serial port.
@@ -27,7 +27,7 @@ import re
 import threading
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlparse
 from urllib.request import urlopen
 
@@ -113,6 +113,14 @@ class Runner:
             p = self._ping()
             if p is None or p["x"] is None or p["y"] is None:
                 raise Abort("no zero on the axes: set home on the Calibration tab")
+            # Before anything moves, even the brush: can the board run a path?
+            # A speed command changes nothing on the canvas; the pendant
+            # firmware and the old bridge do not know it.
+            probe = next((c for b in self.blocks if b.get("kind") == "move" for c in b["cmds"][:1]), "T 100")
+            r = self._raw(probe)
+            if not r.startswith("ok "):
+                raise Abort("the board cannot run a path yet (" + r + "): apply bridge.patch and flash "
+                            "the pass firmware, RAIL-drawing_machine/drafts/rubens-pass")
             for i, b in enumerate(self.blocks):
                 if self._stop:
                     break
@@ -211,6 +219,8 @@ def bridge_get(path):
     try:
         with urlopen(BRIDGE + path, timeout=3) as r:
             return r.read().decode("utf-8", "replace").strip()
+    except HTTPError as e:
+        return f"bridge answers {e.code} to {urlparse(path).path}"
     except (URLError, OSError):
         return "no bridge"
 

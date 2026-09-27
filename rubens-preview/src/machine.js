@@ -53,7 +53,7 @@ export function cornerAt(rec) {
 }
 
 // Where each corner sits on the artboard, in mm: u to the right, v down
-// from the top left corner — the same way the Paint tab draws.
+// from the top left corner — the same way the Create tab draws.
 export function artboardCorner(name, w, h) {
   return { tl: { u: 0, v: 0 }, tr: { u: w, v: 0 }, br: { u: w, v: h }, bl: { u: 0, v: h } }[name];
 }

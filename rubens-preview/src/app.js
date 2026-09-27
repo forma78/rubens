@@ -632,7 +632,7 @@ function exportPNG() {
 $('#btnSvg').onclick = exportSVG;
 $('#btnPng').onclick = exportPNG;
 $('#btnCnc').onclick = exportCNC;
-// ⚡️ Do Job: the Job tab reads the drawing from this browser, so save it first.
+// 🖨 Open Job: the Job tab reads the drawing from this browser, so save it first.
 $('#btnJob').onclick = () => { finishAll(); saveNow(); location.href = 'job.html'; };
 
 // ---------- import ----------

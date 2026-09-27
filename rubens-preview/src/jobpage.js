@@ -1,4 +1,4 @@
-// Job page: the drawing from the Paint tab as the machine will run it — every
+// Job page: the drawing from the Create tab as the machine will run it — every
 // pass, travel and turn in order (job.js), played on a clock with the percent
 // painted and the minutes left, like a 3D printer. On screen only: nothing
 // here talks to the machine.
@@ -13,10 +13,10 @@ import { canvasReport, jobToMachine, CORNERS } from './machine.js';
 const $ = s => document.querySelector(s);
 const INK = '#24221F', ORANGE = '#EB7A25';
 
-const S = { doc: null, steps: [], tl: null, t: 0, playing: false, speed: 10, model: { ...TIME_MODEL }, cal: null, onMachine: null };
+const S = { doc: null, steps: [], tl: null, t: 0, playing: false, speed: 10, model: { ...TIME_MODEL }, cal: null, onMachine: null, fit: null, run: null };
 
 // ---------- the drawing and the plan ----------
-// The Paint tab keeps its drawing in this browser; read it from there.
+// The Create tab keeps its drawing in this browser; read it from there.
 function loadDoc() {
   try {
     const o = JSON.parse(localStorage.getItem('rubens.v01') || 'null');
@@ -59,7 +59,7 @@ const minutes = s => {
 
 function summary() {
   const el = $('#summary');
-  if (!S.doc) { el.innerHTML = '<p class="none">No drawing yet. Draw on the Paint tab, then come back.</p>'; return; }
+  if (!S.doc) { el.innerHTML = '<p class="none">No drawing yet. Draw on the Create tab, then come back.</p>'; return; }
   const d = S.doc, F = FORMATS[d.format], L = jobLengths(S.steps);
   const count = k => S.steps.filter(s => s.kind === k).length;
   const strokes = new Set(S.steps.map(s => s.stroke)).size;
@@ -87,7 +87,7 @@ async function loadCalibration() {
 }
 function machine() {
   const el = $('#machine');
-  S.onMachine = null;
+  S.onMachine = null; S.fit = null;
   if (!S.doc) { el.innerHTML = ''; return; }
   const corners = S.cal?.corners || {}, n = CORNERS.filter(k => corners[k]).length;
   if (!S.cal) { el.innerHTML = '<p class="none">No calibration: start rubens.py.</p>'; return; }
@@ -105,6 +105,7 @@ function machine() {
     return;
   }
   const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint });
+  S.fit = rep.fit;
   S.onMachine = { ...jobToMachine(file, rep.fit, { paintMMs: S.model.paintMMs, travelMMs: S.model.travelMMs }), corners: n };
   const b = S.onMachine.blocks, out = S.onMachine.outside;
   const pieces = b.reduce((a, x) => a + (x.cmds ? x.cmds.length : 1), 0);
@@ -190,7 +191,18 @@ function draw(at) {
   });
   ctx.setLineDash([]); ctx.globalAlpha = 1;
 
-  if (at) {
+  // The brush on the machine, from the runner's ping: machine mm back onto
+  // the artboard through the canvas fit.
+  const live = S.run && S.fit && S.run.x_mm != null && S.run.y_mm != null && S.run.state !== 'idle';
+  if (live) {
+    const f = S.fit, det = f.a * f.e - f.b * f.d, x = S.run.x_mm - f.c, y = S.run.y_mm - f.f;
+    const u = (f.e * x - f.b * y) / det, v = (-f.d * x + f.a * y) / det;   // mm on the artboard
+    const X = u / PT_MM * k, Y = v / PT_MM * k;
+    ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X, Y, 9, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = S.run.brush_on ? INK : 'rgba(36,34,31,.25)'; ctx.beginPath(); ctx.arc(X, Y, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.font = '10px "SF Mono", ui-monospace, Menlo, monospace'; ctx.fillText('machine', X + 13, Y + 4);
+  }
+  if (at && !live) {
     const X = at.x * k, Y = at.y * k;
     ctx.strokeStyle = 'rgba(235,122,37,.3)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(X, -oy); ctx.lineTo(X, H - oy); ctx.moveTo(-ox, Y); ctx.lineTo(W - ox, Y); ctx.stroke();
@@ -250,14 +262,14 @@ for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#
   });
 }
 
-// The drawing changed on the Paint tab (another tab of this browser).
+// The drawing changed on the Create tab (another tab of this browser).
 addEventListener('storage', e => { if (e.key === 'rubens.v01') { build(); summary(); machine(); render(); } });
 // Back from the Calibration tab: the corners may have changed.
 addEventListener('focus', async () => { await loadCalibration(); machine(); });
 addEventListener('resize', () => render());
 
-$('#btnSaveJob').onclick = async () => {
-  if (!S.doc) return;
+async function saveJob() {
+  if (!S.doc) return false;
   const F = FORMATS[S.doc.format];
   const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint });
   if (S.onMachine) file.machine = { paintMMs: S.model.paintMMs, travelMMs: S.model.travelMMs, ...S.onMachine };
@@ -265,8 +277,55 @@ $('#btnSaveJob').onclick = async () => {
   try {
     const r = await fetch('/job', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body });
     $('#saved').textContent = !r.ok ? 'NOT SAVED' : `job.json saved · ${S.steps.length} steps` + (S.onMachine ? ` · ${S.onMachine.blocks.length} machine blocks` : ' · artboard only, the canvas is not placed on the machine');
-  } catch { $('#saved').textContent = 'NOT SAVED · start rubens.py'; }
+    return r.ok;
+  } catch { $('#saved').textContent = 'NOT SAVED · start rubens.py'; return false; }
+}
+$('#btnSaveJob').onclick = saveJob;
+
+// ---------- ⚡️ Do Job: the run on the machine ----------
+// rubens.py runs the job; the page only starts it and asks how it goes. The
+// run does not depend on this tab: closing it does not stop the machine.
+const runLive = () => S.run && (S.run.state === 'running' || S.run.state === 'stopping');
+$('#btnDoJob').onclick = async e => {
+  e.currentTarget.blur();
+  if (!S.doc) return;
+  if (runLive()) { alert('The machine is already running this job.'); return; }
+  if (!S.onMachine) { alert('The canvas is not placed on the machine: see the Machine section.'); return; }
+  const out = S.onMachine.outside;
+  if (out.length) {
+    const strokes = [...new Set(out.map(o => [...new Set(S.steps.map(s => s.stroke))].indexOf(o.stroke) + 1))].join(', ');
+    alert(`${out.length} points of the drawing are past the walls (strokes ${strokes}). Keep them inside the reach on the Create tab first.`);
+    return;
+  }
+  if (!confirm('The machine will move now: the brush swings off and on, the carriage travels and paints the whole job.\n\n'
+    + 'Is the canvas clamped? Is the pencil or brush in the holder? Is home set?\n\n'
+    + 'STOP or Esc brakes along the path; HARD STOP stops at once.')) return;
+  if (!(await saveJob())) return;
+  const r = await fetch('/run', { method: 'POST' }).catch(() => null);
+  const msg = r ? await r.text() : 'start rubens.py';
+  if (!r || !r.ok) { S.run = { state: 'error', message: msg, percent: 0, block: 0, blocks: 0 }; showRun(); return; }
+  pollRun();
 };
+let runTimer = 0;
+async function pollRun() {
+  clearTimeout(runTimer);
+  try { S.run = await (await fetch('/run', { cache: 'no-store' })).json(); } catch { /* keep the last */ }
+  showRun();
+  if (runLive()) runTimer = setTimeout(pollRun, 300);
+}
+function showRun() {
+  const st = S.run;
+  $('#runBox').hidden = !st || st.state === 'idle';
+  if (!st || st.state === 'idle') return;
+  const blocks = st.blocks ? ` · block ${st.block + 1} of ${st.blocks}` : '';
+  $('#runState').innerHTML = `<b>Machine: ${st.state}</b> · ${fmt(st.percent || 0, 1)} % painted${blocks}`
+    + (st.message ? `<br><span class="warn">${st.message}</span>` : '');
+  $('#btnRunStop').disabled = $('#btnRunKill').disabled = !runLive();
+  render();
+}
+$('#btnRunStop').onclick = () => fetch('/run/stop', { method: 'POST' }).then(pollRun);
+$('#btnRunKill').onclick = () => fetch('/run/kill', { method: 'POST' }).then(pollRun);
+addEventListener('keydown', e => { if (e.key === 'Escape' && runLive()) fetch('/run/stop', { method: 'POST' }).then(pollRun); });
 
 // ---------- start ----------
 loadPrefs();
@@ -274,3 +333,4 @@ for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#
 syncSpeed();
 build(); summary(); render();
 await loadCalibration(); machine();
+pollRun();   // a run may already be going: show it

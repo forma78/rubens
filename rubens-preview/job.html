@@ -7,14 +7,14 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<!-- RUBENS · Job — the drawing from the Paint tab as the machine will run it:
+<!-- RUBENS · Job — the drawing from the Create tab as the machine will run it:
      every pass, travel and turn in order, played on screen with percent and
      minutes. The machine is not driven from here yet. -->
 <header class="top">
   <div class="brand">
     <span class="logo">RUBENS</span>
     <nav class="tabs" aria-label="Pages">
-      <a href="index.html">Paint</a>
+      <a href="index.html">Create</a>
       <a href="calibration.html">Calibration</a>
       <a href="job.html" class="on">Job</a>
     </nav>
@@ -23,6 +23,7 @@
   <div class="top-mid"></div>
   <div class="top-right">
     <button class="btn" id="btnSaveJob" title="Write job.json next to the pages, for the machine">Save job.json</button>
+    <button class="btn primary" id="btnDoJob" title="Run the job on the machine">⚡️ Do Job</button>
   </div>
 </header>
 
@@ -48,11 +49,18 @@
           <button data-k="1">×1</button><button data-k="10">×10</button><button data-k="60">×60</button><button data-k="300">×300</button>
         </div>
       </div>
-      <p class="read">On screen only: the machine does not move. Space = play / pause.</p>
+      <p class="read">Play is on screen only: the machine does not move. Space = play / pause.</p>
+      <div class="run" id="runBox" hidden>
+        <p class="read" id="runState"></p>
+        <div class="stops">
+          <button class="btn" id="btnRunStop" title="Brake along the path (Esc)">STOP</button>
+          <button class="btn danger" id="btnRunKill" title="Stop at once, no braking">HARD STOP</button>
+        </div>
+      </div>
     </section>
 
     <section class="sec">
-      <h3>Job <span class="hint">from the Paint tab</span></h3>
+      <h3>Job <span class="hint">from the Create tab</span></h3>
       <div id="summary" class="math"></div>
     </section>
 

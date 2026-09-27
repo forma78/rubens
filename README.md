@@ -7,7 +7,7 @@ the canvas.
 | where | what |
 |---|---|
 | [`Rubens_v2.md`](Rubens_v2.md) | the spec: decisions, the contract with the machine, work order |
-| [`rubens-preview/`](rubens-preview/) | the app, Paint tab (v0.1). How to run it — in its `README.md` |
+| [`rubens-preview/`](rubens-preview/) | the app: Create, Calibration and Job tabs. How to run it — in its `README.md` |
 | [`images_CNC_drawing_machine/`](images_CNC_drawing_machine/) | photos of the machine and the arm drawing "Lapa" |
 
 Firmware, the serial bridge and the MELNICOMM pendant live separately, in

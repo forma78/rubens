@@ -9,9 +9,9 @@ mislead.
 | where | what |
 |---|---|
 | `Rubens_v2.md` | this file: what RUBENS is, decisions, the contract with the machine |
-| `rubens-preview/` | the app. The Paint tab works (v0.1), the Job tab does not exist yet |
+| `rubens-preview/` | the app: Create, Calibration and Job tabs, and `rubens.py` |
 | `rubens-preview/HANDOFF.md` | the to-do list for the app |
-| `rubens-preview/README.md` | how to use the Paint tab |
+| `rubens-preview/README.md` | how to run and use the app |
 | `images_CNC_drawing_machine/` | photos of the machine and the arm drawing, 2026-09-27 |
 | `~/RAIL-drawing_machine/` | the machine, local only and in Russian: `README.md` (hardware, pins), `RAIL.md` (X axis), `CLAUDE.md` (firmware rules) |
 
@@ -30,11 +30,11 @@ messages (decided 2026-09-27). The app UI was English from the start.
 
 | in RUBENS.md | now |
 |---|---|
-| Input: SVG from Illustrator | Strokes are drawn in the app itself, on the Paint tab. A foreign SVG still opens, but is broken into short straight lines |
+| Input: SVG from Illustrator | Strokes are drawn in the app itself, on the Create tab. A foreign SVG still opens, but is broken into short straight lines |
 | Curves are cut into short straight lines; every segment starts and ends at zero speed | Tried and disliked. The path is lines and arcs only, corners are rounded, a pass runs without stops |
 | Layer = one tool, one colour, one pass | A stroke of width W = eight passes of one brush, each pass with its own drop of paint |
 | Strokes are sorted for short travel moves | For the brush, stroke order = drawing order: it decides what lands on top of what while wet. *Claude's decision* |
-| A standalone program on the Mac | A browser page with two tabs, Paint and Job, plus a Python process that runs the job (section 6) |
+| A standalone program on the Mac | A browser page with three tabs, Create, Calibration and Job, plus a Python process that runs the job (section 6) |
 | Brush 3–5 mm | Brush 8 or 12 mm. Flat or round is not decided |
 | `U` lifts the tool with a spare servo, ID 4 | The wrist J3 swings the brush off the canvas sideways, like a broom (section 4.5) |
 
@@ -62,13 +62,15 @@ whole layer; the X and Y axes do the drawing.
 
 ---
 
-## 3. Two tabs
+## 3. Three tabs
 
-**Paint** — the creative tab. Strokes, a palette of eight drops, width,
-mixing, paint preview, SVG and PNG export. This is what v0.1 has.
-
-**⚡️ Do Job** — a button on the Paint tab. Builds the plan and switches to
+**Create** (called Paint until 2026-09-27, renamed by the owner) — the
+creative tab. Strokes, a palette of eight drops, width, mixing, paint
+preview, SVG and PNG export. **🖨 Open Job** — a black button on it, opens
 the Job tab.
+
+**Calibration** — the machine from above, live: jog, home, where the canvas
+lies (added 2026-09-27; `CALIBRATION.md`).
 
 **Job** — the technical tab. The canvas seen from above:
 
@@ -80,7 +82,9 @@ the Job tab.
 - **percent done and minutes left, like a 3D printer.** Before start, an
   estimate for the whole job;
 - buttons: dry run, start, pause, "continue" after a refill, **STOP** and
-  **HARD STOP** — two separate buttons, as on the MELNICOMM pendant.
+  **HARD STOP** — two separate buttons, as on the MELNICOMM pendant;
+- **⚡️ Do Job** — starts the job on the machine (the owner's name for it,
+  from Mafia Wars).
 
 **Percent is measured along the painted passes:** how many millimetres are
 painted out of the total. Travel moves and pauses do not count, otherwise the
@@ -216,7 +220,7 @@ do, and J3 swings the brush sideways instead of turning it about the vertical
 
 ## 5. The file for the machine
 
-Export CNC is the contract between the Paint tab and whatever runs the job.
+Export CNC is the contract between the Create tab and whatever runs the job.
 How it works from now on (v0.1 still exports the old way; the rework is in
 `HANDOFF.md`):
 
@@ -411,7 +415,7 @@ plausible value is filled in.
 3. ~~**How the board runs a smooth pass** (section 6)~~ — decided
    2026-09-27, a draft to flash and test together with the owner.
 4. **Flat or round brush.** Flat cannot be turned with the line (section 4.8).
-5. **Manual mode on the Paint tab:** is the dry tail intended texture (then no
+5. **Manual mode on the Create tab:** is the dry tail intended texture (then no
    refills) or should it refill (then the preview shows fresh paint after each
    refill)?
 6. **MOLOTOW hatching** from RUBENS.md — Illustrator SVG, layers, cutting by
