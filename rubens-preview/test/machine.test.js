@@ -83,8 +83,8 @@ const MM = v => v / PT_MM;   // mm → document units
 
 test('job on the machine: brush off, travel, brush on, pass… brush off at the end', () => {
   const p = poly([[MM(100), MM(700)], [MM(100), MM(100)]]);   // drawn upwards, 600 mm
-  const { blocks, outside } = jobToMachine(fileOf([p], { ...PAINT, lift: true }), straight().fit);
-  assert.deepEqual(outside, []);
+  const { blocks, skipped } = jobToMachine(fileOf([p], { ...PAINT, lift: true }), straight().fit);
+  assert.deepEqual(skipped, []);
   const kinds = blocks.map(b => b.kind === 'arm' ? (b.off ? 'off' : 'on') : b.cmds.some(c => c[0] === 'M') ? 'travel' : 'pass');
   assert.deepEqual(kinds.slice(0, 5), ['off', 'travel', 'on', 'pass', 'off']);
   assert.equal(kinds[kinds.length - 1], 'off');
@@ -121,10 +121,45 @@ test('job on the machine: the snake paints a whole stroke in one run', () => {
   assert.equal(runs[0].cmds.filter(c => c[0] === 'A').length, 7);   // seven semicircle turns
 });
 
-test('job on the machine: points past the walls are reported', () => {
-  // the canvas shifted down by 50 mm: its bottom edge below the X wall
+// Every coordinate the board gets, from L, A (end and centre excluded) and M.
+const pointsOf = blocks => blocks.filter(b => b.kind === 'move').flatMap(b => b.cmds)
+  .filter(c => /^[LAM] /.test(c)).map(c => { const n = c.split(' ').slice(1).map(Number); return c[0] === 'A' ? { x: n[2], y: n[3] } : { x: n[0], y: n[1] }; });
+
+test('job on the machine: past the walls nothing is painted, the rest is', () => {
+  // the canvas 50 mm lower: its bottom edge below the X wall at 0
   const low = canvasReport({ tl: { x: 750, y: 0 }, tr: { x: 750, y: 600 }, br: { x: -50, y: 600 }, bl: { x: -50, y: 0 } }, 600, 800);
-  const p = poly([[MM(100), MM(790)], [MM(100), MM(500)]]);
-  const { outside } = jobToMachine(fileOf([p], { ...PAINT, lift: true }), low.fit);
-  assert.ok(outside.length > 0 && outside.every(o => o.x < 0));
+  const p = poly([[MM(100), MM(790)], [MM(100), MM(500)]]);   // from 40 mm below the wall up to 250 mm above it
+  const { blocks, skipped, skippedMM } = jobToMachine(fileOf([p], { ...PAINT, lift: true }), low.fit);
+  assert.equal(skipped.length, 8);                              // every lane loses its bottom
+  assert.ok(Math.abs(skippedMM - 8 * 40.1) < 1, `skipped ${skippedMM}`);
+  for (const q of pointsOf(blocks)) assert.ok(q.x >= 0 && q.y >= 0, `past a wall: ${q.x} ${q.y}`);
+  const runs = blocks.filter(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
+  assert.equal(runs.length, 8);
+  for (const r of runs) assert.ok(Math.abs(r.paintMM - 249.9) < 1, `painted ${r.paintMM}`);
+});
+
+test('job on the machine: a pass that leaves the reach and comes back is two runs', () => {
+  // a line across the right Y wall and back: out at 568.5, in again
+  const job = { steps: [{ kind: 'paint', stroke: 1, lane: 1, length: 0, segs: [
+    { t: 'L', a: { x: 500, y: 400 }, b: { x: 620, y: 400 } },     // artboard u 500 → 620: Y 500 → 620, past the wall
+    { t: 'L', a: { x: 620, y: 400 }, b: { x: 520, y: 300 } },     // back inside
+  ] }] };
+  const { blocks, skipped } = jobToMachine(job, straight().fit);
+  const kinds = blocks.map(b => b.kind === 'arm' ? (b.off ? 'off' : 'on') : b.cmds.some(c => c[0] === 'M') ? 'travel' : 'run');
+  assert.deepEqual(kinds, ['off', 'travel', 'on', 'run', 'off', 'travel', 'on', 'run', 'off']);
+  assert.equal(skipped.length, 1);
+  for (const q of pointsOf(blocks)) assert.ok(q.y <= WALLS.y.max, `past the right wall: ${q.y}`);
+});
+
+test('job on the machine: an arc across a wall is cut at the wall', () => {
+  // a half circle, radius 30 mm, bulging past the bottom wall (X 0)
+  const job = { steps: [{ kind: 'paint', stroke: 1, lane: 1, length: 0, segs: [
+    { t: 'A', c: { x: 300, y: 790 }, r: 30, a0: Math.PI, s: -Math.PI },   // centre at X 10: its lowest point at X −20
+  ] }] };
+  const { blocks, skippedMM } = jobToMachine(job, straight().fit);
+  const arcs = blocks.filter(b => b.kind === 'move').flatMap(b => b.cmds).filter(c => c[0] === 'A');
+  assert.equal(arcs.length, 2);                                  // before the wall and after it
+  for (const q of pointsOf(blocks)) assert.ok(q.x >= 0, `past the bottom wall: ${q.x}`);
+  const lost = 2 * Math.acos(10 / 30) * 30;                     // the part below X 0
+  assert.ok(Math.abs(skippedMM - lost) < 0.5, `skipped ${skippedMM}, expected ${lost}`);
 });

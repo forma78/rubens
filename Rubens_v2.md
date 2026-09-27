@@ -186,12 +186,18 @@ Strokes go in drawing order; within a stroke, passes 1 → 8.
 
 ### 4.6. Checks before start
 
-The start button on the Job tab stays locked while:
+The start (⚡️ Do Job) does not run while the machine has no zero, or while
+the board cannot run a path yet; nothing moves, not even the brush.
 
-- the brush tip would leave the work area;
-- the machine has no zero.
+**Past the walls the machine does not paint** — the owner's decision,
+2026-09-27, replacing Claude's earlier "lock the start while the tip would
+leave the work area": "it is not a laser printer; I built a machine that
+does not stumble on this". Every pass is cut at the walls; where a stroke
+comes back inside, a new pass starts (brush off, travel, brush on). What is
+left out is shown on the Job tab, for the record. The edge of the canvas is
+not a limit: inside the walls the brush paints past it.
 
-Spots marked "!" are only shown (section 4.4). *Claude's decision.*
+Spots marked "!" are only shown (section 4.4).
 
 ### 4.7. Paint
 

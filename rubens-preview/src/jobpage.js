@@ -107,16 +107,22 @@ function machine() {
   const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint });
   S.fit = rep.fit;
   S.onMachine = { ...jobToMachine(file, rep.fit, { paintMMs: S.model.paintMMs, travelMMs: S.model.travelMMs }), corners: n };
-  const b = S.onMachine.blocks, out = S.onMachine.outside;
+  const b = S.onMachine.blocks, cut = S.onMachine.skipped;
   const pieces = b.reduce((a, x) => a + (x.cmds ? x.cmds.length : 1), 0);
   el.innerHTML = `<table>
     <tr><td>Canvas from</td><td class="r">${n} corners</td></tr>
     <tr><td>Blocks</td><td class="r">${b.length} · ${pieces} commands</td></tr>
     <tr><td>Brush off / on</td><td class="r">${b.filter(x => x.kind === 'arm').length}×</td></tr>
-  </table>` + (out.length
-    ? `<p class="warn">${out.length} points past the walls, first at X ${fmt(out[0].x)} · Y ${fmt(out[0].y)} (stroke ${[...new Set(S.steps.map(s => s.stroke))].indexOf(out[0].stroke) + 1}).</p>`
+  </table>` + (cut.length
+    ? `<p>Past the walls the machine does not paint: ${fmt(S.onMachine.skippedMM / 1000, 2)} m of passes are left out (strokes ${strokeList(cut)}). The rest is painted.</p>`
     : '<p>Everything is inside the walls.</p>');
 }
+
+// Stroke numbers as on screen (1, 2, 3…) for a list of steps or cuts.
+const strokeList = items => {
+  const order = [...new Set(S.steps.map(s => s.stroke))];
+  return [...new Set(items.map(o => order.indexOf(o.stroke) + 1))].sort((a, b) => a - b).join(', ');
+};
 
 function showProgress(at) {
   const total = S.tl ? S.tl.total : 0;
@@ -291,13 +297,9 @@ $('#btnDoJob').onclick = async e => {
   if (!S.doc) return;
   if (runLive()) { alert('The machine is already running this job.'); return; }
   if (!S.onMachine) { alert('The canvas is not placed on the machine: see the Machine section.'); return; }
-  const out = S.onMachine.outside;
-  if (out.length) {
-    const strokes = [...new Set(out.map(o => [...new Set(S.steps.map(s => s.stroke))].indexOf(o.stroke) + 1))].join(', ');
-    alert(`${out.length} points of the drawing are past the walls (strokes ${strokes}). Keep them inside the reach on the Create tab first.`);
-    return;
-  }
-  if (!confirm('The machine will move now: the brush swings off and on, the carriage travels and paints the whole job.\n\n'
+  const cut = S.onMachine.skipped;
+  const note = cut.length ? `Past the walls nothing is painted: ${fmt(S.onMachine.skippedMM / 1000, 2)} m of passes left out (strokes ${strokeList(cut)}).\n\n` : '';
+  if (!confirm('The machine will move now: the brush swings off and on, the carriage travels and paints the whole job.\n\n' + note
     + 'Is the canvas clamped? Is the pencil or brush in the holder? Is home set?\n\n'
     + 'STOP or Esc brakes along the path; HARD STOP stops at once.')) return;
   if (!(await saveJob())) return;

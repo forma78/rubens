@@ -187,7 +187,7 @@ minutes left, ×1…×300) with an editable time model (estimates), and writes
 `job.json` through `rubens.py`. With three canvas corners recorded on the
 Calibration tab, the Machine section turns the job into what the board runs
 (`jobToMachine` in `machine.js`: brush off / travel / brush on / pass blocks,
-`L`, `A`, `M`, `G` in machine mm) and lists points past the walls; they go
+`L`, `A`, `M`, `G` in machine mm), cut at the walls — past them nothing is painted, the owner's decision — and reports what is left out; they go
 into `job.json` as `machine.blocks`. **Left:** the view of the job on the
 machine, the brush from the ping, `rubens.py` running the blocks — after the
 firmware draft (`RAIL-drawing_machine/drafts/rubens-pass/`) is tested.

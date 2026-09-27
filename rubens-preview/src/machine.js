@@ -141,66 +141,129 @@ export function reach() {
 // blocks in order; the runner sends one block, waits for it, sends the next:
 //   { kind: 'arm',  cmd: 'J 3 90', off: true }   the brush swings off (J3)
 //   { kind: 'move', cmds: [...], lengthMM, paintMM }   pieces + G
-// A move block is one travel (T, M, G), or the passes and turns that paint
-// without leaving the canvas (F, L/A…, G). Arcs keep their centre and end
-// point; the sweep turns the same way on the machine when the map keeps
-// orientation, the other way when it mirrors. The firmware draws circles, so
-// a skewed map (axes not square) bends arcs slightly; lines are exact.
-// Which side J3 swings to is not decided yet (Rubens_v2.md, section 4.5).
+// A move block is one travel (T, M, G), or a run: what is painted without
+// the brush leaving the canvas (F, L/A…, G) — a pass, or in a snake the
+// passes and turns of a stroke. Before every run: brush off, travel to its
+// start, brush on.
+//
+// Past the walls the machine cannot go, so there it does not paint (the
+// owner's decision, 2026-09-27: a brush running off is fine, the machine does
+// not stumble on it). Every piece is cut at the walls; a run that leaves the
+// reach ends at the wall, and where the stroke comes back a new run starts.
+// What was cut is reported in `skipped`, for the record — it does not stop a
+// job. The edge of the canvas is not a limit: inside the walls the brush
+// paints past it.
+//
+// Arcs keep their centre and end point; the sweep turns the same way on the
+// machine when the map keeps orientation, the other way when it mirrors. The
+// firmware draws circles, so a skewed map (axes not square) bends arcs
+// slightly; lines are exact. Which side J3 swings to is not decided yet
+// (Rubens_v2.md, section 4.5).
 export const SWING_DEG = 90;
+const EDGE_IN = 0.1;   // mm inside the walls: rounding to 0.01 mm must not land a point past one
 
 const f2 = v => (Math.round(v * 100) / 100).toFixed(2);
-export function jobToMachine(job, fit, { paintMMs = 20, travelMMs = 100 } = {}) {
-  const det = fit.a * fit.e - fit.b * fit.d;
-  const at = q => fit.at(q.x, q.y);
-  const blocks = [], outside = [], R = reach();
-  const check = (q, what) => {
-    const out = (R.x.min != null && q.x < R.x.min - 1e-6) || (R.x.max != null && q.x > R.x.max + 1e-6) ||
-                (R.y.min != null && q.y < R.y.min - 1e-6) || (R.y.max != null && q.y > R.y.max + 1e-6);
-    if (out) outside.push({ ...what, x: q.x, y: q.y });
-  };
-  const arm = off => blocks.push({ kind: 'arm', cmd: `J 3 ${off ? SWING_DEG : 0}`, off });
-  let run = null, off = true;
-  const flush = () => { if (run) { run.cmds.push('G'); blocks.push(run); run = null; } };
+const TAU = Math.PI * 2;
 
-  arm(true);
-  job.steps.forEach((st, i) => {
-    const what = { step: i, stroke: st.stroke, lane: st.lane };
-    if (st.kind === 'travel') {
-      flush();
-      if (!off) { arm(true); off = true; }
-      const end = at(st.segs[st.segs.length - 1].b);
-      check(end, what);
-      blocks.push({ kind: 'move', cmds: [`T ${travelMMs}`, `M ${f2(end.x)} ${f2(end.y)}`, 'G'], lengthMM: st.length, paintMM: 0 });
-      return;
+// The part of a line inside the box, as fractions [t0, t1] of it, or null.
+function clipLine(p, q, B) {
+  let t0 = 0, t1 = 1;
+  const d = { x: q.x - p.x, y: q.y - p.y };
+  for (const [k, lo, hi] of [['x', B.x0, B.x1], ['y', B.y0, B.y1]]) {
+    if (Math.abs(d[k]) < 1e-12) { if (p[k] < lo || p[k] > hi) return null; continue; }
+    let a = (lo - p[k]) / d[k], b = (hi - p[k]) / d[k];
+    if (a > b) [a, b] = [b, a];
+    t0 = Math.max(t0, a); t1 = Math.min(t1, b);
+    if (t0 > t1) return null;
+  }
+  return t1 - t0 > 1e-9 ? [t0, t1] : null;
+}
+// The parts of an arc (centre c, radius r, from angle a0 through sweep s)
+// inside the box, as fraction intervals of the sweep.
+function clipArc(c, r, a0, s, B) {
+  const cuts = [0, 1];
+  for (const [k, v] of [['x', B.x0], ['x', B.x1], ['y', B.y0], ['y', B.y1]]) {
+    const d = (v - c[k]) / r;
+    if (Math.abs(d) > 1) continue;
+    const base = k === 'x' ? Math.acos(d) : Math.asin(d);
+    for (const th of k === 'x' ? [base, -base] : [base, Math.PI - base]) {
+      let t = ((th - a0) % TAU + TAU) % TAU;         // angle from the start, 0…2π, in +s terms
+      if (s < 0) t = (TAU - t) % TAU;
+      t /= Math.abs(s);
+      if (t > 0 && t < 1) cuts.push(t);
     }
-    // paint or turn: brush on the canvas, pieces into the current run
-    if (!run) {
-      if (i === 0) {
-        // the very first pass: travel to its start from wherever the carriage is
-        const s0 = st.segs[0], p0 = at(s0.t === 'L' ? s0.a : { x: s0.c.x + s0.r * Math.cos(s0.a0), y: s0.c.y + s0.r * Math.sin(s0.a0) });
-        check(p0, what);
-        blocks.push({ kind: 'move', cmds: [`T ${travelMMs}`, `M ${f2(p0.x)} ${f2(p0.y)}`, 'G'], lengthMM: null, paintMM: 0 });
-      }
-      if (off) { arm(false); off = false; }
+  }
+  cuts.sort((a, b) => a - b);
+  const out = [];
+  for (let i = 0; i + 1 < cuts.length; i++) {
+    const t0 = cuts[i], t1 = cuts[i + 1];
+    if (t1 - t0 < 1e-9) continue;
+    const m = a0 + s * (t0 + t1) / 2, x = c.x + r * Math.cos(m), y = c.y + r * Math.sin(m);
+    if (x >= B.x0 && x <= B.x1 && y >= B.y0 && y <= B.y1) {
+      if (out.length && Math.abs(out[out.length - 1][1] - t0) < 1e-9) out[out.length - 1][1] = t1;
+      else out.push([t0, t1]);
+    }
+  }
+  return out;
+}
+
+export function jobToMachine(job, fit, { paintMMs = 20, travelMMs = 100 } = {}) {
+  const det = fit.a * fit.e - fit.b * fit.d, sign = det > 0 ? 1 : -1;
+  const at = q => fit.at(q.x, q.y);
+  const R = reach();
+  const B = {
+    x0: (R.x.min ?? -Infinity) + EDGE_IN, x1: (R.x.max ?? Infinity) - EDGE_IN,
+    y0: (R.y.min ?? -Infinity) + EDGE_IN, y1: (R.y.max ?? Infinity) - EDGE_IN,
+  };
+  const blocks = [], skipped = [];
+  let run = null, off = null, end = null;          // off: null — unknown at the start; end: where the run has got to
+  const arm = o => { if (o !== off) { blocks.push({ kind: 'arm', cmd: `J 3 ${o ? SWING_DEG : 0}`, off: o }); off = o; } };
+  const close = () => { if (run) { run.cmds.push('G'); blocks.push(run); run = null; } };
+  const near = (p, q) => p && q && Math.hypot(p.x - q.x, p.y - q.y) < 0.01;
+  // A piece that starts where the run is continues it; anything else starts
+  // a new run: brush off, travel, brush on.
+  const piece = (from, to, cmd, len, painted) => {
+    if (!run || !near(from, end)) {
+      close(); arm(true);
+      blocks.push({ kind: 'move', cmds: [`T ${travelMMs}`, `M ${f2(from.x)} ${f2(from.y)}`, 'G'], lengthMM: null, paintMM: 0 });
+      arm(false);
       run = { kind: 'move', cmds: [`F ${paintMMs}`], lengthMM: 0, paintMM: 0 };
     }
+    run.cmds.push(cmd); run.lengthMM += len; if (painted) run.paintMM += len;
+    end = to;
+  };
+
+  job.steps.forEach((st, i) => {
+    if (st.kind === 'travel') { close(); return; }
+    const painted = st.kind === 'paint';
+    let cut = 0;
     for (const g of st.segs) {
       if (g.t === 'L') {
-        const b = at(g.b); check(b, what);
-        run.cmds.push(`L ${f2(b.x)} ${f2(b.y)}`);
+        const p = at(g.a), q = at(g.b), L = Math.hypot(q.x - p.x, q.y - p.y);
+        const t = clipLine(p, q, B);
+        if (!t) { cut += L; continue; }
+        const a = { x: p.x + (q.x - p.x) * t[0], y: p.y + (q.y - p.y) * t[0] };
+        const b = { x: p.x + (q.x - p.x) * t[1], y: p.y + (q.y - p.y) * t[1] };
+        cut += L * (1 - (t[1] - t[0]));
+        piece(a, b, `L ${f2(b.x)} ${f2(b.y)}`, L * (t[1] - t[0]), painted);
       } else {
-        const c = at(g.c), end = at({ x: g.c.x + g.r * Math.cos(g.a0 + g.s), y: g.c.y + g.r * Math.sin(g.a0 + g.s) });
-        check(end, what);
-        // the arc's extreme points on the machine, for the walls
-        for (let k = 1; k < 8; k++) check(at({ x: g.c.x + g.r * Math.cos(g.a0 + g.s * k / 8), y: g.c.y + g.r * Math.sin(g.a0 + g.s * k / 8) }), what);
-        run.cmds.push(`A ${f2(c.x)} ${f2(c.y)} ${f2(end.x)} ${f2(end.y)} ${Math.sign(g.s) * Math.sign(det) > 0 ? 1 : -1}`);
+        const c = at(g.c);
+        const p = at({ x: g.c.x + g.r * Math.cos(g.a0), y: g.c.y + g.r * Math.sin(g.a0) });
+        const q = at({ x: g.c.x + g.r * Math.cos(g.a0 + g.s), y: g.c.y + g.r * Math.sin(g.a0 + g.s) });
+        const r = Math.hypot(p.x - c.x, p.y - c.y), a0 = Math.atan2(p.y - c.y, p.x - c.x);
+        const s = Math.sign(g.s) * sign * Math.abs(g.s), L = Math.abs(s) * r;
+        let kept = 0;
+        for (const [t0, t1] of clipArc(c, r, a0, s, B)) {
+          const u = { x: c.x + r * Math.cos(a0 + s * t0), y: c.y + r * Math.sin(a0 + s * t0) };
+          const w = t1 >= 1 - 1e-9 ? q : { x: c.x + r * Math.cos(a0 + s * t1), y: c.y + r * Math.sin(a0 + s * t1) };
+          piece(u, w, `A ${f2(c.x)} ${f2(c.y)} ${f2(w.x)} ${f2(w.y)} ${s > 0 ? 1 : -1}`, L * (t1 - t0), painted);
+          kept += t1 - t0;
+        }
+        cut += L * (1 - kept);
       }
     }
-    run.lengthMM += st.length;
-    if (st.kind === 'paint') run.paintMM += st.length;
+    if (cut > 0.05) skipped.push({ step: i, stroke: st.stroke, lane: st.lane, mm: cut });
   });
-  flush();
-  if (!off) arm(true);
-  return { blocks, outside };
+  close(); arm(true);
+  return { blocks, skipped, skippedMM: skipped.reduce((a, x) => a + x.mm, 0) };
 }
