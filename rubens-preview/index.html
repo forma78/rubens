@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUBENS · Brush Preview</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- RUBENS · Brush Preview v0.1 — прототип. Интерфейс английский (инстаграм), комментарии русские. -->
+<header class="top">
+  <div class="brand">
+    <span class="logo">RUBENS</span>
+    <span class="sub">Brush Preview</span>
+    <span class="ver">v0.1</span>
+  </div>
+  <div class="top-mid">
+    <label class="field">
+      <span>Format</span>
+      <select id="format"></select>
+    </label>
+    <label class="field">
+      <span>Angle snap</span>
+      <select id="anglesnap">
+        <option value="15">15°</option>
+        <option value="45">45°</option>
+        <option value="5">5°</option>
+        <option value="0">Off</option>
+      </select>
+    </label>
+    <div class="toggles">
+      <button class="tog" data-view="wires" title="Paths (H)">Paths</button>
+      <button class="tog" data-view="drops" title="Drop plan (D)">Drops</button>
+      <button class="tog" data-view="grid" title="Grid 10 mm">Grid</button>
+      <button class="tog" data-view="snapGrid" title="Snap start points to grid">Snap</button>
+      <button class="tog cnc" data-view="cnc" title="CNC Trace — the 8 brush passes and where to add paint (C)">CNC Trace</button>
+    </div>
+  </div>
+  <div class="top-right">
+    <button class="btn" id="btnImport">Import SVG</button>
+    <button class="btn" id="btnPng">Export PNG</button>
+    <button class="btn" id="btnCnc" title="8 passes per stroke + pencil marks for the drops">Export CNC</button>
+    <button class="btn primary" id="btnSvg">Export SVG</button>
+    <input type="file" id="fileIn" accept=".svg,image/svg+xml" hidden>
+  </div>
+</header>
+
+<main>
+  <nav class="tools" aria-label="Tools">
+    <button class="tool" data-tool="gesture" title="Gesture — drag slowly, hold still to straighten (G)">
+      <svg viewBox="0 0 24 24"><path d="M3 17c3-1 4-9 8-9s2 7 6 7h4"/><circle cx="21" cy="15" r="1.4" class="dot"/></svg>
+      <span>G</span>
+    </button>
+    <button class="tool" data-tool="pen" title="Pen — click points, Alt/A for tangent arc, Enter to finish (P)">
+      <svg viewBox="0 0 24 24"><path d="M12 3l6 9-6 9-6-9z"/><path d="M12 12v9"/><circle cx="12" cy="11" r="1.4" class="dot"/></svg>
+      <span>P</span>
+    </button>
+    <button class="tool" data-tool="select" title="Select / move stroke (V)">
+      <svg viewBox="0 0 24 24"><path d="M5 3l13 8-6 1.5L9 19z"/></svg>
+      <span>V</span>
+    </button>
+    <div class="sep"></div>
+    <button class="tool" id="btnArc" title="Next pen segment is a tangent arc (A)">
+      <svg viewBox="0 0 24 24"><path d="M4 18V11a8 8 0 0 1 16 0v7"/></svg>
+      <span>A</span>
+    </button>
+    <div class="sep"></div>
+    <button class="tool" id="btnUndo" title="Undo (⌘Z)"><svg viewBox="0 0 24 24"><path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12"/></svg></button>
+    <button class="tool" id="btnRedo" title="Redo (⇧⌘Z)"><svg viewBox="0 0 24 24"><path d="M15 7l5 5-5 5"/><path d="M20 12H10a6 6 0 0 0 0 12"/></svg></button>
+    <button class="tool" id="btnDel" title="Delete selected stroke (⌫)"><svg viewBox="0 0 24 24"><path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13"/></svg></button>
+    <button class="tool" id="btnDefault" title="Open the default drawing (default.svg)"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 10v10h12V10"/></svg></button>
+    <button class="tool" id="btnClear" title="Clear canvas"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M8 8l8 8M16 8l-8 8"/></svg></button>
+  </nav>
+
+  <section class="stage" id="stage">
+    <div class="board" id="board">
+      <canvas id="paint"></canvas>
+      <canvas id="wire"></canvas>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <div class="target"><span class="k">Editing</span><span id="targetName">New stroke</span></div>
+
+    <section class="sec">
+      <h3>Stroke</h3>
+      <div class="row weight">
+        <button class="step" id="wMinus" aria-label="Thinner">−</button>
+        <input id="wNum" type="number" min="1" max="500" step="1">
+        <span class="unit">pt</span>
+        <button class="step" id="wPlus" aria-label="Thicker">+</button>
+        <select id="wPreset" aria-label="Weight presets"></select>
+      </div>
+      <input id="wSlider" type="range" min="0" max="1000" class="slider">
+      <div class="scale"><span>1</span><span>10</span><span>100</span><span>500 pt</span></div>
+      <p class="read" id="wRead"></p>
+    </section>
+
+    <section class="sec">
+      <h3>Brush</h3>
+      <div class="seg" id="brushSeg"></div>
+      <p class="read" id="bRead"></p>
+      <label class="inline">Inner corner radius <input id="cornerR" type="number" step="1" min="0"> mm</label>
+    </section>
+
+    <section class="sec">
+      <h3>Mix <span class="val" id="mixVal"></span></h3>
+      <input id="mix" type="range" min="0" max="100" class="slider">
+      <div class="scale"><span>Separate</span><span>Blended</span></div>
+    </section>
+
+    <section class="sec">
+      <h3>Paint load <span class="hint">8 drops · lane 1 = left edge</span></h3>
+      <div id="palettes"></div>
+      <div class="xsec-wrap">
+        <canvas id="xsec" height="44"></canvas>
+        <div class="xsec-lab"><span>1</span><span>travel ↑</span><span>8</span></div>
+      </div>
+    </section>
+
+    <section class="sec">
+      <h3>Paint math <span class="hint">estimate — calibrate</span></h3>
+      <div class="grid4">
+        <label>Film <input id="film" type="number" step="0.05" min="0.05"><em>mm</em></label>
+        <label>Brush keeps <input id="ret" type="number" step="5" min="0"><em>%</em></label>
+        <label>Nozzle <input id="nozzle" type="number" step="0.5" min="0.3"><em>mm</em></label>
+        <label>Max drop <input id="maxdrop" type="number" step="0.1" min="0.05"><em>ml</em></label>
+      </div>
+      <div class="loadmode">
+        <label><input type="radio" name="load" value="auto"> Auto — whole pass, split into drops ≤ Max drop</label>
+        <label><input type="radio" name="load" value="manual"> Manual <input id="ml" type="number" step="0.05" min="0.01"> ml per drop</label>
+      </div>
+      <div id="math" class="math"></div>
+      <h4>CNC passes · selected stroke</h4>
+      <div id="passes" class="math"></div>
+      <h4>Squeeze list · all strokes</h4>
+      <div id="squeeze" class="math"></div>
+    </section>
+  </aside>
+</main>
+
+<footer class="status">
+  <span id="hint"></span>
+  <span id="coords"></span>
+  <span id="stats"></span>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
