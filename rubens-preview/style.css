@@ -201,3 +201,5 @@ main.cal{grid-template-columns:1fr 340px}
 .speed-seg button{padding:6px 8px;font:12px var(--mono);flex-direction:row}
 #now{color:var(--ink);text-align:center;flex:1;padding:0 6px}
 .run{margin-top:12px;padding-top:10px;border-top:1px solid #E8E4DC}
+.brush-row{gap:8px}
+.brush-row .btn{flex:1;padding:9px}

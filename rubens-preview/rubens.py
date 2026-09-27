@@ -12,7 +12,9 @@ the machine through its bridge (Rubens_v2.md, section 6).
   it. The Job tab writes job.json — the job in mm, in the order it runs.
 - /run: the runner (class Runner) — GET is its state; POST starts the machine
   blocks of job.json; POST /run/stop brakes along the path, /run/kill stops at
-  once. It needs the firmware and bridge from
+  once. POST /brush/off and /brush/on swing the wrist to +90° or back to 0°
+  (only the wrist, only these two, not while a job runs — the owner asked for
+  them on the Job tab, 2026-09-27). It needs the firmware and bridge from
   RAIL-drawing_machine/drafts/rubens-pass (not flashed yet); until then a
   start fails on the first path command and nothing moves.
 
@@ -276,6 +278,14 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        if path in ("/brush/off", "/brush/on"):
+            if RUNNER.state in ("running", "stopping"):
+                return self.reply(409, "a job is running")
+            deg = 90 if path == "/brush/off" else 0
+            r = bridge_get(f"/servo?j=wrist&d={deg}")
+            if r.startswith("ok J"):
+                RUNNER.brush_on = deg == 0
+            return self.reply(200, r)
         if path == "/run/stop":
             RUNNER.stop()
             return self.reply(200, "ok")

@@ -325,6 +325,17 @@ function showRun() {
   $('#btnRunStop').disabled = $('#btnRunKill').disabled = !runLive();
   render();
 }
+// The brush by hand: the wrist to +90° (off the canvas) or 0° (on it).
+async function brush(where) {
+  const r = await fetch('/brush/' + where, { method: 'POST' }).catch(() => null);
+  const msg = r ? await r.text() : 'start rubens.py';
+  $('#brushState').innerHTML = r && r.ok && msg.startsWith('ok J')
+    ? `Brush ${where === 'off' ? 'off the canvas · +90°' : 'on the canvas · 0°'}`
+    : `<span class="warn">${msg}</span>`;
+}
+$('#btnBrushOff').onclick = e => { e.currentTarget.blur(); brush('off'); };
+$('#btnBrushOn').onclick = e => { e.currentTarget.blur(); brush('on'); };
+
 $('#btnRunStop').onclick = () => fetch('/run/stop', { method: 'POST' }).then(pollRun);
 $('#btnRunKill').onclick = () => fetch('/run/kill', { method: 'POST' }).then(pollRun);
 addEventListener('keydown', e => { if (e.key === 'Escape' && runLive()) fetch('/run/stop', { method: 'POST' }).then(pollRun); });
