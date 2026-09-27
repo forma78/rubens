@@ -23,9 +23,9 @@ export const HOME_STEPS = { x: -756, y: -222 };
 // In mm. null — not measured yet. Measured 2026-09-27: X travel on the
 // left 870 mm, Y travel 586.9 mm (the right stop: ping 590.55 minus five
 // knocks at the stop, 2.4 mm each).
-export const STOPS = { x: { min: -9.45, max: 860.55 }, y: { min: -8.3, max: 578.55 } };
+export const STOPS = { x: { min: -9.45, max: null }, y: { min: -8.3, max: 578.55 } };
 export const WALLS = {
-  x: { min: 0, max: 68800 / 80, checked: { min: true, max: false } },   // top: the owner's choice, see CALIBRATION.md
+  x: { min: 0, max: 69600 / 80, checked: { min: true, max: false } },   // top: the owner's choice, see CALIBRATION.md
   y: { min: 0, max: 15160 / (3200 / 120), checked: { min: true, max: true } },
 };
 
