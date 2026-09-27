@@ -1,393 +1,436 @@
 # Rubens_v2.md
 
-ТЗ на программу **RUBENS**, вторая версия. Написано 27.09.2026.
+Spec for **RUBENS**, second version. Written 2026-09-27.
 
-Заменяет `RUBENS.md` от 22.09.2026, который лежал в `~/RAIL-drawing_machine`.
-Старый файл удалён 27.09.2026: многое изменилось, и он начал путать.
+It replaces `RUBENS.md` of 2026-09-22, which lived in `~/RAIL-drawing_machine`
+and was deleted on 2026-09-27: a lot had changed and the old text started to
+mislead.
 
-| где | что |
+| where | what |
 |---|---|
-| `~/Rubens/Rubens_v2.md` | этот файл: что такое RUBENS, решения, договор с машиной |
-| `~/Rubens/rubens-preview/` | сама программа. Вкладка Paint работает (v0.1), вкладки Job ещё нет |
-| `~/Rubens/rubens-preview/HANDOFF.md` | список работ по программе |
-| `~/Rubens/rubens-preview/README.md` | как пользоваться вкладкой Paint |
-| `~/Rubens/images_CNC_drawing_machine/` | фото машины от 27.09.2026 |
-| `~/RAIL-drawing_machine/` | машина: `README.md` (железо, пины), `RAIL.md` (ось X), `CLAUDE.md` (правила прошивки) |
+| `Rubens_v2.md` | this file: what RUBENS is, decisions, the contract with the machine |
+| `rubens-preview/` | the app. The Paint tab works (v0.1), the Job tab does not exist yet |
+| `rubens-preview/HANDOFF.md` | the to-do list for the app |
+| `rubens-preview/README.md` | how to use the Paint tab |
+| `images_CNC_drawing_machine/` | photos of the machine and the arm drawing, 2026-09-27 |
+| `~/RAIL-drawing_machine/` | the machine, local only and in Russian: `README.md` (hardware, pins), `RAIL.md` (X axis), `CLAUDE.md` (firmware rules) |
 
-Числа железа и правила прошивки живут в репозитории машины и здесь
-не повторяются. Если этот файл и `HANDOFF.md` расходятся, верно то,
-что записано позже.
+Hardware numbers and firmware rules live in the machine repo and are not
+repeated here. If this file and `HANDOFF.md` disagree, the later entry wins.
 
-Решения, которые принял Клод как технический старший, помечены
-«решение Клода» — их можно отменить одним словом.
+Decisions Claude made as technical lead are marked *Claude's decision*.
+Any of them can be undone with one word.
+
+Everything in this repo is in English: documents, code comments, commit
+messages (decided 2026-09-27). The app UI was English from the start.
 
 ---
 
-## 1. Что изменилось против RUBENS.md
+## 1. What changed since RUBENS.md
 
-| было в RUBENS.md | стало |
+| in RUBENS.md | now |
 |---|---|
-| Вход — SVG из Иллюстратора | Мазки рисуются в самой программе, на вкладке Paint. Чужой SVG открывается, но разбивается на короткие прямые |
-| Кривые режутся на короткие прямые, каждый отрезок начинается и кончается на нулевой скорости | Пробовали — не понравилось. Путь только из прямых и дуг, углы скруглены, проход едет без остановок |
-| Слой = один инструмент, один цвет, один проход | Мазок шириной W = восемь проходов одной кистью, у каждого прохода свой цвет капли |
-| Мазки сортируются ради коротких перегонов | Для кисти порядок мазков = порядок рисования: он решает, что ляжет поверх чего по мокрому. Решение Клода |
-| Отдельная программа на маке | Страница в браузере с двумя вкладками, Paint и Job, плюс процесс на Python, который ведёт задание (раздел 6) |
-| Кисть 3–5 мм | Кисть 8 или 12 мм. Плоская или круглая — не решено |
+| Input: SVG from Illustrator | Strokes are drawn in the app itself, on the Paint tab. A foreign SVG still opens, but is broken into short straight lines |
+| Curves are cut into short straight lines; every segment starts and ends at zero speed | Tried and disliked. The path is lines and arcs only, corners are rounded, a pass runs without stops |
+| Layer = one tool, one colour, one pass | A stroke of width W = eight passes of one brush, each pass with its own drop of paint |
+| Strokes are sorted for short travel moves | For the brush, stroke order = drawing order: it decides what lands on top of what while wet. *Claude's decision* |
+| A standalone program on the Mac | A browser page with two tabs, Paint and Job, plus a Python process that runs the job (section 6) |
+| Brush 3–5 mm | Brush 8 or 12 mm. Flat or round is not decided |
+| `U` lifts the tool with a spare servo, ID 4 | The wrist J3 swings the brush off the canvas sideways, like a broom (section 4.5) |
 
-Что осталось от RUBENS.md без изменений:
+Unchanged from RUBENS.md:
 
-- RUBENS — не прошивка и не замена прошивки. GRBL отвергнут.
-  Согласованное движение X и Y — своё, поверх `FastAccelStepper`.
-- Мак думает, плата исполняет.
-- Порт держит мост `bridge.py`, RUBENS ходит на железо через него по HTTP.
-- Во время прохода рука стоит в позе, рисуют оси. «Встал, наклонил
-  кисть, поехал».
-- Машина не двигается, пока человек не увидел, что будет. Сухой прогон
-  на новом формате обязателен.
-- Числа, которых нет в даташитах, берутся только из замера.
-
----
-
-## 2. Что это
-
-RUBENS — второй проект на машине Motor Brush (`CLAUDE.md` машины,
-«Два проекта на одной машине»). Человек рисует мазки и подбирает краски,
-машина ведёт кисть по холсту. Краска выдавлена на холст заранее, кисть
-её разводит. Рука на время слоя замирает, рисуют оси X и Y.
+- RUBENS is not firmware and does not replace it. GRBL is rejected.
+  Coordinated X and Y motion is our own, on top of `FastAccelStepper`.
+- The Mac thinks, the board executes.
+- The bridge `bridge.py` owns the serial port; RUBENS reaches the hardware
+  through it over HTTP.
+- During a pass the arm holds its pose and the axes draw.
+- The machine does not move until a person has seen what it will do. A dry
+  run on a new format is mandatory.
+- Numbers that are not in any datasheet come only from measurement.
 
 ---
 
-## 3. Две вкладки
+## 2. What it is
 
-**Paint** — творческая. Мазки, палитра из восьми капель, ширина,
-смешивание, превью краски, экспорт SVG и PNG. Это то, что есть в v0.1.
-
-**⚡️ Do Job** — кнопка на вкладке Paint. Строит план и переводит
-на вкладку Job.
-
-**Job** — техническая. Вид на холст сверху:
-
-- холст и рабочее поле машины поверх него;
-- план: проходы по порядку, холостые перегоны пунктиром, остановки
-  на доливку;
-- проверки до старта (раздел 4.6);
-- во время работы: где кисть сейчас (по ответу платы на пинг), какой
-  проход идёт, что уже прокрашено;
-- **сколько процентов готово и сколько минут осталось — как у 3D-принтера.**
-  До старта — оценка на всё задание;
-- кнопки: сухой прогон, старт, пауза, «продолжить» после доливки,
-  **STOP** и **HARD STOP** — как на пульте MELNICOMM, две разные кнопки.
-
-**Проценты — по длине проходов с краской:** сколько миллиметров
-прокрашено из общего числа. Холостой ход и паузы в процент не входят,
-иначе он стоял бы на месте, пока человек доливает краску. Решение Клода.
-
-**Минуты считаются по плану:** длина каждого прохода и перегона,
-скорость, разгон, подъёмы кисти. Паузы на доливку в оценку не входят —
-их длину знает только человек. После каждого прогона оценка
-сравнивается с фактом и поправляется: замерили, сравнили, исправили.
-
-Интерфейс английский, комментарии в коде русские. Стиль Braun,
-`#EDEAE4` / `#EB7A25`, как у пульта MELNICOMM.
+RUBENS is the second project on the Motor Brush machine (machine
+`CLAUDE.md`, "Два проекта на одной машине"). A person draws strokes and picks
+paint; the machine drives the brush across the canvas. Paint is squeezed onto
+the canvas beforehand, the brush spreads it. The arm holds its pose for the
+whole layer; the X and Y axes do the drawing.
 
 ---
 
-## 4. Мазок и проходы
+## 3. Two tabs
 
-### 4.1. Траектория
+**Paint** — the creative tab. Strokes, a palette of eight drops, width,
+mixing, paint preview, SVG and PNG export. This is what v0.1 has.
 
-Только прямые (`L`) и дуги (`A`), Безье нет нигде. Документ в pt,
-масштаб 1:1 с холстом, 1 pt = 25,4/72 мм. Stroke 1–500 pt.
+**⚡️ Do Job** — a button on the Paint tab. Builds the plan and switches to
+the Job tab.
 
-### 4.2. Восемь проходов
+**Job** — the technical tab. The canvas seen from above:
 
-Линия шириной W — это восемь проходов одной кистью с шагом W/8.
-Проход i идёт параллельно осевой на расстоянии ((i + 0,5)/8 − 0,5) × W.
-Для кисти 12 мм встык выходит W = 96 мм = 272 pt.
+- the canvas with the machine's work area on top of it;
+- the plan: passes in order, travel moves dashed, refill stops;
+- checks before start (section 4.6);
+- while running: where the brush is now (from the board's ping reply),
+  which pass is running, what is already painted;
+- **percent done and minutes left, like a 3D printer.** Before start, an
+  estimate for the whole job;
+- buttons: dry run, start, pause, "continue" after a refill, **STOP** and
+  **HARD STOP** — two separate buttons, as on the MELNICOMM pendant.
 
-Осевая — путь моторов, сама не красит, девятой капли нет. Пустая ячейка
-палитры — прохода нет. Номера дорожек привязаны к краю линии, а не
-к направлению хода.
+**Percent is measured along the painted passes:** how many millimetres are
+painted out of the total. Travel moves and pauses do not count, otherwise the
+number would freeze while the person adds paint. *Claude's decision.*
 
-### 4.3. Углы скругляются
+**Minutes come from the plan:** the length of every pass and travel move,
+speed, acceleration, brush swings. Refill pauses are not in the estimate —
+only the person knows how long they take. After every run the estimate is
+compared with reality and corrected: measure, compare, fix.
 
-Каждый излом осевой — дуга радиусом W/2 + inner radius (по умолчанию
-10 мм, поле в панели Brush). Проходы — точные параллельные копии:
-прямые остаются прямыми, на углах концентрические дуги, ничто
-не пересекается. Превью рисуется по той же оси.
-
-### 4.4. Проход гладкий, без остановок
-
-Касательная на проходе непрерывна от начала до конца. Машина
-останавливается только на концах прохода.
-
-**Мелкие изломы остаются.** Стык, где направление меняется меньше чем
-на 0,5°, не скругляется. Машина проходит его на ходу, почти не тормозя.
-Это не чертёж, а живопись: если такой стык будет виден, это фактура.
-Решение Клода, 27.09.2026.
-
-**В местах с «!»** скругление не влезло, и у внутренних проходов
-получается острый угол. Машина тормозит в нём до нуля и едет дальше —
-как на любом угле. Вкладка Job такие места показывает, но старт
-не закрывает. Решение Клода.
-
-### 4.5. Порядок и подъём
-
-**Подъём после каждого прохода — опция, по умолчанию включена.**
-
-- Проходы красят снизу вверх по холсту. Низ картины — у балки, там,
-  где стоит человек; верх — дальний конец рамы (раздел 7). Проход
-  начинается у нижнего конца мазка и идёт к верхнему; мазок,
-  нарисованный сверху вниз,
-  красится в обратную сторону. Мазок, который петляет вверх-вниз,
-  красится от того конца, что ниже. Концы на одной высоте — направление
-  рисования.
-- После прохода: кисть вверх (`U 1`), холостой ход к началу следующего
-  прохода, кисть вниз (`U 0`). Холостой ход — по прямой, одной командой:
-  если оба конца в рабочем поле, прямая тоже в нём. Решение Клода.
-
-**Подъём выключен** — проходы идут змейкой, направление чередуется,
-правило «снизу вверх» не действует. Переход от конца прохода к началу
-следующего — полукруг диаметром в шаг проходов: при шаге 12 мм радиус
-6 мм. Кисть не поднимается и оставляет скруглённый конец. Решено
-27.09.2026.
-
-Мазки идут в порядке рисования, внутри мазка проходы 1 → 8.
-
-### 4.6. Проверки перед стартом
-
-Кнопка старта на вкладке Job закрыта, пока:
-
-- кончик кисти выходит за рабочее поле;
-- у машины не взят ноль.
-
-Места с «!» только показываются (раздел 4.4). Решение Клода.
-
-### 4.7. Краска
-
-- Соседние проходы смешиваются — и пусть, это фича.
-- Высыхание не моделировать и не предупреждать о нём: в краске
-  замедлитель, акрил сохнет до 12 часов.
-- Кисть не моют: кистей несколько, хватит четырёх. Человек стоит рядом,
-  меняет кисти и заодно выдавливает краску. Станции промывки нет.
-- **Доливка и смена кисти — пауза.** Машина поднимает кисть, стоит
-  и ждёт «продолжить» на вкладке Job. Новая команда прошивке для этого
-  не нужна: RUBENS просто не шлёт следующую команду. Карандашные метки
-  капель — опция для пробного прогона.
-- Расход краски считается по формуле из `rubens-preview/README.md`.
-  Слой 0,3 мм и 25 % в кисти — догадки, до калибровки (раздел 8).
-
-### 4.8. Кисть
-
-Плоская или круглая — не решено. Плоскую надо держать поперёк хода
-и доворачивать вслед за линией на поворотах. По фото от 27.09.2026
-доворачивать нечем: плечо и локоть вращаются вокруг вертикали, но при
-этом уводят кончик, а J3 кисть наклоняет, а не крутит (раздел 7).
-Круглой доворот не нужен.
+The UI is in English. Braun style, `#EDEAE4` / `#EB7A25`, as on the MELNICOMM
+pendant.
 
 ---
 
-## 5. Файл для машины
+## 4. Strokes and passes
 
-Export CNC — договор между вкладкой Paint и тем, кто ведёт задание.
-Как он устроен с этого дня (v0.1 пока отдаёт по-старому, переделка —
-в `HANDOFF.md`):
+### 4.1. Path
 
-- **Единицы — мм.** `viewBox` в мм, одна единица = 1 мм. Шаги (80 на мм)
-  считает RUBENS при исполнении: шаги — свойство машины, а не рисунка.
-  Решение Клода.
-- **Геометрия — только `M`, `L`, `A`.** Ничего не режется на прямые.
-- **Всё в порядке исполнения.** У каждого элемента `data-kind`: `paint`,
-  `travel` или `stop`. `U 1` и `U 0` следуют из смены `paint` → `travel`
-  и обратно. Решение Клода.
-- **У прохода:** `data-lane` (номер дорожки), `data-color` (цвет, только
-  справкой), `data-dir` (по ходу рисования или против), длина, капли.
-- **Все линии чёрные, 1 мм** — это траектория для карандаша. Цвет машине
-  не нужен.
-- Метки капель — отдельная группа, опция.
+Straight lines (`L`) and circular arcs (`A`) only, no Béziers anywhere. The
+document is in pt at 1:1 scale with the canvas, 1 pt = 25.4/72 mm.
+Stroke 1–500 pt.
 
-Процесс, который ведёт задание, получает тот же план в JSON. SVG остаётся
-для просмотра и прогона карандашом.
+### 4.2. Eight passes
+
+A line of width W is eight passes of one brush, W/8 apart. Pass i runs
+parallel to the centre line at an offset of ((i + 0.5)/8 − 0.5) × W. For a
+12 mm brush with no gaps, W = 96 mm = 272 pt.
+
+The centre line is the motors' path and paints nothing; there is no ninth
+drop. An empty palette slot means no pass. Lane numbers are tied to an edge of
+the line, not to the direction of travel.
+
+### 4.3. Rounded corners
+
+Every kink of the centre line becomes an arc of radius W/2 + inner radius
+(10 mm by default, a field in the Brush panel). Passes are exact parallel
+copies: straight lines stay straight, corners become concentric arcs, nothing
+crosses. The preview is drawn along the same centre line.
+
+### 4.4. A smooth pass, no stops
+
+The tangent is continuous along the whole pass. The machine stops only at the
+ends of a pass.
+
+**Small kinks stay.** A joint where the direction changes by less than 0.5°
+is not rounded. The machine takes it on the move, barely slowing down. This is
+painting, not a technical drawing: if such a joint shows, it is texture.
+*Claude's decision, 2026-09-27.*
+
+**At spots marked "!"** the rounding did not fit and the inner passes get a
+sharp corner. The machine slows to zero there and carries on, as at any
+corner. The Job tab shows such spots but does not block the start.
+*Claude's decision.*
+
+### 4.5. Order, and taking the brush off the canvas
+
+**Taking the brush off after every pass is an option, on by default.**
+
+- Passes paint from the bottom of the picture to the top. The bottom is at
+  the beam, where the person stands; the top is the far end of the frame
+  (section 7). A pass starts at the lower end of the stroke and runs to the
+  upper end; a stroke drawn top-down is painted in reverse. A stroke that
+  wanders up and down is painted from whichever end is lower. Ends at the same
+  height — the drawing direction.
+- After a pass the brush leaves the canvas (`U 1`), the machine travels to the
+  start of the next pass, the brush comes back (`U 0`). Travel is a straight
+  line, one command: if both ends are inside the work area, so is the line.
+  *Claude's decision.*
+
+**How the brush leaves the canvas.** Not straight up as on a pen plotter.
+The wrist J3 swings the brush sideways like a clock hand, up to 90°, like a
+broom (confirmed 2026-09-27). Turned 90°, the stick lies flat and the tip is in
+the air.
+
+While the spring holds the tip on the canvas, the swing drags the tip
+sideways across the neighbouring lanes. The length of that mark is L·sin θ,
+where L is the distance from the J3 axis to the tip and θ is the angle at
+which the tip leaves the canvas: L·(1 − cos θ) = how far the spring is
+compressed. The same mark appears when the brush comes back down.
+*Example only, not measured:* L = 100 mm and 5 mm of compression give
+θ = 18.2° and a mark of about 31 mm — more than two lanes at a 12 mm pitch.
+
+*Claude's proposal:* swing towards the lanes not painted yet, so the next
+passes paint over the mark. J3 can swing either way (±90°), so RUBENS picks
+the side for every pass. The last pass of a stroke has no unpainted
+neighbours: its mark goes either outside the stroke or back over painted
+lanes. That is the owner's call (section 9).
+
+**Option off** — passes run as a snake, direction alternates, the
+bottom-to-top rule does not apply. The move from the end of one pass to the
+start of the next is a semicircle with a diameter equal to the pass pitch:
+radius 6 mm at a 12 mm pitch. The brush stays down and leaves a rounded end.
+Decided 2026-09-27.
+
+Strokes go in drawing order; within a stroke, passes 1 → 8.
+
+### 4.6. Checks before start
+
+The start button on the Job tab stays locked while:
+
+- the brush tip would leave the work area;
+- the machine has no zero.
+
+Spots marked "!" are only shown (section 4.4). *Claude's decision.*
+
+### 4.7. Paint
+
+- Neighbouring passes mix — and that is fine, it is a feature.
+- Do not model drying and do not warn about it: the paint has a retarder,
+  acrylic stays wet up to 12 hours.
+- Brushes are not washed: there are several, four are enough. The person
+  stands next to the machine, swaps brushes and squeezes paint at the same
+  time. No washing station.
+- **Refill and brush change are a pause.** The machine takes the brush off the
+  canvas, stops and waits for "continue" on the Job tab. The firmware needs no
+  new command for this: RUBENS simply does not send the next one. Pencil marks
+  for the drops are an option for a trial run.
+- Paint use follows the formula in `rubens-preview/README.md`. The 0.3 mm
+  film and 25 % kept in the brush are guesses until calibrated (section 8).
+
+### 4.8. The brush
+
+Flat or round is not decided. A flat brush has to stay across the direction
+of travel and turn with the line on bends. Nothing on the arm can do that:
+the shoulder and elbow rotate about vertical axes but move the tip when they
+do, and J3 swings the brush sideways instead of turning it about the vertical
+(section 7). A round brush needs no turning.
 
 ---
 
-## 6. Как RUBENS разговаривает с машиной
+## 5. The file for the machine
 
-**Три процесса на маке:**
+Export CNC is the contract between the Paint tab and whatever runs the job.
+How it works from now on (v0.1 still exports the old way; the rework is in
+`HANDOFF.md`):
 
-| что | порт | что делает |
+- **Units are mm.** `viewBox` in mm, one unit = 1 mm. Steps (80 per mm) are
+  computed by RUBENS at run time: steps belong to the machine, not the
+  drawing. *Claude's decision.*
+- **Geometry is `M`, `L`, `A` only.** Nothing is cut into straight lines.
+- **Everything in execution order.** Each element has `data-kind`: `paint`,
+  `travel` or `stop`. `U 1` and `U 0` follow from the change `paint` →
+  `travel` and back. *Claude's decision.*
+- **Per pass:** `data-lane` (lane number), `data-color` (reference only),
+  `data-dir` (with or against the drawing direction), length, drops.
+- **All lines are black, 1 mm** — a pencil path. The machine does not need
+  colour.
+- Drop marks are a separate group, optional.
+
+The process that runs the job gets the same plan as JSON. The SVG stays for
+viewing and for a pencil run.
+
+---
+
+## 6. How RUBENS talks to the machine
+
+**Three processes on the Mac:**
+
+| what | port | does |
 |---|---|---|
-| `bridge.py` | 8765 | как сейчас: единственный владелец порта, пульт MELNICOMM |
-| `rubens.py` (будет) | 8766 | отдаёт страницу Rubens вместо `python3 -m http.server`, принимает план, ведёт задание, говорит с мостом |
-| страница в браузере | — | рисует, показывает ход, жмёт кнопки |
+| `bridge.py` | 8765 | as now: the only owner of the serial port, the MELNICOMM pendant |
+| `rubens.py` (to come) | 8766 | serves the Rubens page instead of `python3 -m http.server`, takes the plan, runs the job, talks to the bridge |
+| the browser page | — | draws, shows progress, has the buttons |
 
-**Задание ведёт `rubens.py`, а не страница.** Вкладку браузера в фоне
-система может притормозить, а сторож на плате глушит оси через 1,5 с
-без вестей. Задание не должно зависеть от того, свёрнута ли вкладка.
-Страница и `rubens.py` на одном порту, поэтому разрешать запросы между
-портами не нужно. Решение Клода.
+**The job is run by `rubens.py`, not by the page.** The system may throttle
+a background browser tab, and the board's watchdog stops the axes after 1.5 s
+of silence. A job must not depend on whether the tab is in front. The page
+and `rubens.py` share one port, so no cross-origin setup is needed.
+*Claude's decision.*
 
-**Где кисть.** Пинг `P` уже отдаёт положение осей:
-`ok P X <шаги> Y <шаги>`. `rubens.py` пингует, вкладка Job рисует кисть.
+**Where the brush is.** The ping `P` already reports the axes:
+`ok P X <steps> Y <steps>`. `rubens.py` pings, the Job tab draws the brush.
 
-**В мост добавляется** сквозной эндпойнт, как задумано в RUBENS.md:
-принял команду по HTTP, отдал в порт, вернул ответ платы.
+**The bridge gets** a pass-through endpoint, as planned in RUBENS.md: take a
+command over HTTP, write it to the port, return the board's reply.
 
-**Прошивка:**
+**Firmware:**
 
-- `P`, `V`, `S`, `K`, `O`, `J`, `Z` — есть.
-- `M <x> <y>` — в точку, абсолютные координаты в шагах, целые числа.
-  Для холостого хода годится как в RUBENS.md: с нуля скорости до нуля.
-- **Проход с краской — без остановок на стыках прямых и дуг.** Как
-  именно, открыто: дуга целиком одной командой или цепочка отрезков,
-  которую плата проходит на ходу. Решить до первого прогона кистью.
-  Туда же — как сторож ведёт себя во время длинного прохода.
-- `U <0|1>` — кисть вверх или вниз. По фото поднимает запястье J3
-  наклоном, а не четвёртый серво, как было в RUBENS.md. Тогда `U`
-  переводит J3 между двумя углами — «кисть на холсте» и «кисть поднята».
-  Подтвердить (раздел 9).
+- `P`, `V`, `S`, `K`, `O`, `J`, `Z` — exist.
+- `M <x> <y>` — to a point, absolute position in whole steps. For travel
+  moves it can work as in RUBENS.md: from zero speed to zero speed.
+- **A painting pass runs without stopping at line/arc joints.** How exactly
+  is open: a whole arc in one command, or a chain of segments the board takes
+  on the move. Decide before the first brush run. Same for how the watchdog
+  behaves during a long pass.
+- `U <0|1>` — brush on / off the canvas. Done by J3 swinging sideways
+  (confirmed 2026-09-27); the fourth servo is not needed for this. `U` moves
+  J3 between 0° and ±90°; RUBENS picks the side for each pass (section 4.5).
 
-Железные правила прошивки — в `CLAUDE.md` машины и не меняются: STEP
-только через `FastAccelStepper`, такт 20 мс не трогать, `Serial1`
-не трогать, команда руке сначала останавливает оси. Всё, что двигает
-железо, — только с ведома человека. Проверять связь — только `P` и `V`.
+The firmware's iron rules are in the machine's `CLAUDE.md` and do not change:
+STEP only through `FastAccelStepper`, do not touch the 20 ms tick, do not
+touch `Serial1`, an arm command stops the axes first. Anything that moves the
+hardware happens only with the person's knowledge. The only ways to check the
+link are `P` and `V`.
 
 ---
 
-## 7. Координаты и рабочее поле
+## 7. Coordinates and work area
 
-**Красит кончик кисти, а машина везёт каретку.** Кончик = каретка +
-вылет руки. На время слоя рука стоит, значит вылет постоянный, и план
-просто сдвигается на него целиком.
+**The brush tip paints, but the machine moves the carriage.** Tip = carriage
++ the arm's reach. The arm holds still for the whole layer, so the reach is a
+constant vector and the whole plan is simply shifted by it.
 
-**Ноль — по кончику кисти.** Рука в рабочей позе, кисть опущена на метку
-угла холста, машине говорим «здесь (0, 0)». Вылет учтён сам, длины
-звеньев для этого не нужны. Решение Клода. Геометрия руки понадобится,
-чтобы нарисовать рабочее поле кончика до установки нуля и если поза
-будет меняться между слоями.
+**Zero is taken at the brush tip.** Arm in the working pose, brush lowered
+onto the mark at the canvas corner, tell the machine "this is (0, 0)". The
+reach is accounted for by itself; link lengths are not needed for this.
+*Claude's decision.* The arm geometry is needed to draw the tip's work area
+before zero is taken, and if the pose changes between layers.
 
-**Ось X:** стенки −302,0 … +575,0 мм, между ними 877,0 мм (`README.md`
-машины). Холст 100 см по X не помещается: сторона 100 см ляжет только
-вдоль Y. **Ось Y:** ход не записан.
+**X axis:** walls at −302.0 … +575.0 mm, 877.0 mm apart (machine
+`README.md`). A 100 cm side does not fit along X. **Y axis:** travel not
+recorded. The owner can measure it with the pendant once the motors are on,
+as X was measured on 2026-09-23. Needed for the work area on the Job tab,
+not urgent.
 
-**Машина по фото от 27.09.2026** (`~/Rubens/images_CNC_drawing_machine/`).
-Всё ниже прочитано с фото и требует подтверждения:
+**The machine from the photos of 2026-09-27** (`images_CNC_drawing_machine/`):
 
-- портал: рама из профиля на ножках, холст лежит внутри рамы. Поперёк
-  рамы — балка с ремнём и роликом на дальнем конце, рука стоит у её
-  правого конца и вытянута над холстом;
-- на холсте длинные прямые в обе стороны и диагонали: похоже, X и Y
-  уже ездят вместе;
-- плечо и локоть вращаются вокруг вертикали: рука ходит параллельно
-  холсту;
-- J3 вращается вокруг горизонтали и наклоняет держатель: стержень вниз —
-  пишет, почти горизонтально — поднят;
-- держатель на пружине, стержень прижимается мягко: это те «3 см
-  мягкого хода», что заложены в `RAIL.md`;
-- в держателе сейчас гелевая ручка и фиолетовый маркер, кисти ещё нет.
+- a gantry: a frame of aluminium profile on legs, the canvas lies inside.
+  A beam spans the frame (belt, idler at the far end); the arm sits at its
+  right end and reaches out over the canvas;
+- long lines both ways and diagonals on the canvas: both axes seem to move
+  together already;
+- the shoulder and elbow rotate about vertical axes: the arm moves parallel
+  to the canvas;
+- **J3, the wrist ("кисть" on the pendant), swings the holder sideways like a
+  clock hand, up to 90°, like a broom** (confirmed 2026-09-27). Stick straight
+  down — it paints; turned 90° — it lies flat, tip in the air;
+- a spring-loaded holder: the stick is pressed down softly. These are the
+  "3 cm of soft travel" planned in `RAIL.md`;
+- the holder has a gel pen and a purple marker for now; no brush yet.
 
-**Схема руки («Лапа»)** — `images_CNC_drawing_machine/3DOF_lapa.jpeg`,
-нарисована 27.09.2026. Вид сверху, рука вытянута в прямую поперёк балки:
+**The arm drawing ("Лапа")** — `images_CNC_drawing_machine/3DOF_lapa.jpeg`,
+drawn 2026-09-27. Top view, arm stretched straight across the beam:
 
-| что | мм |
+| what | mm |
 |---|---|
-| ось плеча → ось локтя | 120 |
-| ось плеча → ось стержня | 210 |
-| ось локтя → ось стержня | 90 (= 210 − 120) |
-| ось стержня → край балки со стороны холста | 170 |
-| ось плеча → тот же край балки | 40 (= 210 − 170) |
-| ширина балки | 45 |
-| блок плеча вдоль балки | 55 |
-| деталь по другую сторону балки | 230 |
+| shoulder axis → elbow axis | 120 |
+| shoulder axis → stick axis | 210 |
+| elbow axis → stick axis | 90 (= 210 − 120) |
+| stick axis → beam edge on the canvas side | 170 |
+| shoulder axis → the same beam edge | 40 (= 210 − 170) |
+| beam width | 45 |
+| shoulder block along the beam | 55 |
+| part on the other side of the beam | 230 |
 
-Отсюда: во вытянутой позе кончик стоит на 210 мм от оси плеча поперёк
-балки и на 170 мм впереди её края. Если стержень стоит не вертикально,
-кончик уходит от оси стержня. Поэтому ноль всё равно берётся по кончику
-(выше), а схема нужна для рабочего поля и других поз руки.
+- **The straight arm is zero on the pendant:** shoulder 0°, elbow 0°
+  (confirmed 2026-09-27).
+- **The 230 mm part** is the old leg of the RoArm-M3 Pro. It holds the three
+  motors with screws and helps keep the centre. It does not affect the
+  kinematics.
 
-**Низ и верх картины** — показаны на фото с пометками 27.09.2026. Низ —
-ближний конец рамы, где балка и где стоит человек. Верх — дальний конец.
-Снизу вверх — вдоль длинной стороны рамы, то есть по оси X (рельса X
-лежит вдоль длинной стороны, `RAIL.md`), и туда же смотрит рука. В какую
-сторону у X плюс — к верху или к низу картины — не записано.
+So in the straight pose the tip is 210 mm from the shoulder axis, across the
+beam, and 170 mm ahead of its edge. If the stick is not vertical the tip
+moves away from the stick axis — one more reason to take zero at the tip.
 
-**Нижняя полоса холста.** На фото `02.09.38` балка стоит у нижнего края
-холста, а стержень уже над холстом, впереди балки. Кончик не бывает ближе
-к низу, чем 170 мм от края балки. Если балка не может заехать за нижний
-край холста, нижние 170 мм во вытянутой позе рука не достаёт.
+**Bottom and top of the picture** — shown on the annotated photo of
+2026-09-27. Bottom: the near end of the frame, at the beam, where the person
+stands. Top: the far end. Bottom-to-top runs along the long side of the frame,
+and the arm points the same way. `RAIL.md` puts X along the long side; the
+owner's note of 2026-09-27 called it Y — to settle (section 9). Which way is
+plus along that axis is not recorded.
 
-**Материал** (из RUBENS.md, не пересматривалось): коммерческий формат —
-бумага 60 × 80 см, 190 €, холст — следующий этап. Лист прижат зажимами
-вне рабочего поля и не сдвигается между слоями: сдвинулся — приводка ушла.
+**The bottom strip of the canvas** (confirmed 2026-09-27): the beam cannot go
+past the bottom edge of the canvas — the rails are too short. The tip is never
+closer to the bottom than 170 mm ahead of the beam edge, so with the arm
+straight **the bottom 170 mm of the canvas are out of reach.** The Job tab
+shows that strip. Ways out, later: move the canvas towards the top if there is
+travel for it, or bend the arm for a layer. With the shoulder at 45° and the
+elbow at 45° the tip is 44.9 mm ahead of the beam edge (and 174.9 mm to the
+side): 120·cos 45° + 90·cos 90° = 84.9 mm from the shoulder axis, minus 40.
 
----
-
-## 8. Что измерить руками. Не угадывать
-
-Пока числа нет — поле в программе помечено как догадка, правдоподобное
-значение не вписывается.
-
-- **Слой краски и сколько остаётся в кисти.** Сейчас 0,3 мм и 25 % —
-  догадки. Выдавить известный объём, провести, замерить длину чистого
-  следа, сфотографировать сверху, подогнать.
-- **Реальная ширина следа кисти.** От неё шаг проходов: встык —
-  W = 8 × ширина следа.
-- **Как меняется след к концу мазка.** Если заметно — это фактура,
-  и её стоит использовать осознанно.
-- **Высота отрыва** для `U`.
-- **Поза руки**, при которой кисть стоит как надо в середине поля.
-- **Скорость прохода**, при которой кисть кладёт краску ровно, и разгон,
-  при котором её не трясёт на стыке прямой и дуги.
-- **Время.** После каждого прогона — оценка против факта, поправка
-  модели времени.
+**Material** (from RUBENS.md, not revisited): the commercial format is paper
+60 × 80 cm at 190 €, canvas is the next stage. The sheet is clamped outside
+the work area and must not shift between layers: if it shifts, registration
+is lost.
 
 ---
 
-## 9. Открытые вопросы
+## 8. Measure by hand. Do not guess
 
-1. **Геометрия руки.** Длины в плане есть (раздел 7, схема «Лапы»).
-   Не хватает: вытянутая поза — это ноль на пульте или нет; где ось J3
-   вдоль руки; стоит ли стержень при работе вертикально; углы J3
-   «на холсте» и «поднята»; что за деталь 230 мм.
-2. **Что поднимает кисть.** По фото — J3. Подтвердить; тогда четвёртый
-   серво для подъёма не нужен.
-3. **Оси.** Ход и стенки Y; плюс X — к верху картины или к низу;
-   на сколько балка может заехать за нижний край холста (раздел 7).
-4. **Как плата проходит гладкий проход** (раздел 6).
-5. **Плоская или круглая кисть.**
-6. **Режим Manual во вкладке Paint:** сухой хвост — задуманная фактура
-   (тогда без доливок) или доливки (тогда превью показывает свежую краску
-   после каждой).
-7. **Штриховка MOLOTOW** из RUBENS.md — SVG из Иллюстратора, слои, резка
-   по бюджету, «сколько тонов»: остаётся в планах или нет.
-8. **Ноль без концевиков** — процедура (из RUBENS.md, в силе).
+Until a number is measured, the field in the app is marked as a guess and no
+plausible value is filled in.
 
----
-
-## 10. Порядок работ
-
-1. git в `~/Rubens` — с разрешения.
-2. `app.js` разбить на модули. Тесты геометрии: проходы одного мазка
-   не пересекаются, каждый проход гладкий.
-3. Экран не врёт: доливки видны в превью, «Drops» и CNC Trace
-   показывают одни и те же капли.
-4. Проходы снизу вверх, подъём, змейка с полукругом (раздел 4.5).
-5. Файл для машины по разделу 5.
-6. Вкладка Job с симуляцией: план проигрывается на экране, проценты,
-   время. Железо не трогаем.
-7. `rubens.py`: страница, задание, мост. Кисть на экране по пингу.
-8. Прошивка: гладкий проход, `U`.
-9. Сухой прогон, первый мазок, калибровка по фото.
+- **Paint film and how much stays in the brush.** Now 0.3 mm and 25 % —
+  guesses. Squeeze a known volume, paint, measure the clean trace, photograph
+  from above, fit.
+- **The real trace width of the brush.** It sets the pass pitch: no gaps
+  means W = 8 × trace width.
+- **How the trace changes towards the end of a stroke.** If it shows, it is
+  texture and worth using on purpose.
+- **L, from the J3 axis to the brush tip, and how far the spring is
+  compressed in the working pose.** Together they give the length of the swing
+  mark (section 4.5).
+- **J3 angle for "on the canvas"** — is the stick vertical at 0°?
+- **Y travel** — with the pendant, as X on 2026-09-23.
+- **Arm pose** in which the brush sits right in the middle of the field.
+- **Pass speed** at which the brush lays paint evenly, and the acceleration
+  that does not shake it at a line/arc joint.
+- **Time.** After every run: estimate against reality, correct the time model.
 
 ---
 
-## 11. Как работать
+## 9. Open questions
 
-Пользователь — художник и дизайнер. Без жаргона, конкретные имена
-и числа, не «примерно». Ловит неточности, в том числе типографские.
-Быстро расширяет замысел — проверять, не подменяет ли улучшение исходную
-идею. Ошибся — сказать сразу.
+1. **The swing mark (section 4.5).** A feature, or something to hide? And for
+   the last pass of a stroke: mark outside the stroke, or back over painted
+   lanes?
+2. **Axes.** Which axis runs along the long side of the frame, bottom to top
+   of the picture: X (as in `RAIL.md`) or Y? Which way is plus?
+3. **How the board runs a smooth pass** (section 6).
+4. **Flat or round brush.** Flat cannot be turned with the line (section 4.8).
+5. **Manual mode on the Paint tab:** is the dry tail intended texture (then no
+   refills) or should it refill (then the preview shows fresh paint after each
+   refill)?
+6. **MOLOTOW hatching** from RUBENS.md — Illustrator SVG, layers, cutting by
+   paint budget, "how many tones": still planned or not?
+7. **Zero without end stops** — the procedure (from RUBENS.md, still valid).
+8. **The bottom strip** — move the canvas, or bend the arm for the bottom
+   layer (section 7).
 
-С 27.09.2026 Клод — технический старший: технические вопросы решает сам
-и о каждом решении сообщает. Молча не решает. Всё, что меняет картину,
-порядок работы человека или железо, — спрашивает.
+---
+
+## 10. Work order
+
+1. ~~git in `~/Rubens`~~ — done 2026-09-27, public at `github.com/forma78/rubens`.
+2. Split `app.js` into modules and translate its comments to English along
+   the way. Geometry tests: the passes of one stroke do not cross, every pass
+   is smooth.
+3. The screen must not lie: refills show in the preview; "Drops" and CNC Trace
+   show the same drops.
+4. Bottom-to-top passes, the swing off the canvas, the snake with a semicircle
+   (section 4.5).
+5. The file for the machine as in section 5.
+6. Job tab with an on-screen run: the plan plays on screen, percent, minutes.
+   The hardware is not touched.
+7. `rubens.py`: the page, the job, the bridge. The brush on screen from the
+   ping.
+8. Firmware: the smooth pass, `U`.
+9. Dry run, the first stroke, calibration from photos.
+
+---
+
+## 11. How to work
+
+The owner is an artist and designer. No jargon; concrete names and numbers,
+not "roughly". Catches inaccuracies, typographic ones included. Expands ideas
+fast — check that an improvement does not replace the original idea. If you
+got something wrong, say so at once.
+
+Since 2026-09-27 Claude is the technical lead: decides technical questions
+and announces every decision, never silently. Anything that changes the
+picture, the person's workflow or the hardware gets asked first.

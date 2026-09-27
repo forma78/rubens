@@ -1,158 +1,167 @@
 # RUBENS · Brush Preview v0.1
 
-Прототип превью мазков кистью для Motor Brush. Рисуешь траекторию,
-выбираешь восемь капель, смотришь, что получится, выгоняешь SVG.
-Железо не трогает: ни моста, ни команд `M`/`U`.
+A prototype that previews brush strokes for Motor Brush. Draw a path, pick
+eight drops of paint, see what you will get, export an SVG. It does not touch
+the hardware: no bridge, no `M`/`U` commands.
 
-Дизайн — черновик, доводка в VS Code.
+The design is a draft.
 
-Решения и план работ для VS Code — в **`HANDOFF.md`**.
+Decisions and the work plan are in **`HANDOFF.md`**; the spec for the whole
+of RUBENS is **`../Rubens_v2.md`**.
 
-## Запуск
+## Run
 
 ```
 cd ~/Rubens/rubens-preview
 python3 -m http.server 8766
 ```
 
-Открыть http://localhost:8766. Порт 8766, чтобы не мешать мосту на 8765.
-Или двойной клик по `start.command`.
+Open http://localhost:8766. Port 8766 keeps clear of the bridge on 8765.
+Or double-click `start.command`.
 
-## Рисунок по умолчанию
+## Default drawing
 
-При первом открытии (или кнопкой «домик» слева) загружается `default.svg`
-из этой папки. Сделать своим: нарисовать, Export SVG, сохранить файл сюда
-под именем `default.svg`. Нет файла — открывается встроенное демо.
-Текущий рисунок и так хранится в браузере между перезагрузками.
+On first open (or with the "house" button on the left) the app loads
+`default.svg` from this folder. To make it yours: draw, Export SVG, save the
+file here as `default.svg`. No file — the built-in demo opens. The current
+drawing is kept in the browser between reloads anyway.
 
-## Файлы
+## Files
 
-| файл | что |
+| file | what |
 |---|---|
-| `index.html` | разметка, интерфейс английский |
-| `style.css` | стиль Braun, `#EDEAE4` / `#EB7A25`, как MELNICOMM |
-| `app.js` | всё остальное, без библиотек и сборки |
+| `index.html` | markup, English UI |
+| `style.css` | Braun style, `#EDEAE4` / `#EB7A25`, as MELNICOMM |
+| `app.js` | everything else, no libraries, no build step |
 
-## Единицы
+## Units
 
-Документ в pt, **масштаб 1:1 с холстом**: 1 pt = 25,4/72 = 0,35278 мм.
-Артборд 60 × 80 см = 1700,8 × 2267,7 pt. Stroke 1–500 pt, 500 pt = 176,4 мм.
+The document is in pt, **1:1 scale with the canvas**: 1 pt = 25.4/72 =
+0.35278 mm. A 60 × 80 cm artboard is 1700.8 × 2267.7 pt. Stroke 1–500 pt;
+500 pt = 176.4 mm.
 
-Stroke задаёт ширину следа в превью и в расчёте краски.
-Кисть (Flat 8 / Flat 12) пока задаёт только фактуру: густоту щетины
-и щербинки между дорожками. Если stroke далеко от реальной ширины кисти,
-панель это пишет и предлагает «Match brush».
+Stroke sets the trace width in the preview and in the paint math.
+The brush (Flat 8 / Flat 12) only sets the texture for now: bristle density
+and small gaps between lanes. If the stroke is far from the real brush width,
+the panel says so and offers "Match brush".
 
-## Рисование
+## Drawing
 
-- **Gesture (G).** Нажал, ведёшь медленно. Держишь мышь неподвижно
-  0,35 с — кусок выпрямляется: прямая (угол к шагу 15°) или дуга
-  (развёртка к 45°, то есть ровные 90° и 180°). Следующая дуга
-  продолжает предыдущий сегмент по касательной. Отпустил — мазок готов.
-  Shift — только прямая, Alt — только дуга.
-- **Pen (P).** Клик — точка, прямые. `A` или Alt-клик — касательная дуга.
-  Enter / двойной клик — конец.
-- **Select (V).** Клик — выбрать мазок и править его настройки, тянуть — двигать.
+- **Gesture (G).** Press and drag slowly. Hold the mouse still for 0.35 s and
+  the piece straightens: a line (angle snapped to 15°) or an arc (sweep
+  snapped to 45°, so clean 90° and 180°). The next arc continues the previous
+  segment tangentially. Release — the stroke is done. Shift — line only,
+  Alt — arc only.
+- **Pen (P).** Click — a point, straight segments. `A` or Alt-click — a
+  tangent arc. Enter / double-click — finish.
+- **Select (V).** Click — select a stroke and edit its settings; drag — move it.
 
-Траектория хранится только прямыми и дугами. Кривых Безье нет нигде.
+The path is stored as lines and arcs only. No Béziers anywhere.
 
-### Правка якорей
+### Editing anchors
 
-У выделенного мазка якоря — белые квадратики. Работает в любом инструменте.
+A selected stroke shows its anchors as white squares. Works in any tool.
 
-- Клик по квадратику — он синеет, тянешь — точка едет.
-- Shift-клик добавляет или снимает точки. Потянешь любую из выделенных —
-  едет вся группа. Сегмент между двумя выделенными точками переезжает
-  целиком, не меняя формы.
-- Стрелки двигают выделенные точки на 1 мм, со Shift — на 10 мм.
-- Esc или клик мимо снимает выделение точек.
+- Click a square — it turns blue; drag — the point moves.
+- Shift-click adds or removes points. Drag any selected one — the whole group
+  moves. A segment between two selected points moves as a whole, keeping its
+  shape.
+- Arrow keys move selected points by 1 mm, with Shift by 10 mm.
+- Esc or a click elsewhere clears the point selection.
 
-Прямая просто тянется за точкой. Дуга сохраняет развёртку: полукруг
-остаётся полукругом, меняются радиус и поворот. Касательность с соседом
-при этом может разойтись — на стыке кисть поворачивается на месте.
-Если включён Snap, точка прилипает к сетке 10 мм.
+A line simply follows its point. An arc keeps its sweep: a semicircle stays a
+semicircle, only its radius and rotation change. Tangency with the neighbour
+may break — at that joint the brush turns on the spot. With Snap on, the
+point snaps to a 10 mm grid.
 
 ## CNC Trace
 
-Кнопка **CNC Trace** (клавиша `C`) показывает, как машина на самом деле
-будет ехать. Линия на экране — это не один проход, а восемь: кисть 12 мм
-идёт восемь раз, каждый раз со сдвигом. Проход i идёт параллельно осевой
-на расстоянии `((i + 0.5) / 8 − 0.5) × ширина следа`, шаг между проходами
-= stroke / 8. Проход 1 — левый край по ходу.
+The **CNC Trace** button (key `C`) shows how the machine will actually move.
+The line on screen is not one pass but eight: the 12 mm brush goes eight
+times, shifted each time. Pass i runs parallel to the centre line at
+`((i + 0.5) / 8 − 0.5) × trace width`; the pitch between passes is
+stroke / 8. Pass 1 is the left edge looking along the drawing direction.
 
-Чтобы проходы легли встык, stroke должен быть 8 × ширина кисти:
-для 12 мм это 96 мм = 272 pt, для 8 мм — 64 мм = 181 pt. Панель Brush
-пишет, есть ли щели или нахлёст, и даёт кнопку подогнать.
+For passes to lie edge to edge, stroke must be 8 × brush width: 96 mm =
+272 pt for 12 mm, 64 mm = 181 pt for 8 mm. The Brush panel says whether there
+are gaps or overlaps and offers a button to match.
 
-**Углы.** Осевая (твой Path) — это путь моторов, от него считаются все
-проходы: четыре с одной стороны, четыре с другой. Каждый излом осевой
-скругляется дугой радиуса `W/2 + Inner corner radius` (по умолчанию 10 мм,
-поле в панели Brush). Тогда все восемь проходов — параллельные копии
-скруглённой оси: прямые остаются прямыми, на углах — концентрические дуги,
-внутренний проход огибает угол радиусом 10 мм, внешний — радиусом W + 10 мм.
-Ничто нигде не пересекается. Превью краски рисуется по той же скруглённой
-оси — что на экране, то и на холсте. Твои якоря остаются острыми, скругление
-считается поверх.
+**Corners.** The centre line (your Path) is the motors' path; all passes are
+measured from it, four on one side, four on the other. Every kink of the
+centre line is rounded with an arc of radius `W/2 + Inner corner radius`
+(10 mm by default, a field in the Brush panel). All eight passes are then
+parallel copies of the rounded centre line: lines stay lines, corners become
+concentric arcs. The inner edge of the trace goes round the corner at a 10 mm
+radius, the outer edge at W + 10 mm. Nothing crosses anywhere. The paint
+preview uses the same rounded centre line — what is on screen is what goes on
+the canvas. Your anchors stay sharp; the rounding is computed on top.
 
-Если угол так тесен, что места на скругление не хватает (короткие сегменты
-по бокам) или дуга рисунка меньше W/2, в CNC Trace там красный «!», в панели —
-предупреждение. Лечится: раскрыть угол, удлинить сегменты или сделать линию уже.
+If a corner is too tight to fit the rounding (short segments on either side)
+or an arc of the drawing is smaller than W/2, CNC Trace shows a red "!" there
+and the panel shows a warning. Fix: open the corner, lengthen the segments or
+make the line thinner.
 
-В CNC Trace осевая показана пунктиром. Сама она не красит — девятой капли нет.
+CNC Trace shows the centre line dashed. It paints nothing — there is no ninth
+drop.
 
-Кружки на проходах — где выдавить краску. Большой с номером — старт прохода,
-маленькие — доливки по дороге. Их число: краска на проход / Max drop
-(по умолчанию 1 мл на каплю), доливки расставлены равномерно по длине прохода.
-В режиме Manual — капля заданного объёма, доливка каждый раз, как она кончится.
-Таблица «CNC passes» — длина, число капель и мл по каждому проходу выбранного мазка.
+The circles on the passes are where to squeeze paint. A big numbered one is
+the start of a pass, small ones are refills along the way. Their number is
+paint per pass / Max drop (1 ml per drop by default); refills are spread
+evenly along the pass. In Manual mode — a drop of the given volume, a refill
+every time it runs out. The "CNC passes" table gives length, drop count and ml
+for every pass of the selected stroke.
 
-**Export CNC** выгружает отдельный SVG для машины:
+**Export CNC** writes a separate SVG for the machine:
 
-- Все линии чёрные, 1 мм — траектория для карандаша. Цвет прохода только справкой в `data-color`.
-- группа `passes` — проходы по порядку: мазок за мазком, внутри 1 → 8, все
-  в направлении рисования. Точные `M`, `L`, `A`: прямые и дуги, без ломаных.
-  У каждого `data-lane`, `data-color`, `data-length-mm`, `data-drops`, `data-drop-ml`.
-  Пустая ячейка палитры — прохода нет.
-- группа `drop-marks` — кружки Ø 6 мм в точках капель, `data-ml` у каждого.
-  Это для прогона с карандашом: сначала машина размечает холст, ты выдавливаешь
-  краску по меткам, потом ставишь кисть.
+- All lines are black, 1 mm — a pencil path. The pass colour is reference
+  only, in `data-color`.
+- group `passes` — passes in order: stroke by stroke, 1 → 8 within a stroke,
+  all in the drawing direction. Exact `M`, `L`, `A`: lines and arcs, no
+  polylines. Each has `data-lane`, `data-color`, `data-length-mm`,
+  `data-drops`, `data-drop-ml`. An empty palette slot means no pass.
+- group `drop-marks` — Ø 6 mm circles at the drop points, each with
+  `data-ml`. This is for a pencil run: the machine marks the canvas first, you
+  squeeze paint at the marks, then mount the brush.
 
-Порядок «карандаш → краска → кисть» и проход карандашом по самим `passes`
-выбираются уже в RUBENS: файл отдаёт обе группы.
+The order "pencil → paint → brush" and a pencil run over the `passes`
+themselves are chosen in RUBENS: the file carries both groups. This export is
+v0.1; the new contract is in `../Rubens_v2.md`, section 5.
 
-## Модель краски
+## Paint model
 
-Восемь капель поперёк кисти, дорожка 1 — левый край, если смотреть
-по ходу. Соседние дорожки смешиваются на границе (Mix), смешивание
-«пигментное»: геометрическое среднее в линейном RGB, жёлтый с синим
-даёт зеленоватый, а не серый.
+Eight drops across the brush; lane 1 is the left edge looking along the
+travel direction. Neighbouring lanes mix at their border (Mix); the mixing is
+"pigment-like": a geometric mean in linear RGB, so yellow and blue give a
+greenish colour, not grey.
 
-Расчёт на каплю:
+Per drop:
 
 ```
-мл = длина пути (мм) × ширина дорожки (мм) × слой (мм) × (1 + остаётся в кисти) / 1000
+ml = path length (mm) × lane width (mm) × film (mm) × (1 + kept in brush) / 1000
 ```
 
-Слой 0,3 мм и 25 % в кисти — **предположения, не измерения.** Первым
-тестом их надо откалибровать (Rubens_v2.md, раздел 8): выдавить известный
-объём, провести, замерить длину чистого следа, подогнать «Film».
+The 0.3 mm film and 25 % kept in the brush are **assumptions, not
+measurements.** The first test must calibrate them (`../Rubens_v2.md`,
+section 8): squeeze a known volume, paint, measure the length of the clean
+trace, fit "Film".
 
-В режиме Manual задаёшь мл на каплю — превью показывает, где кисть
-высохнет (сухой хвост).
+In Manual mode you set ml per drop, and the preview shows where the brush
+runs dry (the dry tail).
 
 ## SVG
 
-- `width`/`height` в мм, `viewBox` в pt.
-- Один `<g>` на мазок, внутри один `<path>` только из `M`, `L`, `A`.
-  Дуги больше 180° разрезаны пополам.
-- В `data-*` у группы: палитра, восемь HEX, кисть, mix, мл на каплю, длина.
-- В `<metadata id="rubens-state">` — полное состояние: свой файл
-  открывается обратно точно. Чужой SVG (Иллюстратор) разбивается
-  на короткие прямые.
+- `width`/`height` in mm, `viewBox` in pt.
+- One `<g>` per stroke, one `<path>` inside, made of `M`, `L`, `A` only.
+  Arcs over 180° are split in two.
+- The group's `data-*`: palette, eight HEX colours, brush, mix, ml per drop,
+  length.
+- `<metadata id="rubens-state">` holds the full state: the app's own file
+  opens back exactly. A foreign SVG (Illustrator) is broken into short
+  straight lines.
 
-## v2
+## Later
 
-- Разрыв линии: подъём кисти (`U 1`), переезд, опускание — внутри одной
-  заправки.
-- Ширина кисти как физический параметр, а не только фактура.
-- Порядок обхода и оценка времени (Rubens_v2.md, разделы 3 и 4.5).
+- Breaking the line: brush off the canvas (`U 1`), travel, brush back — within
+  one load of paint.
+- Brush width as a physical parameter, not only a texture.
+- Stroke order and time estimate (`../Rubens_v2.md`, sections 3 and 4.5).
