@@ -240,7 +240,7 @@ function draw() {
 
   const F = fmtOf(), rep = canvasReport(S.cal.corners, F.w, F.h), C = canvasCorners(rep, F), R = reach();
   const pts = [...Object.values(C).filter(Boolean), ...S.trail, ...(S.pos.x != null && S.pos.y != null ? [S.pos] : [])];
-  const x0 = Math.min(STOPS.x.min ?? R.x.min ?? 0, ...pts.map(p => p.x)) - 25, x1 = Math.max(STOPS.x.max ?? 600, ...pts.map(p => p.x)) + 25;
+  const x0 = Math.min(STOPS.x.min ?? R.x.min ?? 0, ...pts.map(p => p.x)) - 25, x1 = Math.max(STOPS.x.max ?? R.x.max ?? 600, ...pts.map(p => p.x)) + 25;
   const y0 = Math.min(STOPS.y.min ?? 0, ...pts.map(p => p.y)) - 25, y1 = Math.max(R.y.max ?? 0, 620, ...pts.map(p => p.y)) + 25;
   const pad = 44, k = Math.min((W - 2 * pad) / (y1 - y0), (H - 2 * pad) / (x1 - x0));
   const ox = (W - (y1 - y0) * k) / 2, oy = (H - (x1 - x0) * k) / 2;
