@@ -162,6 +162,18 @@ stop. The owner stopped it; nothing else moved.
   20 ms each axis gets a target and a speed, and lays out its own steps,
   slow ones included. Test in the air first: diagonals at several angles and
   speeds, a slow axis, arcs; the pencil only after that.
+- **The same night, the pass core made fail-safe.** No slice is ever
+  re-sent: any motor queue answer but "taken" is a HARD STOP with its reason
+  kept for `V`; the board stops a runaway itself (a count past a wall by
+  more than the reserve plus 2 mm); S that has not stopped a path in 1.5 s
+  becomes K. In the air: a travel with X almost still (5 mm over 545) ran
+  cleanly once the queue was kept at most 24 of its 32 entries (a slow axis
+  needs up to 8 entries a slice); the diagonal of the runaway stopped at once
+  with "moveTimed Y 4" — safely, no runaway. Found then: FastAccelStepper
+  0.31.8 calls `moveTimed()` "initial and untested"; the registry has 1.3.4
+  (2026-09-23). **Next:** read what changed up to 1.3.4 and upgrade if
+  `moveTimed` is done there, or build the pass on the library's main mode
+  (a speed per axis every 20 ms); then the air tests again, then the pencil.
 - **Getting the Y count back.** The owner drove Y left through the noise:
   the carriage met the left stop while the count still read about 240 mm, and
   the count ran down to the wall at 0 with the motor slipping. Stopped there
