@@ -162,8 +162,14 @@ stop. The owner stopped it; nothing else moved.
   20 ms each axis gets a target and a speed, and lays out its own steps,
   slow ones included. Test in the air first: diagonals at several angles and
   speeds, a slow axis, arcs; the pencil only after that.
-- **The Y count is wrong now:** home must be set again (X down to its stop,
-  Y left to its stop, Set home) before any move to the right.
+- **Getting the Y count back.** The owner drove Y left through the noise:
+  the carriage met the left stop while the count still read about 240 mm, and
+  the count ran down to the wall at 0 with the motor slipping. Stopped there
+  at −1.16, the carriage stood in the stop, which is −8.3 by the calibration:
+  so the count was 7.14 mm high. It was corrected with `origin/y` at the right
+  wall (count 569.96 → 562.84 mm), without moving anything. Check: Y left to
+  its wall on level 1 must stop with no knock. The bottom canvas corners,
+  recorded again by mistake at the walls, were put back from git.
 
 ### Home — every time after power-on
 
