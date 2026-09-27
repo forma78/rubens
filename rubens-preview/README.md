@@ -33,9 +33,12 @@ modules, and browsers do not load them from `file://`.
 ```
 cd ~/Rubens/rubens-preview
 node --test
+python3 -m unittest discover -s test -p '*_test.py'
 ```
 
-No packages to install. Tested with Node 25.
+No packages to install. Tested with Node 25 and Python 3.14. The Python
+tests run the job runner of `rubens.py` against a fake board: no bridge, no
+machine.
 
 ## Default drawing
 
