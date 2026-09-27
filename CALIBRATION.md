@@ -174,6 +174,25 @@ stop. The owner stopped it; nothing else moved.
   (2026-09-23). **Next:** read what changed up to 1.3.4 and upgrade if
   `moveTimed` is done there, or build the pass on the library's main mode
   (a speed per axis every 20 ms); then the air tests again, then the pencil.
+- **FastAccelStepper 1.3.4, the same night.** Its changelog: since 1.2.8
+  `moveTimed()` appends a slice atomically (all or nothing, #370), since
+  1.3.0 the MCPWM/PCNT step count after a direction change is right. The
+  firmware was moved to 1.3.4 (pinned exactly, MCPWM/PCNT chosen by name);
+  "busy", "not ready" and "direction-change pause" now retry the same slice
+  — safe, since nothing was added — and a slice not taken for 100 ms is a
+  HARD STOP. The stop inside a piece was fixed (S had cut only whole pieces
+  after the current one, so on a long line it did not brake; and when the
+  stop fell on a piece end the plan reported the old end of the queue — a
+  host test caught that before the machine did). **Air test, all clean:**
+  the runaway diagonal (3.17 s, on target), shallow lines with one axis
+  nearly still at 10, 20 and 50 mm/s, a semicircle, S on a long line
+  (braked in 0.23 s on the line), a path right after S, a jog. Every path
+  ended on its target to the hundredth; faults 0. Runs on again.
+- **Known:** after a HARD STOP during a path the X driver of this library
+  may stay "not ready" and the next path stops at once ("такт не берётся");
+  a board restart clears it. Once, before this was known, the brush was
+  lowered after a travel that had not happened: a pencil dot at X 438,
+  Y 320. Scripts now check the carriage arrived before the brush goes down.
 - **Getting the Y count back.** The owner drove Y left through the noise:
   the carriage met the left stop while the count still read about 240 mm, and
   the count ran down to the wall at 0 with the motor slipping. Stopped there

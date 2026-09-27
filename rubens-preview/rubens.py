@@ -45,10 +45,10 @@ STEPS_PER_MM = (80.0, 3200.0 / 120.0)   # X, Y — the same as src/machine.js
 # because the runner kept pinging while the Y motor ground on the stop).
 WALLS_MM = ((0.0, 865.0), (0.0, 15160 / (3200.0 / 120.0)))
 RUNAWAY_MM = 5.0
-# Runs are off until the pass firmware is fixed and tested in the air: on
-# 2026-09-27 a diagonal pass sent the Y axis far past its target (moveTimed
-# slices re-sent after a partial add). CALIBRATION.md has the details.
-RUNS_ENABLED = False
+# Runs were off on 2026-09-27 after a diagonal pass ran the Y axis away;
+# on again the same night once the pass core ran on FastAccelStepper 1.3.4
+# and passed the air tests (CALIBRATION.md). Set to False to lock them.
+RUNS_ENABLED = True
 
 
 def parse_ping(text):
