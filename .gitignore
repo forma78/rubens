@@ -6,3 +6,6 @@
 
 # The Job tab's output, rebuilt from the drawing at any time
 job.json
+
+# Python bytecode from running rubens.py and its tests
+__pycache__/
