@@ -5,6 +5,10 @@ was measured, how, and what it changed. Numbers here are the source for
 `rubens-preview/src/machine.js` and for the walls in the machine firmware
 (`RAIL-drawing_machine/src/main.cpp`); change them together.
 
+**Machine: CNCDM-001.** Its firmware, bridge and docs are in
+`~/RAIL-drawing_machine`, under git since 2026-09-28 and private on GitHub as
+`forma78/CNCDM-001`. A second machine gets its own name and its own log.
+
 ---
 
 ## 2026-09-28 — first paint
@@ -299,7 +303,7 @@ noted; "about 13 minutes, probably", from memory.
 
 ### Firmware changes today (`RAIL-drawing_machine/src/main.cpp`)
 
-The machine folder is not under git; the files as they were in the morning
+The machine folder was not under git then (it is since 2026-09-28, `forma78/CNCDM-001`); the files as they were in the morning
 are backed up outside it.
 
 - Speed per axis: `LEVEL_MHZ = { 800000, 266667 }` — one level is 10 mm/s on

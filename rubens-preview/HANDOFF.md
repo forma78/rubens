@@ -5,7 +5,8 @@ first session. What the app is and how to use it is in `README.md` next to
 this file. This file is about decisions already made and what to do next.
 
 Machine context: `README.md`, `RAIL.md`, `CLAUDE.md` in the machine repo
-(`~/RAIL-drawing_machine`, local, in Russian). The spec for RUBENS is
+(`~/RAIL-drawing_machine`, in Russian; the machine is CNCDM-001, under git
+since 2026-09-28, private on GitHub as `forma78/CNCDM-001`). The spec for RUBENS is
 `../Rubens_v2.md`; it replaced `RUBENS.md` on 2026-09-27. Read them before
 changing anything.
 
@@ -72,6 +73,37 @@ through firmware yet (the firmware has no `M` and `U` commands yet).
 ---
 
 ## 3. To do, most important first
+
+### 3.0. Turn on / Turn off and the arm zero — TODAY, before the power-off
+
+Decided 2026-09-28. The morning's trouble (`../CALIBRATION.md`, 2026-09-28):
+the firmware takes each joint's zero from the pose it stands in at the first
+command after power-on; every job ends with the brush off (+90°), so the next
+morning +90° becomes 0. The owner: no hand-fixed numbers in the firmware
+("filing submarine parts by hand"); the servos see their own pose, so use it.
+
+- **The arm zero is calibration, like the canvas corners:** raw servo poses
+  (4096 per turn) in `calibration.json`, dated, in git. Now: J3 on the canvas
+  (0°) 1489, shoulder 2501, elbow 1759. An "Arm zero here" button on the
+  Calibration tab reads new ones from the servos (brush or holder changed).
+- **Firmware, one change, flashed once with the owner:** a command "the zero
+  of joint j is raw pose n", and no arm motion at all until it came (as the
+  axes go nowhere near a wall without a zero). The "pose at the first
+  command" rule goes. Draft in `RAIL-drawing_machine/drafts/`, host test,
+  flash together, test in the air.
+- **Turn off** (replaces the single "Shut down" of the morning; `rubens.py`
+  class `Park` is its X/Y part, tested): HARD STOP → J3 to +90° → the
+  carriage stands → X/Y saved → "switch off the 12 V".
+- **Turn on** (after the 12 V is on): the arm zero from `calibration.json`
+  goes to the board → shoulder and elbow hold; if the arm was moved, the
+  servos show it and RUBENS brings it back to the working pose → J3 +90° →
+  X/Y restored (the place is good for one zero only) → walls on. No drive to
+  the stops.
+- **Measure tomorrow morning:** the stepper click at power-on (up to two full
+  steps: 0.4 mm on X, 1.2 mm on Y) — Turn on, then the tip to a corner of
+  the blue frame.
+- Stops first, as always: Turn off is a HARD STOP before anything else, and
+  STOP / HARD STOP stay reachable during Turn on.
 
 ### 3.1. Take the brush off and travel back after every pass — REQUIRED
 
