@@ -7,6 +7,16 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **Rams look.** Neutral grey keys; the chosen one is pressed and marked with
+  an orange dot; "• STOP", "•• HARD STOP". The Job tab's progress is a grey
+  LCD in a niche: the percent in two seven-segment cells (the tens faint
+  below 10 %, a third cell only at 100), the time left and the total, a bar
+  of sticks. The Create tab's Stroke section keeps its look.
+- **Arm jog** on the Calibration tab: shoulder, elbow, wrist, as on the
+  MELNICOMM pendant. The arm always moves in RUBENS's degrees from its
+  working pose (calibration.json), from where the servos really are —
+  whatever zero the board took at power-on — and the whole arm holds from
+  a job's start. The brush can no longer be swung to 180° by a restart.
 - **Brush: 2 or 4 trips a lane** on the Job tab, 4 by default: up, down, up,
   down, a quarter lane apart — 32 trips, 5.5 mm apart on a 500 pt stroke.
   The first canvas had 2 trips 11 mm apart and the round No. 4 left canvas
