@@ -7,6 +7,7 @@
 import { FORMATS } from './config.js';
 import { fmt } from './util.js';
 import { HOME_STEPS, STOPS, WALLS, CORNERS, toMm, parsePing, cornerAt, artboardCorner, canvasReport, reach } from './machine.js';
+import './ui.js';
 
 const $ = s => document.querySelector(s);
 const NAMES = { tl: 'Top left', tr: 'Top right', br: 'Bottom right', bl: 'Bottom left' };

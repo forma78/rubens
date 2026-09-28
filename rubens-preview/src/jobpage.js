@@ -9,6 +9,7 @@ import { luminance } from './color.js';
 import { segLen } from './geometry.js';
 import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, timeAtPercent, MODES, PER_LANE, TIME_MODEL } from './job.js';
 import { canvasReport, jobToMachine, arcSpeed, SPEED_MAX, CORNERS } from './machine.js';
+import './ui.js';
 
 const $ = s => document.querySelector(s);
 const INK = '#24221F', ORANGE = '#EB7A25';
@@ -354,7 +355,7 @@ function showRun() {
   const pb = $('#btnRunPause'), label = paused ? '▶ Continue' : st?.state === 'pausing' ? 'Pausing…' : '❚❚ Pause';
   if (pb.textContent !== label) pb.textContent = label;
   pb.disabled = !live || !['running', 'paused'].includes(st.state);
-  pb.classList.toggle('primary', paused);
+  pb.classList.toggle('go', paused);   // dark, not orange: STOP next to it is the orange one
   document.querySelectorAll('#modeSeg button, #perLaneSeg button').forEach(b => { b.disabled = live; });
   syncSpeedX();
   if (live && S.tl) S.t = timeAtPercent(S.tl, st.percent || 0);

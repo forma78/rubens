@@ -22,6 +22,7 @@ import { getStrips, renderPaint } from './render.js';
 import { cncPlan, cncSvg } from './cnc.js';
 import { jobSteps } from './job.js';
 import { drawingSvg, simplify } from './svg.js';
+import './ui.js';
 
 // ---------- state ----------
 const $ = s => document.querySelector(s);
