@@ -10,6 +10,7 @@ import { segLen } from './geometry.js';
 import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, timeAtPercent, MODES, PER_LANE, TIME_MODEL } from './job.js';
 import { canvasReport, jobToMachine, arcSpeed, SPEED_MAX, CORNERS } from './machine.js';
 import './ui.js';
+import { segments, sticks } from './lcd.js';
 
 const $ = s => document.querySelector(s);
 const INK = '#24221F', ORANGE = '#EB7A25';
@@ -136,19 +137,31 @@ function showProgress(at) {
   const pct = live ? (S.run.percent || 0) : at?.percent;
   let left = at?.left;
   if (live && S.run.started && pct >= 3) left = (Date.now() / 1000 - S.run.started) * (100 - pct) / pct;
-  $('#pct').textContent = at ? `${Math.floor(pct)} %` : '—';
-  $('#left').textContent = !at ? '—' : left <= 0 ? 'done' : `${minutes(left)} left`;
-  $('#bar').style.width = at ? `${pct}%` : '0';
-  $('#elapsed').textContent = clock(S.t);
-  $('#total').textContent = clock(total);
   let now = '—';
   if (at) {
     const st = S.steps[at.i], n = [...new Set(S.steps.map(s => s.stroke))].indexOf(st.stroke) + 1;
-    now = st.kind === 'paint' ? `stroke ${n} · lane ${st.lane} · ${st.dir > 0 ? 'with' : 'against'} the drawing`
-      : st.kind === 'turn' ? `stroke ${n} · turn to the next lane` : `travel · brush off the canvas`;
+    now = st.kind === 'paint' ? `stroke ${n} · lane ${st.lane} · ${st.back ? 'down' : 'up'}`
+      : st.kind === 'turn' ? `stroke ${n} · turn` : 'travel · brush off';
   }
-  if (live && S.run.blocks) now += ` · block ${S.run.block + 1} of ${S.run.blocks}`;
-  $('#now').textContent = now;
+  // The LCD (the owner's clock reference): what it shows, the percent in
+  // seven segments, the time left and the total, the sticks, where it is.
+  const state = !live ? (S.run && S.run.state !== 'idle' ? S.run.state : 'plan') : S.run.state === 'paused' ? 'paused' : 'live';
+  const block = live && S.run.blocks ? `block ${S.run.block + 1}/${S.run.blocks}` : S.steps.length ? `${S.steps.filter(s => s.kind === 'paint').length} passes` : '';
+  // fixed cells, as on an electronic clock: "07:42", " 51" — the hundreds
+  // cell is there, unlit, until 100 %
+  const hms = t => { const c = clock(Math.max(0, t || 0)); return c.length === 4 ? '0' + c : c; };
+  const pct3 = v => { const n = Math.min(100, Math.max(0, Math.floor(v))); return n === 100 ? '100' : ' ' + String(n).padStart(2, '0'); };
+  $('#lcd').innerHTML = `
+    <div class="lcd-top"><span>${state === 'live' ? '▶ ' : state === 'paused' ? '❚❚ ' : ''}${state}</span><span>${block}</span></div>
+    <div class="lcd-mid">
+      <div class="lcd-big">${segments(at ? pct3(pct) : ' --', 46)}<span class="u">%</span></div>
+      <div class="lcd-times">
+        <span class="k">left</span>${segments(at ? hms(left) : '--:--', 17)}
+        <span class="k">total</span>${segments(at ? hms(total) : '--:--', 17)}
+      </div>
+    </div>
+    ${sticks(at ? pct / 100 : 0)}
+    <div class="lcd-now">${now}</div>`;
 }
 
 // ---------- the view ----------

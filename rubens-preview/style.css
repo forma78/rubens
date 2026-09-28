@@ -3,7 +3,12 @@
    Soft Braun since 2026-09-28 (the owner's references braun_design.gif and
    braun_design_1.gif): raised keys and recessed wells; a pressed key is the
    chosen one and turns orange; sliders in a recessed slot with an orange fill
-   (src/ui.js) and a white knob with an orange mark; one accent, orange. */
+   (src/ui.js) and a white knob with an orange mark; one accent, orange.
+   Then, the same evening, after Dieter Rams's keys (Screenshot 2026-09-28
+   rams.png): less orange, no brown. Keys are neutral grey; the chosen one is
+   pressed and carries an orange dot; STOP is "• STOP", HARD STOP "•• HARD
+   STOP"; the Job tab's progress is an LCD. The Stroke section of the Create
+   tab keeps the look of before (.stroke-sec): "тут идеально все". */
 :root{
   --bg:#EDEAE4;
   --panel:#F5F3EF;
@@ -13,12 +18,14 @@
   --mute:#7D776D;
   --orange:#EB7A25;
   --blue:#3D6BFF;
-  --card:#F7F5F1;
-  --well:#E4E0D8;
-  --key:linear-gradient(#FCFBF9,#EEEBE5);
-  --raise:0 0 0 1px rgba(70,55,40,.07),0 1px 2px rgba(70,55,40,.16),0 3px 8px rgba(70,55,40,.06),inset 0 1px 0 #fff;
-  --press:inset 0 1px 3px rgba(70,55,40,.24),inset 0 0 0 1px rgba(70,55,40,.07);
-  --orange-key:linear-gradient(#F59346,#E4701B);
+  --card:#F7F6F3;
+  /* neutral greys, no brown (the owner, 2026-09-28, after the Rams keys) */
+  --well:#DFDEDA;
+  --key:radial-gradient(120% 90% at 50% 100%,#FFFFFF 0%,#F4F3F0 45%,#E7E6E2 100%);
+  --key-on:linear-gradient(#DEDDD9,#EAE9E6);
+  --raise:0 0 0 1px rgba(0,0,0,.13),0 1px 1px rgba(0,0,0,.07),inset 0 -1px 0 rgba(255,255,255,.9);
+  --press:inset 0 1px 3px rgba(0,0,0,.2),inset 0 0 0 1px rgba(0,0,0,.13);
+  --dot:radial-gradient(circle,var(--orange) 0 3px,transparent 3.5px);
   --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
   --sans:"Helvetica Neue",Helvetica,"Nimbus Sans",Arial,sans-serif;
 }
@@ -41,14 +48,16 @@ body{display:grid;grid-template-columns:100%;grid-template-rows:56px 1fr 30px;he
 .toggles{display:flex;gap:3px;padding:3px;background:var(--well);border-radius:9px;box-shadow:var(--press)}
 .tog{white-space:nowrap;border:0;background:var(--key);border-radius:6px;padding:6px 11px;font-size:12px;color:var(--mute);box-shadow:var(--raise)}
 .tog:hover{color:var(--ink)}
-.tog.on{background:#E8E4DD;color:var(--orange);box-shadow:var(--press)}
+.tog.on{background:var(--key-on);color:var(--ink);box-shadow:var(--press)}
 .top-right{display:flex;gap:8px}
 .btn{white-space:nowrap;border:0;background:var(--key);border-radius:8px;padding:8px 12px;font-size:12px;letter-spacing:.04em;color:var(--ink);box-shadow:var(--raise)}
-.btn:hover{color:var(--orange)}
-.btn:active{background:#E9E5DE;box-shadow:var(--press);transform:translateY(.5px)}
-.btn.primary,#btnStop,#btnRunStop{background:var(--orange-key);color:#fff;font-weight:600;box-shadow:0 0 0 1px rgba(150,65,10,.28),0 1px 2px rgba(120,50,0,.3),0 3px 8px rgba(235,122,37,.22),inset 0 1px 0 rgba(255,255,255,.35)}
-.btn.primary:hover,#btnStop:hover,#btnRunStop:hover{color:#fff;filter:brightness(1.04)}
-.btn.primary:active,#btnStop:active,#btnRunStop:active{box-shadow:inset 0 1px 3px rgba(90,35,0,.45);filter:none}
+.btn:hover{color:#000}
+.btn:active{background:var(--key-on);box-shadow:var(--press);transform:translateY(.5px)}
+/* the main key of a place, STOP and HARD STOP: grey keys marked with orange
+   dots, as Rams would — one dot for the main key and STOP, two for HARD STOP */
+.btn.primary,.btn.go,#btnStop,#btnRunStop{font-weight:600}
+.btn.primary::before,.btn.go::before,#btnStop::before,#btnRunStop::before,.btn.danger::before{content:"";display:inline-block;vertical-align:-1px;margin-right:7px;width:7px;height:7px;background:var(--dot) center/7px 7px no-repeat}
+.btn.danger::before{width:17px;background:var(--dot) 0 50%/7px 7px no-repeat,var(--dot) 10px 50%/7px 7px no-repeat}
 
 /* ---------- middle ---------- */
 main{display:grid;grid-template-columns:60px 1fr 340px;min-height:0}
@@ -58,9 +67,8 @@ main{display:grid;grid-template-columns:60px 1fr 340px;min-height:0}
 .tool svg .dot{fill:var(--orange);stroke:none}
 .tool span{position:absolute;right:3px;bottom:2px;font:9px var(--mono);color:var(--mute)}
 .tool:hover{background:var(--panel)}
-.tool.on{background:#E6E2DB;box-shadow:var(--press)}
-.tool.on svg{stroke:var(--orange)}
-.tool.on span{color:var(--orange)}
+.tool.on{background:var(--key-on);box-shadow:var(--press)}
+.tool.on::after{content:"";position:absolute;top:5px;left:5px;width:6px;height:6px;background:var(--dot) center/6px 6px no-repeat}
 .tool.armed{border-color:var(--orange)}
 .tool.armed svg{stroke:var(--orange)}
 .sep{width:26px;height:1px;background:var(--line);margin:6px 0}
@@ -73,11 +81,16 @@ main{display:grid;grid-template-columns:60px 1fr 340px;min-height:0}
 .stage.t-select #wire{cursor:default}
 
 /* ---------- panel ---------- */
-.panel{border-left:1px solid var(--line);background:#EDEAE4;overflow-y:auto;padding:2px 0 30px}
+.panel{border-left:1px solid var(--line);background:#ECEAE6;overflow-y:auto;padding:2px 0 30px}
 .target{display:flex;justify-content:space-between;align-items:center;margin:10px 12px 0;padding:10px 16px;border-radius:12px;background:var(--well);box-shadow:var(--press);font-weight:600}
 .target .k{font-weight:400;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
 #targetName.sel{color:var(--orange)}
-.sec{margin:10px 12px 0;padding:14px 16px 16px;background:var(--card);border-radius:14px;box-shadow:0 0 0 1px rgba(70,55,40,.05),0 1px 2px rgba(70,55,40,.09),0 4px 14px rgba(70,55,40,.05),inset 0 1px 0 #fff}
+.sec{margin:10px 12px 0;padding:14px 16px 16px;background:var(--card);border-radius:14px;box-shadow:0 0 0 1px rgba(0,0,0,.05),0 1px 2px rgba(0,0,0,.07),0 4px 14px rgba(0,0,0,.035),inset 0 1px 0 #fff}
+/* The Stroke section of the Create tab as it was (the owner: "ничего не трогаем") */
+.stroke-sec{--card:#F7F5F1;--well:#E4E0D8;--key:linear-gradient(#FCFBF9,#EEEBE5);
+  --raise:0 0 0 1px rgba(70,55,40,.07),0 1px 2px rgba(70,55,40,.16),0 3px 8px rgba(70,55,40,.06),inset 0 1px 0 #fff;
+  --press:inset 0 1px 3px rgba(70,55,40,.24),inset 0 0 0 1px rgba(70,55,40,.07);
+  box-shadow:0 0 0 1px rgba(70,55,40,.05),0 1px 2px rgba(70,55,40,.09),0 4px 14px rgba(70,55,40,.05),inset 0 1px 0 #fff}
 .sec h3{margin:0 0 10px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:baseline}
 .sec h4{margin:14px 0 6px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);font-weight:500}
 .hint{font-weight:400;letter-spacing:.02em;text-transform:none;color:var(--mute);font-size:11px}
@@ -98,7 +111,8 @@ main{display:grid;grid-template-columns:60px 1fr 340px;min-height:0}
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:3px;background:var(--well);border-radius:10px;box-shadow:var(--press)}
 .seg button{border:0;background:var(--key);border-radius:7px;padding:8px 6px 7px;display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--mute);box-shadow:var(--raise)}
 .seg button:hover:not(.on):not(:disabled){color:var(--ink)}
-.seg button.on{background:#E8E4DD;color:var(--orange);box-shadow:var(--press)}
+.seg button.on{background:var(--key-on);color:var(--ink);box-shadow:var(--press)}
+.seg button.on::before{content:"";flex:none;width:6px;height:6px;background:var(--dot) center/6px 6px no-repeat}
 #brushSeg{grid-template-columns:repeat(3,1fr)}
 #speedX{grid-template-columns:repeat(4,1fr);margin:2px 0 6px}
 #perLaneSeg{margin:0 0 6px}
@@ -109,8 +123,9 @@ main{display:grid;grid-template-columns:60px 1fr 340px;min-height:0}
 .seg .bico i{display:block;background:currentColor;border-radius:1px 1px 0 0}
 
 /* palettes (paint loads) */
-.pal{border:0;border-radius:10px;background:#FBFAF8;margin-bottom:8px;padding:8px 10px;box-shadow:0 0 0 1px rgba(70,55,40,.08),0 1px 2px rgba(70,55,40,.08)}
-.pal.on{box-shadow:0 0 0 1.5px var(--orange),0 2px 6px rgba(235,122,37,.18)}
+.pal{border:0;border-radius:10px;background:#FBFAF8;margin-bottom:8px;padding:8px 10px;box-shadow:0 0 0 1px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06)}
+.pal.on{box-shadow:0 0 0 1.5px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.08)}
+.pal.on .pal-head .nm::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:1px;background:var(--dot) center/6px 6px no-repeat}
 .pal-head{display:flex;align-items:center;gap:8px;cursor:pointer}
 .pal-head .no{font:11px var(--mono);color:var(--mute)}
 .pal-head .nm{font-weight:600;flex:1}
@@ -157,22 +172,22 @@ main{display:grid;grid-template-columns:60px 1fr 340px;min-height:0}
 .inline.check input{width:auto;margin:0}
 /* a checkbox is a switch, as on the references: a well, a knob, orange when on */
 .inline.check input[type=checkbox]{-webkit-appearance:none;appearance:none;width:34px;height:18px;padding:0;border:0;border-radius:9px;background:var(--well);box-shadow:var(--press);position:relative;cursor:pointer;flex:none;transition:background .15s}
-.inline.check input[type=checkbox]::before{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:linear-gradient(#fff,#EDEAE4);box-shadow:0 1px 2px rgba(70,55,40,.35);transition:left .15s}
-.inline.check input[type=checkbox]:checked{background:var(--orange)}
+.inline.check input[type=checkbox]::before{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:linear-gradient(#fff,#ECEBE8);box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s}
+.inline.check input[type=checkbox]:checked{background:#CFCDC8}
+.inline.check input[type=checkbox]:checked::before{background:var(--dot) center/6px 6px no-repeat,linear-gradient(#fff,#ECEBE8)}
 .inline.check input[type=checkbox]:checked::before{left:18px}
 .inline input{width:56px;border:1px solid var(--line);background:#fff;border-radius:4px;padding:4px 6px;font:12px var(--mono)}
 
 /* ---------- pages ---------- */
 .tabs{display:flex;gap:3px;align-self:center;padding:3px;background:var(--well);border-radius:9px;box-shadow:var(--press)}
 .tabs a{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);text-decoration:none;padding:5px 10px;border-radius:6px;background:var(--key);box-shadow:var(--raise)}
-.tabs a.on{background:#E8E4DD;color:var(--orange);box-shadow:var(--press)}
+.tabs a.on{background:var(--key-on);color:var(--ink);box-shadow:var(--press)}
+.tabs a.on::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;vertical-align:0;background:var(--dot) center/6px 6px no-repeat}
 .tabs a:not(.on):hover{color:var(--ink)}
 .btn[disabled]{opacity:.45;cursor:default;color:var(--mute)}
 .btn[disabled]:active{transform:none;background:var(--key);box-shadow:var(--raise)}
-/* HARD STOP: never mistaken for STOP */
-.btn.danger{background:linear-gradient(#BE5420,#9C3C09);color:#fff;font-weight:600;box-shadow:0 0 0 1px rgba(90,30,0,.35),0 1px 2px rgba(90,30,0,.35),inset 0 1px 0 rgba(255,255,255,.22)}
-.btn.danger:hover{color:#fff;filter:brightness(1.05)}
-.btn.danger:active{box-shadow:inset 0 1px 3px rgba(60,20,0,.5);filter:none}
+/* HARD STOP: a grey key with two dots, never mistaken for STOP's one */
+.btn.danger{font-weight:700}
 
 /* ---------- calibration ---------- */
 main.cal{grid-template-columns:1fr 340px}
@@ -202,10 +217,12 @@ main.cal{grid-template-columns:1fr 340px}
 .jog-slider::-moz-range-track,.slider::-moz-range-track{height:8px;border-radius:4px;background:var(--fill);box-shadow:var(--press)}
 .jog-slider::-webkit-slider-thumb,.slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;margin-top:-5px;border:0;border-radius:50%;
   background:linear-gradient(90deg,transparent 8.25px,var(--orange) 8.25px,var(--orange) 9.75px,transparent 9.75px) center/100% 8px no-repeat,linear-gradient(#fff,#EBE8E2);
-  box-shadow:0 0 0 1px rgba(70,55,40,.1),0 1px 3px rgba(70,55,40,.38)}
+  box-shadow:0 0 0 1px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.32)}
 .jog-slider::-moz-range-thumb,.slider::-moz-range-thumb{width:18px;height:18px;border:0;border-radius:50%;box-sizing:border-box;
   background:linear-gradient(90deg,transparent 8.25px,var(--orange) 8.25px,var(--orange) 9.75px,transparent 9.75px) center/100% 8px no-repeat,linear-gradient(#fff,#EBE8E2);
-  box-shadow:0 0 0 1px rgba(70,55,40,.1),0 1px 3px rgba(70,55,40,.38)}
+  box-shadow:0 0 0 1px rgba(0,0,0,.12),0 1px 3px rgba(0,0,0,.32)}
+.stroke-sec .slider::-webkit-slider-thumb{box-shadow:0 0 0 1px rgba(70,55,40,.1),0 1px 3px rgba(70,55,40,.38)}
+.stroke-sec .slider::-moz-range-thumb{box-shadow:0 0 0 1px rgba(70,55,40,.1),0 1px 3px rgba(70,55,40,.38)}
 .ticks{position:relative;height:22px}
 .ticks i{position:absolute;top:2px;width:3px;height:3px;border-radius:50%;background:#CBC4B8;transform:translateX(-1.5px)}
 .ticks i.major{top:1px;width:5px;height:5px;background:#ADA597;transform:translateX(-2.5px)}
@@ -228,16 +245,31 @@ main.cal{grid-template-columns:1fr 340px}
 
 /* ---------- job ---------- */
 #jobView{position:absolute;inset:0;width:100%;height:100%;display:block}
-.btn.job,.btn.go{background:linear-gradient(#3B3834,#24221F);color:var(--bg);font-weight:600;box-shadow:0 0 0 1px rgba(0,0,0,.25),0 1px 2px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.12)}
-.btn.job:hover,.btn.go:hover{color:#fff}
+.btn.job{font-weight:600}
 .progress{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-.pct{font:600 34px var(--mono);letter-spacing:-.02em}
-.left{font:14px var(--mono);color:var(--mute);white-space:nowrap}
-.bar{height:8px;background:var(--well);border-radius:4px;overflow:hidden;margin:8px 0 2px;box-shadow:var(--press)}
-.bar i{display:block;height:100%;width:0;background:var(--orange-key);border-radius:4px}
+/* the Job tab's progress: an LCD, as on the owner's clock reference
+   (Screenshot 2026-09-28 at 10.52.30 PM.png), digits from src/lcd.js. Grey,
+   set into a niche like the Create tab's "Editing" plate (the owner). */
+.lcd{--lcd-ink:#1E1F1E;--lcd-ghost:rgba(30,31,30,.07);
+  background:linear-gradient(#D6D5D1,#CBCAC6);border-radius:10px;padding:9px 11px;color:var(--lcd-ink);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.26),inset 0 0 0 1px rgba(0,0,0,.16),0 1px 0 #fff;
+  font:700 9.5px/1.2 var(--mono);letter-spacing:.1em;text-transform:uppercase}
+.lcd .segs{display:block;overflow:visible}
+.lcd .segs polygon,.lcd .segs rect{fill:var(--lcd-ghost)}
+.lcd .segs .seg-on{fill:var(--lcd-ink)}
+.lcd-top{display:flex;justify-content:space-between;gap:8px;margin-bottom:7px}
+.lcd-mid{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+.lcd-big{display:flex;align-items:flex-start;gap:4px}
+.lcd-big .u{font-size:14px;margin-top:3px}
+.lcd-times{display:grid;grid-template-columns:auto auto;justify-items:end;align-items:center;gap:5px 8px}
+.lcd-times .k{opacity:.7}
+.lcd .bars{display:flex;gap:2px;height:13px;margin:9px 0 7px}
+.lcd .bars i{flex:1;background:var(--lcd-ghost);border-radius:.5px}
+.lcd .bars i.on{background:var(--lcd-ink)}
+.lcd-now{font-weight:600;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mode-seg{margin:2px 0 8px}
 .seg button:disabled{opacity:.45;cursor:default}
-.hint.live{color:var(--orange)}
+.hint.live{color:var(--ink)}
 .mode-seg button{padding:7px 8px;flex-direction:row;justify-content:center;font-size:13px}
 #now{color:var(--ink);text-align:center;flex:1;padding:0 6px}
 .run{margin-top:12px;padding-top:10px;border-top:1px solid #ECE8E1}
@@ -245,6 +277,7 @@ main.cal{grid-template-columns:1fr 340px}
 .brush-row .btn{flex:1;padding:9px}
 
 /* fields: recessed, as the wells */
-.field select,.grid4 input,.inline input:not([type=checkbox]),.loadmode input[type=number],.weight select,.corner .off input,.hexes input{
-  background:#FBFAF8;border:1px solid rgba(70,55,40,.12);border-radius:6px;box-shadow:inset 0 1px 2px rgba(70,55,40,.1)}
+.field select,.grid4 input,.inline input:not([type=checkbox]),.loadmode input[type=number],.corner .off input,.hexes input{
+  background:#FBFBF9;border:1px solid rgba(0,0,0,.13);border-radius:6px;box-shadow:inset 0 1px 2px rgba(0,0,0,.08)}
+.weight select{background:#FBFAF8;border:1px solid rgba(70,55,40,.12);border-radius:6px;box-shadow:inset 0 1px 2px rgba(70,55,40,.1)}
 .math td{border-bottom-color:#ECE8E1}
