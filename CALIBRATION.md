@@ -58,6 +58,27 @@ was measured, how, and what it changed. Numbers here are the source for
   slider moved right, which is up, instead of left, which is down to the
   beam); after the reset it was set again at the right stops.
 
+### The pencil job again: two runner faults (evening)
+
+- **A false runaway at home.** ⚡️ Do Job from home stopped at once with
+  "runaway: X at −9.4 mm": the runner's line was 5 mm past a wall, and home
+  lies 9.45 / 8.3 mm past the walls, at the stops. It sent a HARD STOP;
+  nothing moved. The line is now the board's own, 12 mm (the reserve plus
+  2 mm).
+- **X stuck after that HARD STOP**, as known since 2026-09-27. On the next
+  run the X count never left −9.45; Y ran to 569.5 mm (15186 steps, at the
+  right wall, **no knock** — the owner). The board stopped each path itself
+  (3 faults, "такт не берётся", 34 968 retries); the runner took each stop
+  for the end of a block, lowered the pencil and ran on along Y only, until
+  an arc started from the wrong place and ran past a wall ("край A"). Pencil
+  lines near the bottom edge, at X ≈ −9.45. Now every move block must end
+  within 1 mm of where it should, or the runner sends a HARD STOP and says
+  so — before the brush can go down.
+- The board was reset over the serial line with J3 on the canvas (1487), so
+  its zero came back right; +90° reads 2509. The shoulder drifted again
+  while the wrist swung (2499 → 2494) and holds at 2494, 0.4° off the pose
+  of the night; the elbow holds at 1757.
+
 ---
 
 ## 2026-09-27 — first calibration, with a pencil
