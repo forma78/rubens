@@ -10,5 +10,11 @@ the canvas.
 | [`rubens-preview/`](rubens-preview/) | the app: Create, Calibration and Job tabs. How to run it — in its `README.md` |
 | [`images_CNC_drawing_machine/`](images_CNC_drawing_machine/) | photos of the machine and the arm drawing "Lapa" |
 
-Firmware, the serial bridge and the MELNICOMM pendant live separately, in
-`~/RAIL-drawing_machine` (not published).
+Firmware, the serial bridge and the MELNICOMM pendant live separately, with
+the machine itself: CNCDM-001, a private repository.
+
+## License
+
+The code and the documents are under the [MIT License](LICENSE).
+The photos and drawings in `images_CNC_drawing_machine/` are not: they are
+© 2026 Theo Sumkin, all rights reserved.

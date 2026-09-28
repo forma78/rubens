@@ -1,6 +1,7 @@
 {
   "name": "rubens-preview",
   "private": true,
+  "license": "MIT",
   "description": "RUBENS Brush Preview. No build step: the browser loads src/*.js as ES modules. package.json only tells Node that .js files are modules, for the tests.",
   "type": "module",
   "scripts": {
