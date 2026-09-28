@@ -74,7 +74,7 @@ function showPos() {
   }
   const noZero = S.pos.x == null || S.pos.y == null;
   $('#posNote').innerHTML = S.link !== 'ok' ? '' : noZero
-    ? '<span class="warn">No zero: the board does not know where the carriage is, and the walls are off. Set home first.</span>'
+    ? '<span class="warn">No zero: after power-on the board does not know where the carriage is, and the walls are off. Level 1: X down to its stop, Y left to its stop, stop at the first sound — then Set home.</span>'
     : '';
   document.querySelectorAll('[data-act="rec"]').forEach(b => { b.disabled = noZero || S.link !== 'ok'; });
 }
