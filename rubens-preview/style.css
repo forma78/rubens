@@ -162,6 +162,8 @@ main.cal{grid-template-columns:1fr 340px}
 .axis + .axis{border-top:1px solid #E8E4DC;padding-top:12px}
 .axis-head{display:flex;align-items:baseline;gap:10px}
 .axis-head .k{font:600 15px var(--mono);width:14px}
+.axis.servo .axis-head .k{width:auto;font-size:13px;letter-spacing:.04em}
+.axis.servo.busy .speed{color:var(--orange)}
 .pos{font:21px var(--mono);letter-spacing:-.01em;white-space:nowrap}
 .pos.none{color:var(--orange);font-size:15px}
 .speed{margin-left:auto;font:600 12px var(--mono);white-space:nowrap}

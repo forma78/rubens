@@ -10,6 +10,9 @@ the machine through its bridge (Rubens_v2.md, section 6).
   the axis zero. The arm is not among them.
 - /calibration and /job: GET returns calibration.json / job.json, PUT saves
   it. The Job tab writes job.json — the job in mm, in the order it runs.
+- /arm: GET the arm in RUBENS's degrees (0° = the working pose); POST
+  /arm?j=<joint>&d=<deg> moves one joint there (class Arm). /brush/off and
+  /brush/on go through it too.
 - /park (GET), POST /shutdown and /restore: the place where the carriage
   stood when the motors were shut down, put back after power-on (class Park).
 - /run: the runner (class Runner) — GET is its state; POST starts the machine
@@ -94,6 +97,85 @@ def block_end(cmds):
 # on again the same night once the pass core ran on FastAccelStepper 1.3.4
 # and passed the air tests (CALIBRATION.md). Set to False to lock them.
 RUNS_ENABLED = True
+
+
+# The arm (RAIL-drawing_machine/src/main.cpp: JOINT_ID, JOINT_SIGN,
+# JOINT_LIMIT): servo id, sign, limit in degrees. The same signs as the
+# MELNICOMM pendant (images_CNC_drawing_machine/servo direction.png: shoulder
+# minus — to the right, elbow plus — to the right, wrist minus left, plus right).
+JOINTS = {"shoulder": (1, -1, 45), "elbow": (2, +1, 45), "wrist": (3, +1, 90)}
+TICKS_PER_DEG = 4096 / 360
+# The working pose, raw servo poses (4096 a turn): the pose the canvas was
+# calibrated in (CALIBRATION.md, 2026-09-28). calibration.json "arm" wins.
+ARM_ZERO = {"shoulder": 2501, "elbow": 1759, "wrist": 1489}
+
+
+def parse_look(text):
+    """'ok V | … | 1: поза 2499, 11,3 В, 31 °C | 2: …' → {1: 2499, 2: …}"""
+    return {int(j): int(p) for j, p in re.findall(r"(\d): поза (\d+)", text or "")}
+
+
+class ArmError(Exception):
+    pass
+
+
+class Arm:
+    """The arm in RUBENS's own degrees: 0° is the working pose (ARM_ZERO).
+
+    The firmware takes a joint's zero from wherever it stands at the first
+    command after power-on; twice on 2026-09-28 that sent the brush to 180°.
+    The servos read their own pose, so RUBENS never sends the firmware an
+    absolute angle: it reads where the joint really is, sets the firmware's
+    zero there (Z — nothing moves, the other joints hold where they are) and
+    sends the difference, in steps within the joint's limit. Whatever zero the
+    board took, the arm goes where RUBENS says. Servos cannot be stopped by
+    STOP; a move takes up to about 2 s (MOVE_SPEED, ~53°/s).
+    """
+
+    def __init__(self, send, zero=lambda: ARM_ZERO, sleep=time.sleep):
+        self.send, self.zero, self.sleep = send, zero, sleep
+        self.lock = threading.Lock()
+
+    def angles(self):
+        raw, z = parse_look(self.send("/look")), self.zero()
+        out = {}
+        for k, (jid, sign, _) in JOINTS.items():
+            out[k] = None if jid not in raw else round(sign * (raw[jid] - z[k]) / TICKS_PER_DEG, 1)
+        return out, raw
+
+    def move_to(self, joint, deg):
+        jid, sign, lim = JOINTS[joint]
+        deg = max(-lim, min(lim, deg))
+        with self.lock:
+            for _ in range(6):
+                ang, raw = self.angles()
+                if ang[joint] is None:
+                    raise ArmError(f"the {joint} does not answer: is the 12 V on?")
+                d = deg - ang[joint]
+                step = max(-lim, min(lim, round(d)))
+                if abs(d) < 0.6 or step == 0:
+                    return ang[joint]
+                r = self.send("/zero")
+                if not r.startswith("ok Z"):
+                    raise ArmError(f"arm zero: {in_english(r)}")
+                r = self.send(f"/servo?j={joint}&d={step}")
+                if not r.startswith("ok J"):
+                    raise ArmError(f"{joint}: {in_english(r)}")
+                self._settle(jid, raw[jid] + sign * step * TICKS_PER_DEG)
+            raise ArmError(f"the {joint} does not get to {deg}°")
+
+    def _settle(self, jid, target):
+        # until the servo is there, or stands still (held back by something)
+        last, t = None, 0.0
+        while t < 4.0:
+            self.sleep(0.15)
+            t += 0.15
+            p = parse_look(self.send("/look")).get(jid)
+            if p is None:
+                return
+            if abs(p - target) <= 6 or (last is not None and abs(p - last) <= 1 and t > 0.6):
+                return
+            last = p
 
 
 def parse_ping(text):
@@ -189,8 +271,8 @@ class Runner:
     send(path) -> reply is a GET on the bridge; the tests pass a fake board.
     """
 
-    def __init__(self, send, sleep=time.sleep, swing_s=1.8):
-        self.send, self.sleep, self.swing_s = send, sleep, swing_s
+    def __init__(self, send, sleep=time.sleep, swing_s=1.8, arm=None):
+        self.send, self.sleep, self.swing_s, self.arm = send, sleep, swing_s, arm
         self.lock = threading.Lock()
         self.state, self.message = "idle", ""
         self.blocks, self.block = [], 0
@@ -320,6 +402,15 @@ class Runner:
 
     def _arm(self, cmd):
         deg = int(cmd.split()[2])
+        if self.arm:
+            # in RUBENS's degrees, from where the wrist really is (class Arm)
+            try:
+                self.arm.move_to("wrist", deg)
+            except ArmError as e:
+                raise Abort(f"{cmd}: {e}")
+            self.brush_on = deg == 0
+            self._ping()
+            return
         r = self.send(f"/servo?j=wrist&d={deg}")
         if not r.startswith("ok J"):
             raise Abort(f"{cmd}: {in_english(r)}")
@@ -556,7 +647,17 @@ def bridge_get(path):
         return "no bridge"
 
 
-RUNNER = Runner(bridge_get)
+def arm_zero():
+    try:
+        with open(FILES["/calibration"], encoding="utf-8") as f:
+            z = json.load(f).get("arm") or {}
+        return {k: int(z.get(k, v)) for k, v in ARM_ZERO.items()}
+    except (OSError, ValueError, TypeError):
+        return dict(ARM_ZERO)
+
+
+ARM = Arm(bridge_get, arm_zero)
+RUNNER = Runner(bridge_get, arm=ARM)
 PARK = Park(PARK_FILE, bridge_get)
 
 
@@ -590,6 +691,9 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(200, json.dumps(RUNNER.status()), "application/json")
         if u.path == "/park":
             return self.reply(200, json.dumps(PARK.read() or {}), "application/json")
+        if u.path == "/arm":
+            ang, raw = ARM.angles()
+            return self.reply(200, json.dumps({"angles": ang, "raw": raw, "zero": arm_zero()}), "application/json")
         if u.path in FILES:
             if not os.path.exists(FILES[u.path]):
                 return self.reply(200, "{}", "application/json")
@@ -619,11 +723,29 @@ class Handler(SimpleHTTPRequestHandler):
         if path in ("/brush/off", "/brush/on"):
             if RUNNER.state in LIVE:
                 return self.reply(409, "a job is running")
-            deg = 90 if path == "/brush/off" else 0
-            r = bridge_get(f"/servo?j=wrist&d={deg}")
-            if r.startswith("ok J"):
-                RUNNER.brush_on = deg == 0
-            return self.reply(200, r)
+            deg = SWING_DEG if path == "/brush/off" else 0
+            try:
+                ARM.move_to("wrist", deg)
+            except ArmError as e:
+                return self.reply(200, str(e))
+            RUNNER.brush_on = deg == 0
+            return self.reply(200, f"ok J 3 {deg}")
+        if path == "/arm":
+            # the arm jog of the Calibration tab: a joint to an angle, in
+            # RUBENS's degrees (class Arm); not while a job runs
+            if RUNNER.state in LIVE:
+                return self.reply(409, "a job is running")
+            q = parse_qs(urlparse(self.path).query)
+            jn = q.get("j", [""])[0]
+            if jn not in JOINTS:
+                return self.reply(400, "which joint?")
+            try:
+                got = ARM.move_to(jn, float(q.get("d", ["0"])[0]))
+            except (ArmError, ValueError) as e:
+                return self.reply(200, json.dumps({"ok": False, "message": str(e)}), "application/json")
+            if jn == "wrist":
+                RUNNER.brush_on = abs(got) < 1
+            return self.reply(200, json.dumps({"ok": True, "angle": got}), "application/json")
         if path == "/run/stop":
             return self.reply(200, RUNNER.stop())
         if path == "/run/kill":

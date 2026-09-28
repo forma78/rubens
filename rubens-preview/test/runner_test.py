@@ -11,12 +11,15 @@ import unittest
 from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from rubens import STEPS_PER_MM, Park, Runner, block_end, in_english, parse_ping, piece_at, rest_of  # noqa: E402
+from rubens import (STEPS_PER_MM, TICKS_PER_DEG, Arm, Park, Runner, block_end, in_english,  # noqa: E402
+                    parse_look, parse_ping, piece_at, rest_of)
 
 
 class FakeBoard:
     """Answers like the draft firmware behind the bridge. Time passes only in
     sleep(): a running path eats `rate` pieces per 0.2 s."""
+
+    SIGN, OFF, LIM = {1: -1, 2: 1, 3: 1}, {1: 5, 2: 5, 3: 0}, {1: 45, 2: 45, 3: 90}
 
     def __init__(self, zero=True, rate=3, edge_on=None, paths=True, stuck_x=False):
         self.log, self.queue, self.running = [], [], False
@@ -25,6 +28,11 @@ class FakeBoard:
         self.max_queue, self.on_sleep = 0, None
         self.x, self.y = 800, 267
         self.goal = None                       # where the queued pieces end, steps
+        # the arm as the firmware runs it: raw servo poses, a joint's zero taken
+        # at its first command (or by Z), degrees with JOINT_SIGN and JOINT_OFFSET
+        self.raw = {1: 2501, 2: 1759, 3: 1489}
+        self.zt = {1: -1, 2: -1, 3: -1}
+        self.tdeg = {1: 0, 2: 0, 3: 0}
 
     def send(self, path):
         u = urlparse(path)
@@ -38,9 +46,26 @@ class FakeBoard:
             setattr(self, a.lower(), at)
             self.zero = True                   # the fake keeps one flag for both axes
             return f"ok O {a} {at}"
+        if u.path == "/look":
+            return "ok V | X MCPWM_PCNT, Y MCPWM_PCNT | путь: пусто 0 | " + " | ".join(
+                f"{j}: поза {self.raw[j]}, 11,3 В, 30 °C" for j in (1, 2, 3))
+        if u.path == "/zero":
+            self.log.append("Z")
+            for j in (1, 2, 3):
+                self.zt[j] = self.raw[j] - round(self.SIGN[j] * self.OFF[j] * TICKS_PER_DEG)
+                self.tdeg[j] = 0
+            return "ok Z 3"
         if u.path == "/servo":
-            self.log.append(f"J 3 {q['d'][0]}")
-            return f"ok J 3 {q['d'][0]}"
+            jid = {"shoulder": 1, "elbow": 2, "wrist": 3}[q["j"][0]]
+            d = max(-self.LIM[jid], min(self.LIM[jid], int(float(q["d"][0]))))
+            self.log.append(f"J {jid} {d}")
+            if self.zt[jid] < 0:
+                self.zt[jid] = self.raw[jid]            # takeZero: the pose at the first command
+            self.tdeg[jid] = d
+            for j in (1, 2, 3):                          # moveArm: every zeroed joint, one packet
+                if self.zt[j] >= 0:
+                    self.raw[j] = max(0, min(4095, self.zt[j] + round(self.SIGN[j] * (self.tdeg[j] + self.OFF[j]) * TICKS_PER_DEG)))
+            return f"ok J {jid} {d}"
         if u.path == "/cmd":
             a = q["a"][0]
             self.log.append(a)
@@ -355,6 +380,59 @@ class PauseTest(unittest.TestCase):
         self.assertIsNone(piece_at((0, 0), path, (5, 5)))               # inside the U: on no piece
         self.assertEqual(piece_at((0, 0), path, (6, 10)), 2)
         self.assertEqual(piece_at((0, 0), path, (10, 0), first=1), 1)  # a joint: the later piece, if asked
+
+
+class ArmTest(unittest.TestCase):
+    """The arm in RUBENS's degrees, whatever zero the board took (2026-09-28:
+    twice the wrist took its zero at +90° and swung the brush to 180°)."""
+
+    def arm(self, b):
+        return Arm(b.send, sleep=b.sleep)
+
+    def near(self, raw, want, ticks=7):
+        self.assertLessEqual(abs(raw - want), ticks, f"{raw} instead of {want}")
+
+    def test_the_brush_comes_back_from_180(self):
+        b = FakeBoard()
+        b.raw = {1: 1742, 2: 1678, 3: 3535}            # tonight: the brush upside down, the shoulder 67° off
+        b.zt[3], b.tdeg[3] = 2511, 90                  # the zero the board took at +90°
+        self.assertEqual(self.arm(b).angles()[0], {"shoulder": 66.7, "elbow": -7.1, "wrist": 179.8})
+        self.arm(b).move_to("wrist", 90)
+        self.near(b.raw[3], 2513)
+        self.assertEqual((b.raw[1], b.raw[2]), (1742, 1678))   # the others only hold
+
+    def test_the_shoulder_comes_back_from_67_degrees_in_steps(self):
+        b = FakeBoard()
+        b.raw[1] = 1742
+        got = self.arm(b).move_to("shoulder", 0)
+        self.near(b.raw[1], 2501)
+        self.assertLess(abs(got), 0.6)
+        steps = [c for c in b.log if c.startswith("J 1")]
+        self.assertGreaterEqual(len(steps), 2)                   # no step past the 45° limit
+        self.assertTrue(all(abs(int(c.split()[2])) <= 45 for c in steps))
+
+    def test_signs_as_on_the_pendant(self):
+        b = FakeBoard()
+        self.arm(b).move_to("shoulder", -15)
+        self.near(b.raw[1], 2501 + round(15 * TICKS_PER_DEG))      # JOINT_SIGN −1
+        self.arm(b).move_to("elbow", 15)
+        self.near(b.raw[2], 1759 + round(15 * TICKS_PER_DEG))
+        self.arm(b).move_to("wrist", -45)
+        self.near(b.raw[3], 1489 - round(45 * TICKS_PER_DEG))
+
+    def test_the_runner_swings_the_brush_in_rubens_degrees(self):
+        b = FakeBoard()
+        b.raw[3] = 2513                                           # left at +90° over the night
+        r = Runner(b.send, sleep=b.sleep, swing_s=0.2, arm=self.arm(b))
+        r.start([arm(True), travel(100, 20), arm(False), paint(3), arm(True)])
+        r.thread.join(10)
+        self.assertEqual(r.state, "done", r.message)
+        self.near(b.raw[3], 2513)                                 # +90°, not 180°
+        self.assertFalse(r.brush_on)
+
+    def test_parse_look(self):
+        self.assertEqual(parse_look("ok V | X MCPWM_PCNT | 1: поза 2499, 11,3 В, 31 °C | 2: поза 1757, 11,3 В | 3: молчит"),
+                         {1: 2499, 2: 1757})
 
 
 class ParkTest(unittest.TestCase):

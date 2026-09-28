@@ -53,12 +53,31 @@
         <input id="jogY" class="jog-slider" type="range" min="-9" max="9" step="1" value="0" aria-label="Y level">
         <div class="ticks" id="tickY"></div>
       </div>
+      <div class="axis servo" id="axShoulder">
+        <div class="axis-head"><span class="k">SHOULDER</span><span class="pos" id="posShoulder">—</span><span class="speed" id="armShoulderV"></span></div>
+        <div class="dir">minus: the brush goes right</div>
+        <input id="armShoulder" class="jog-slider" type="range" min="-45" max="45" step="5" value="0" aria-label="Shoulder, degrees">
+        <div class="ticks" id="tickShoulder"></div>
+      </div>
+      <div class="axis servo" id="axElbow">
+        <div class="axis-head"><span class="k">ELBOW</span><span class="pos" id="posElbow">—</span><span class="speed" id="armElbowV"></span></div>
+        <div class="dir">plus: the brush goes right</div>
+        <input id="armElbow" class="jog-slider" type="range" min="-45" max="45" step="5" value="0" aria-label="Elbow, degrees">
+        <div class="ticks" id="tickElbow"></div>
+      </div>
+      <div class="axis servo" id="axWrist">
+        <div class="axis-head"><span class="k">WRIST</span><span class="pos" id="posWrist">—</span><span class="speed" id="armWristV"></span></div>
+        <div class="dir">minus: the brush swings left · plus: right · 0°: on the canvas, +90°: off</div>
+        <input id="armWrist" class="jog-slider" type="range" min="-90" max="90" step="5" value="0" aria-label="Wrist, degrees">
+        <div class="ticks" id="tickWrist"></div>
+      </div>
+      <p class="read" id="armNote">The arm in degrees from its working pose (0°), the pose the canvas was calibrated in. The servos report where they are, so this holds whatever zero the board took. The slider moves the joint when you let go; STOP does not stop the arm — a move takes up to 2 s.</p>
       <p class="read" id="posNote"></p>
       <div class="stops">
         <button class="btn" id="btnStop" title="Stop both axes, braking (Esc)">STOP</button>
         <button class="btn danger" id="btnKill" title="Stop both axes at once, no braking">HARD STOP</button>
       </div>
-      <p class="read">The slider stays where you put it, like a throttle. The arm is not driven from here.</p>
+      <p class="read">X and Y: the slider stays where you put it, like a throttle. STOP and HARD STOP stop X and Y.</p>
     </section>
 
     <section class="sec">
