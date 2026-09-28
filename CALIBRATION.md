@@ -85,6 +85,30 @@ was measured, how, and what it changed. Numbers here are the source for
 - **Next: the brush.** The round Raphael No. 4 in the same clamp, the job in
   Brush mode (every lane there and back).
 
+### The first canvas in paint (late evening)
+
+"Это наш первый холст!" — the owner and his wife. Photos
+`images_CNC_drawing_machine/photo_2026-09-28 22.08.30.jpeg` and
+`22.08.33.jpeg` (at an angle, no ruler).
+
+- **The job:** the stroke of the pencil job, Brush mode, 500 pt (176.4 mm,
+  lanes 22.05 mm), brush off between lanes, **40 mm/s (×2)**. From
+  `job.json`: all 16 trips lie **11.02 mm** apart (stroke / 16), the turns
+  have a radius of 5.51 mm — the plan is as designed.
+- **Canvas shows between every two trips.** The paint trace of the round
+  No. 4 is narrower than the 11 mm between trips. By the proportion of paint
+  to gap in the photos, roughly 6–7 mm — **an estimate, to measure with a
+  ruler**. The "about 10 mm" of the brush was not its trace. The pencil
+  lines of the pencil job (the lane centres) show in the gap between a lane's
+  two trips, which lie 5.5 mm to each side of them: the geometry is where it
+  should be.
+- **Paint lies in ridges** where the drops were: thick yellow and red stay
+  as raised lines and blobs the brush pushed along instead of spreading.
+- The owner, before this run: ×1 (20 mm/s) is too slow, the paint dries;
+  asked for ×4.
+- Afterwards a new run was stopped at block 2 of 110 with the brush on the
+  canvas, at X 0.1, Y 549.2.
+
 ---
 
 ## 2026-09-27 — first calibration, with a pencil
