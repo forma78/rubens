@@ -13,10 +13,16 @@ export const FORMATS = {
   c100x100: { label: 'Canvas 100 × 100 cm', w: 1000, h: 1000 },
 };
 
-// Brush profile = texture in the preview. The trace width comes from Stroke.
+// Brush profile = texture in the preview. The trace width comes from Stroke;
+// mm is the brush's own trace, which sets how far apart the passes may lie.
+// round10 is the brush on the machine (the owner, 2026-09-28: a Raphael No. 4,
+// "about 10 mm"). Its mm and its texture are guesses until the first paint
+// photos (Rubens_v2.md, section 8): a round brush has no hard bristle rows,
+// so softer streaks and shallower gaps than the flat ones.
 export const BRUSHES = {
-  flat8:  { label: 'Flat 8 mm',  mm: 8,  streaks: 90, streakAmp: 0.13, gap: 0.10, gapDepth: 0.10, hiChance: 0.035 },
-  flat12: { label: 'Flat 12 mm', mm: 12, streaks: 55, streakAmp: 0.22, gap: 0.14, gapDepth: 0.60, hiChance: 0.07 },
+  flat8:   { label: 'Flat 8 mm',   mm: 8,  streaks: 90, streakAmp: 0.13, gap: 0.10, gapDepth: 0.10, hiChance: 0.035 },
+  flat12:  { label: 'Flat 12 mm',  mm: 12, streaks: 55, streakAmp: 0.22, gap: 0.14, gapDepth: 0.60, hiChance: 0.07 },
+  round10: { label: 'Round 10 mm', mm: 10, round: true, guess: true, streaks: 40, streakAmp: 0.12, gap: 0.16, gapDepth: 0.30, hiChance: 0.04 },
 };
 
 export const WEIGHT_MIN = 1, WEIGHT_MAX = 500;

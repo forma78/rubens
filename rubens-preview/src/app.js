@@ -34,7 +34,7 @@ const S = {
   tool: 'gesture',
   penArc: false,
   angleSnap: 15,
-  defaults: { weight: 200, brush: 'flat12', mix: 35, palette: 'L1', load: 'auto', ml: 1 },
+  defaults: { weight: 200, brush: 'round10', mix: 35, palette: 'L1', load: 'auto', ml: 1 },
   paint: { film: 0.3, retention: 25, nozzle: 6, maxDrop: 1, cornerR: 10, lift: true },   // lift: brush off after each pass
   view: { wires: false, drops: false, grid: false, snapGrid: false, cnc: false },
   nextId: 1,
@@ -388,6 +388,12 @@ $('#btnDel').onclick = () => { if (!S.sel) return; undoPush(); S.paths = S.paths
 $('#btnClear').onclick = () => { if (!S.paths.length) return; undoPush(); finishAll(); S.paths = []; S.sel = null; invalidate(); };
 
 // ---------- panel ----------
+// Pencil or Brush, chosen on the Job tab (its settings in this browser).
+function jobMode() {
+  try { return JSON.parse(localStorage.getItem('rubens.job.v01') || 'null')?.mode === 'brush' ? 'brush' : 'pencil'; } catch { return 'pencil'; }
+}
+addEventListener('storage', e => { if (e.key === 'rubens.job.v01') updatePanel(); });   // switched on the Job tab
+
 function setStyle(key, val, soft) {
   soft ? undoPushSoft() : undoPush();
   S.defaults[key] = val;                          // the last choice becomes the default for new strokes
@@ -407,7 +413,9 @@ $('#wPreset').onchange = e => { if (e.target.value) setWeight(+e.target.value); 
 $('#mix').oninput = e => setStyle('mix', +e.target.value, true);
 
 $('#brushSeg').innerHTML = Object.entries(BRUSHES).map(([k, b]) => {
-  const bars = Array.from({ length: b.mm === 8 ? 8 : 12 }, () => `<i style="width:2px;height:${14 + Math.random() * 4}px"></i>`).join('');
+  // a flat brush: a row of even bristles; a round one: a dome
+  const n = b.round ? 9 : b.mm, h = i => b.round ? 6 + 12 * Math.sqrt(1 - ((i + 0.5) / n * 2 - 1) ** 2) : 14 + Math.random() * 4;
+  const bars = Array.from({ length: n }, (_, i) => `<i style="width:2px;height:${h(i).toFixed(1)}px"></i>`).join('');
   return `<button data-brush="${k}"><span class="bico">${bars}</span>${b.label}</button>`;
 }).join('');
 document.querySelectorAll('#brushSeg button').forEach(b => b.onclick = () => setStyle('brush', b.dataset.brush));
@@ -484,13 +492,17 @@ function updatePanel() {
   $('#wSlider').value = wToSlider(st.weight);
   $('#wRead').innerHTML = `Trace <b>${fmt(st.weight * PT_MM, 1)} mm</b> wide · each lane ${fmt(st.weight * PT_MM / 8, 1)} mm`;
   document.querySelectorAll('#brushSeg button').forEach(b => b.classList.toggle('on', b.dataset.brush === st.brush));
-  // CNC: eight passes of this brush, pitch = stroke / 8
-  const B = BRUSHES[st.brush], pitch = st.weight * PT_MM / 8, fullPt = B.mm * 8 / PT_MM, gap = pitch - B.mm;
+  // CNC: eight lanes of this brush, lane = stroke / 8. In the Job tab's Brush
+  // mode every lane is two trips, so the trips lie stroke / 16 apart.
+  const B = BRUSHES[st.brush], trips = jobMode() === 'brush' ? 16 : 8;
+  const pitch = st.weight * PT_MM / trips, fullPt = B.mm * trips / PT_MM, gap = pitch - B.mm;
   let note = '';
   if (gap > 0.5) note = ` <span class="warn">Gaps of ${fmt(gap, 1)} mm between passes.</span>`;
   else if (gap < -0.5) note = ` <span class="warn">Passes overlap by ${fmt(-gap, 1)} mm.</span>`;
-  $('#bRead').innerHTML = `CNC runs <b>8 passes</b> of the ${B.mm} mm brush, ${fmt(pitch, 1)} mm apart.${note}` +
-    (Math.abs(gap) > 0.5 ? ` <button class="link" id="matchBrush">Stroke = 8 × ${B.mm} mm (${fmt(fullPt, 0)} pt)</button>` : '');
+  const how = trips === 16 ? '<b>8 lanes there and back</b> (Brush on the Job tab): 16 trips' : '<b>8 passes</b>';
+  $('#bRead').innerHTML = `CNC runs ${how} of the ${B.mm} mm brush, ${fmt(pitch, 1)} mm apart.${note}` +
+    (Math.abs(gap) > 0.5 ? ` <button class="link" id="matchBrush">Stroke = ${trips} × ${B.mm} mm (${fmt(fullPt, 0)} pt)</button>` : '') +
+    (B.guess ? ` <span class="hint">${B.mm} mm and the texture are a guess until the first paint photos.</span>` : '');
   const mb = $('#matchBrush'); if (mb) mb.onclick = () => setWeight(Math.round(fullPt));
   $('#mix').value = st.mix; $('#mixVal').textContent = st.mix + '%';
   document.querySelectorAll('input[name=load]').forEach(r => r.checked = r.value === st.load);

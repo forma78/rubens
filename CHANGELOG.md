@@ -7,6 +7,10 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **Round 10 mm** on the Create tab, the brush on the machine (a Raphael
+  No. 4), and the default for new strokes. Its 10 mm and its texture are a
+  guess until the first paint photos. The brush note counts 16 trips when
+  the Job tab is on Brush.
 - **A job ends at home**, like a 3D printer: after the last pass the brush
   swings off and the carriage travels to the bottom left corner inside the
   walls (X 0.1, Y 0.1 mm), not left over the middle of the canvas.
@@ -32,8 +36,8 @@ before paint.
   brush leaves the canvas and the machine waits — to sharpen a pencil or
   squeeze paint. Continue brings the brush back to the same point and goes on
   from there: nothing is skipped or drawn twice. Space pauses; only a click
-  continues. STOP and HARD STOP work while paused. *Tested on the fake board;
-  not yet on the machine.*
+  continues. STOP and HARD STOP work while paused. Tested on the machine
+  with a pencil the same evening.
 - **The progress is the machine's.** While a job runs, the big percent, the
   bar and the marker on the plan follow the machine. The on-screen play,
   its scrub and its speeds are gone.

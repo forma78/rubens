@@ -78,6 +78,12 @@ was measured, how, and what it changed. Numbers here are the source for
   its zero came back right; +90° reads 2509. The shoulder drifted again
   while the wrist swung (2499 → 2494) and holds at 2494, 0.4° off the pose
   of the night; the elbow holds at 1757.
+- **The pencil job ran through again** after the fixes: 53 blocks, 15.8 m,
+  done, 0 faults.
+- **Pause works on the machine** — the owner tested it with the pencil the
+  same evening (brake on the line, pencil off, back on, the line goes on).
+- **Next: the brush.** The round Raphael No. 4 in the same clamp, the job in
+  Brush mode (every lane there and back).
 
 ---
 
