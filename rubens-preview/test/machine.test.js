@@ -81,13 +81,16 @@ const straight = () => canvasReport({ tl: { x: 800, y: 0 }, tr: { x: 800, y: 600
 const fileOf = (paths, paint) => jobFile(jobSteps(paths, () => EIGHT, paint), { formatKey: 'p60x80', format: { w: 600, h: 800 }, paint });
 const MM = v => v / PT_MM;   // mm → document units
 
-test('job on the machine: brush off, travel, brush on, pass… brush off at the end', () => {
+test('job on the machine: brush off, travel, brush on, pass… brush off and home at the end', () => {
   const p = poly([[MM(100), MM(700)], [MM(100), MM(100)]]);   // drawn upwards, 600 mm
   const { blocks, skipped } = jobToMachine(fileOf([p], { ...PAINT, lift: true }), straight().fit);
   assert.deepEqual(skipped, []);
   const kinds = blocks.map(b => b.kind === 'arm' ? (b.off ? 'off' : 'on') : b.cmds.some(c => c[0] === 'M') ? 'travel' : 'pass');
   assert.deepEqual(kinds.slice(0, 5), ['off', 'travel', 'on', 'pass', 'off']);
-  assert.equal(kinds[kinds.length - 1], 'off');
+  assert.deepEqual(kinds.slice(-2), ['off', 'travel']);
+  const home = blocks[blocks.length - 1];
+  assert.ok(home.home);
+  assert.deepEqual(home.cmds, ['T 100', 'M 0.10 0.10', 'G']);   // the bottom left corner inside the walls
   assert.equal(kinds.filter(k => k === 'pass').length, 8);
   for (const b of blocks) if (b.kind === 'move') assert.equal(b.cmds[b.cmds.length - 1], 'G');
 });
@@ -158,7 +161,7 @@ test('job on the machine: a pass that leaves the reach and comes back is two run
   ] }] };
   const { blocks, skipped } = jobToMachine(job, straight().fit);
   const kinds = blocks.map(b => b.kind === 'arm' ? (b.off ? 'off' : 'on') : b.cmds.some(c => c[0] === 'M') ? 'travel' : 'run');
-  assert.deepEqual(kinds, ['off', 'travel', 'on', 'run', 'off', 'travel', 'on', 'run', 'off']);
+  assert.deepEqual(kinds, ['off', 'travel', 'on', 'run', 'off', 'travel', 'on', 'run', 'off', 'travel']);   // … and home
   assert.equal(skipped.length, 1);
   for (const q of pointsOf(blocks)) assert.ok(q.y <= WALLS.y.max, `past the right wall: ${q.y}`);
 });

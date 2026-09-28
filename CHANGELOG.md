@@ -5,6 +5,14 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ---
 
+## Unreleased
+
+- **A job ends at home**, like a 3D printer: after the last pass the brush
+  swings off and the carriage travels to the bottom left corner inside the
+  walls (X 0.1, Y 0.1 mm), not left over the middle of the canvas.
+
+---
+
 ## Update 28-09-2026 · v0.1.2
 
 The first day of work on the machine rather than on its screws: the first

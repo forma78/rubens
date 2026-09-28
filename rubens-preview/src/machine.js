@@ -265,5 +265,10 @@ export function jobToMachine(job, fit, { paintMMs = 20, travelMMs = 100 } = {}) 
     if (cut > 0.05) skipped.push({ step: i, stroke: st.stroke, lane: st.lane, mm: cut });
   });
   close(); arm(true);
+  // Like a 3D printer, the job ends at home (the owner, 2026-09-28), not over
+  // the middle of the canvas: the bottom left corner inside the walls, the
+  // brush off. Home itself lies past the walls, at the stops, where no path goes.
+  if (Number.isFinite(B.x0) && Number.isFinite(B.y0))
+    blocks.push({ kind: 'move', cmds: [`T ${travelMMs}`, `M ${f2(B.x0)} ${f2(B.y0)}`, 'G'], lengthMM: null, paintMM: 0, home: true });
   return { blocks, skipped, skippedMM: skipped.reduce((a, x) => a + x.mm, 0) };
 }
