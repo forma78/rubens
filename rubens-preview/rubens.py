@@ -26,6 +26,7 @@ network.
 """
 
 import json
+import math
 import os
 import re
 import threading
@@ -51,6 +52,44 @@ STEPS_PER_MM = (80.0, 3200.0 / 120.0)   # X, Y — the same as src/machine.js
 # Y −8.3; with 5 mm here the runner took home for a runaway (2026-09-28).
 WALLS_MM = ((0.0, 865.0), (0.0, 15160 / (3200.0 / 120.0)))
 RUNAWAY_MM = 12.0
+# After every move block the carriage must stand where the block ends. The
+# board stops a path by itself on a fault (a motor that does not take a
+# slice); the runner used to take that for the end of the block and went on,
+# brush down, from the wrong place (2026-09-28: X stuck after a HARD STOP,
+# three passes ran along Y only). An arc's end is recomputed by the board
+# from its start radius, a tenth of a mm at most.
+ARRIVAL_MM = 1.0
+
+# What the board answers, in the words of the Job tab.
+BOARD_WORDS = [
+    (re.compile(r"^край ([A-Z])"), "past a wall"),
+    (re.compile(r"такт не берётся"), "a motor does not take the path (restart the board)"),
+    (re.compile(r"нет нуля осей"), "no zero on the axes"),
+    (re.compile(r"тормозим"), "the board is braking"),
+    (re.compile(r"едет, сначала стоп"), "the carriage is moving: stop it first"),
+    (re.compile(r"очередь полна"), "the path queue is full"),
+    (re.compile(r"очередь пуста"), "nothing to run"),
+    (re.compile(r"скорость"), "speed out of 1…200 mm/s"),
+]
+
+
+def in_english(reply):
+    for pat, words in BOARD_WORDS:
+        if pat.search(reply or ""):
+            return words
+    return reply
+
+
+def block_end(cmds):
+    """Where a move block leaves the carriage, in mm: the end of its last
+    piece (L x y, M x y, A cx cy x y ±1), or None if it has no pieces."""
+    for c in reversed(cmds):
+        p = c.split()
+        if p[0] in ("L", "M") and len(p) == 3:
+            return float(p[1]), float(p[2])
+        if p[0] == "A" and len(p) == 6:
+            return float(p[3]), float(p[4])
+    return None
 # Runs were off on 2026-09-27 after a diagonal pass ran the Y axis away;
 # on again the same night once the pass core ran on FastAccelStepper 1.3.4
 # and passed the air tests (CALIBRATION.md). Set to False to lock them.
@@ -195,7 +234,7 @@ class Runner:
         deg = int(cmd.split()[2])
         r = self.send(f"/servo?j=wrist&d={deg}")
         if not r.startswith("ok J"):
-            raise Abort(f"{cmd}: {r}")
+            raise Abort(f"{cmd}: {in_english(r)}")
         self.brush_on = deg == 0
         self._wait(self.swing_s)
 
@@ -209,7 +248,7 @@ class Runner:
         if "очередь пуста" in r:
             return False
         if r != "ok G":
-            raise Abort(f"G: {r}")
+            raise Abort(f"G: {in_english(r)}")
         return True
 
     def _move(self, b):
@@ -229,7 +268,7 @@ class Runner:
                         started = self._go()
                     self._wait(0.1)
                     continue
-                raise Abort(f"{c}: {r}")
+                raise Abort(f"{c}: {in_english(r)}")
             if c[0] in "LAM":
                 sent += 1
                 room = int(r.split()[-1])
@@ -238,6 +277,24 @@ class Runner:
         if not started:
             started = self._go()
         self._finish(started, base, share, sent, total)
+        if not self._stop:
+            self._arrived(b)
+
+    def _arrived(self, b):
+        # Before the next block — above all before the brush goes down — the
+        # carriage must be where this one ends.
+        end = block_end(b["cmds"])
+        if end is None:
+            return
+        p = self._ping()
+        if p is None or p["x"] is None or p["y"] is None:
+            raise Abort("lost the board")
+        x, y = p["x"] / STEPS_PER_MM[0], p["y"] / STEPS_PER_MM[1]
+        if math.hypot(x - end[0], y - end[1]) > ARRIVAL_MM:
+            self.send("/cmd?a=K&n=0")
+            raise Abort(f"the carriage did not get there: X {x:.1f} Y {y:.1f} mm instead of "
+                        f"X {end[0]:.1f} Y {end[1]:.1f}. The board stopped the path itself "
+                        "(a restart of the board clears it). HARD STOP sent")
 
     def _finish(self, started, base=None, share=0, sent=0, total=0):
         # the block is over when the board no longer reports a path

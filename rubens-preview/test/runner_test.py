@@ -11,18 +11,20 @@ import unittest
 from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from rubens import Park, Runner, parse_ping  # noqa: E402
+from rubens import STEPS_PER_MM, Park, Runner, block_end, in_english, parse_ping  # noqa: E402
 
 
 class FakeBoard:
     """Answers like the draft firmware behind the bridge. Time passes only in
     sleep(): a running path eats `rate` pieces per 0.2 s."""
 
-    def __init__(self, zero=True, rate=3, edge_on=None, paths=True):
+    def __init__(self, zero=True, rate=3, edge_on=None, paths=True, stuck_x=False):
         self.log, self.queue, self.running = [], [], False
         self.zero, self.rate, self.edge_on, self.paths = zero, rate, edge_on, paths
+        self.stuck_x = stuck_x                 # X does not move: the path ends early
         self.max_queue, self.on_sleep = 0, None
         self.x, self.y = 800, 267
+        self.goal = None                       # where the queued pieces end, steps
 
     def send(self, path):
         u = urlparse(path)
@@ -62,6 +64,8 @@ class FakeBoard:
                 return "? очередь полна"
             self.queue.append(c)
             self.log.append(c)
+            end = block_end([c])
+            self.goal = (round(end[0] * STEPS_PER_MM[0]), round(end[1] * STEPS_PER_MM[1]))
             self.max_queue = max(self.max_queue, len(self.queue))
             return f"ok {c[0]} {16 - len(self.queue)}"
         return "?"
@@ -71,6 +75,11 @@ class FakeBoard:
             self.on_sleep()
         if self.running:
             del self.queue[:self.rate]
+            if self.stuck_x:                   # the board stops the path on the fault
+                self.queue = []
+                self.y = self.goal[1]
+            elif not self.queue:
+                self.x, self.y = self.goal
             if not self.queue:
                 self.running = False
 
@@ -118,7 +127,7 @@ class RunnerTest(unittest.TestCase):
         b = FakeBoard(edge_on="L 3.00")
         r = run(b, [arm(False), paint(5)])
         self.assertEqual(r.state, "error")
-        self.assertIn("край", r.message)
+        self.assertIn("past a wall", r.message)
         self.assertEqual(b.log[-1], "S")
 
     def test_stop_brakes_and_says_the_brush_is_down(self):
@@ -234,6 +243,26 @@ class RunnerTest(unittest.TestCase):
         r = run(b, [arm(True), empty, arm(False), paint(3)])
         self.assertEqual(r.state, "done", r.message)
         self.assertIn("L 3.00 50.00", b.log)
+
+    def test_a_path_the_board_stopped_is_not_taken_for_done(self):
+        # 2026-09-28: X stuck after a HARD STOP; the board stopped each path,
+        # the runner went on, lowered the pencil and ran along Y only
+        b = FakeBoard(stuck_x=True)             # the carriage stands at X 10 mm
+        r = run(b, [arm(True), travel(100, 20), arm(False), paint(5)])
+        self.assertEqual(r.state, "error")
+        self.assertIn("did not get there", r.message)
+        self.assertNotIn("J 3 0", b.log)       # the brush never went down
+        self.assertIn("K", b.log)
+
+    def test_board_words_in_english(self):
+        self.assertEqual(in_english("край A"), "past a wall")
+        self.assertIn("restart the board", in_english("? путь: такт не берётся 0"))
+        self.assertEqual(in_english("ok L 12"), "ok L 12")
+
+    def test_block_end(self):
+        self.assertEqual(block_end(["F 20", "L 1 2", "A 0 0 3.5 4 -1", "G"]), (3.5, 4.0))
+        self.assertEqual(block_end(["T 100", "M 10 20", "G"]), (10.0, 20.0))
+        self.assertIsNone(block_end(["T 100", "G"]))
 
     def test_parse_ping(self):
         self.assertEqual(parse_ping("ok P X 800 Y 267 путь 3"), {"x": 800, "y": 267, "path": 3})
