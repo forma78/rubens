@@ -8,7 +8,7 @@ import { segStart, segEnd, segDirStart, segDirEnd } from '../src/geometry.js';
 import { cncPlan, strokeDir } from '../src/cnc.js';
 import { filleted } from '../src/fillet.js';
 import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, pointAlong } from '../src/job.js';
-import { shape, poly, PAINT, EIGHT } from './shapes.js';
+import { shape, poly, polyline, crossings, PAINT, EIGHT } from './shapes.js';
 
 const LIFT = { ...PAINT, lift: true }, SNAKE = { ...PAINT, lift: false };
 const startOf = segs => segStart(segs[0]), endOf = segs => segEnd(segs[segs.length - 1]);
@@ -88,6 +88,61 @@ test('an empty lane: the snake turn spans two pitches', () => {
   const p = shape([['L', 1200]], { start: P(100, 300), weight: 272 });
   const turns = jobSteps([p], () => cols, SNAKE).filter(s => s.kind === 'turn');
   assert.ok(Math.abs(turns[1].segs[0].r - p.style.weight / 8) < 1e-6);   // lane 2 → lane 4
+});
+
+// ---------- brush: every lane there and back (the owner, 2026-09-28) ----------
+const trips = steps => steps.filter(s => s.kind === 'paint');
+
+test('brush: every lane is two trips, up then down, joined at the top by a semicircle of a quarter lane', () => {
+  const p = drawnDown(), W = p.style.weight, steps = jobSteps([p], () => EIGHT, LIFT, 'brush');
+  const t = trips(steps);
+  assert.equal(t.length, 16);
+  assert.deepEqual(t.map(s => s.lane), [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8]);
+  for (let k = 0; k < t.length; k += 2) {
+    const there = t[k].segs, back = t[k + 1].segs;
+    assert.ok(startOf(there).y > endOf(there).y, 'there goes up the picture');
+    assert.ok(startOf(back).y < endOf(back).y, 'back comes down');
+    assert.ok(Math.abs(dist(startOf(there), endOf(back)) - W / 16) < 1e-6, 'the trips lie W / 16 apart');
+    const turn = steps[steps.indexOf(t[k]) + 1];
+    assert.equal(turn.kind, 'turn');                          // the brush stays on the canvas
+    assert.ok(Math.abs(turn.segs[0].r - W / 32) < 1e-6, `radius ${turn.segs[0].r}`);
+    assert.ok(Math.abs(Math.abs(turn.segs[0].s) - Math.PI) < 1e-6, 'a half circle');
+  }
+  assert.deepEqual(t.map(s => s.back ?? false), Array.from({ length: 16 }, (_, i) => i % 2 === 1));
+  assert.ok(t.filter(s => s.back).every(s => s.pass.drops.length === 0), 'drops only where a lane starts');
+});
+
+test('brush: the two trips split the lane — its centre line lies halfway between them', () => {
+  const p = shape([['L', 1200]], { start: P(100, 300), weight: 272 });
+  const pencil = trips(jobSteps([p], () => EIGHT, LIFT)), brush = trips(jobSteps([p], () => EIGHT, LIFT, 'brush'));
+  pencil.forEach((ps, i) => {
+    const mid = P((startOf(brush[2 * i].segs).x + endOf(brush[2 * i + 1].segs).x) / 2,
+                  (startOf(brush[2 * i].segs).y + endOf(brush[2 * i + 1].segs).y) / 2);
+    assert.ok(dist(mid, startOf(ps.segs)) < 1e-6, `lane ${ps.lane}`);
+  });
+});
+
+test('brush with the brush off after each pass: a travel of W / 16 between lanes', () => {
+  const p = drawnDown(), W = p.style.weight, steps = jobSteps([p], () => EIGHT, LIFT, 'brush');
+  const travels = steps.filter(s => s.kind === 'travel');
+  assert.equal(travels.length, 7);
+  for (const tr of travels) assert.ok(Math.abs(dist(tr.segs[0].a, tr.segs[0].b) - W / 16) < 1e-6);
+});
+
+test('brush without it: the whole stroke is one line, turns only', () => {
+  const p = shape([['L', 1200], ['R', 300, 90], ['L', 600]], { start: P(100, 300), weight: 272 });
+  const steps = jobSteps([p], () => EIGHT, SNAKE, 'brush');
+  assert.equal(steps.filter(s => s.kind === 'travel').length, 0);
+  assert.equal(steps.filter(s => s.kind === 'turn').length, 15);
+  for (let k = 1; k < steps.length; k++) assert.ok(dist(endOf(steps[k - 1].segs), startOf(steps[k].segs)) < 1e-6);
+  for (const s of steps.filter(s => s.kind === 'turn')) assert.ok(Math.abs(s.segs[0].r - p.style.weight / 32) < 1e-6);
+});
+
+test('brush: no two trips of a stroke cross', () => {
+  const p = shape([['L', 900], ['R', 250, 120], ['L', 500], ['T', 200, 70]], { start: P(200, 300), weight: 272 });
+  const t = trips(jobSteps([p], () => EIGHT, LIFT, 'brush')).map(s => polyline(s.segs));
+  for (let i = 0; i < t.length; i++) for (let j = i + 1; j < t.length; j++)
+    assert.equal(crossings(t[i], t[j]).length, 0, `trips ${i} and ${j}`);
 });
 
 test('between strokes the brush always leaves the canvas', () => {

@@ -7,13 +7,13 @@ import { PT_MM, FORMATS, PAPER } from './config.js';
 import { fmt, clamp } from './util.js';
 import { luminance } from './color.js';
 import { segLen } from './geometry.js';
-import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, TIME_MODEL } from './job.js';
+import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, MODES, TIME_MODEL } from './job.js';
 import { canvasReport, jobToMachine, CORNERS } from './machine.js';
 
 const $ = s => document.querySelector(s);
 const INK = '#24221F', ORANGE = '#EB7A25';
 
-const S = { doc: null, steps: [], tl: null, t: 0, playing: false, speed: 10, model: { ...TIME_MODEL }, cal: null, onMachine: null, fit: null, run: null };
+const S = { doc: null, steps: [], tl: null, t: 0, playing: false, speed: 10, mode: 'pencil', model: { ...TIME_MODEL }, cal: null, onMachine: null, fit: null, run: null };
 
 // ---------- the drawing and the plan ----------
 // The Create tab keeps its drawing in this browser; read it from there.
@@ -29,21 +29,22 @@ function build() {
   const d = S.doc;
   if (!d) { S.steps = []; S.tl = null; S.t = 0; return; }
   const colorsOf = p => (d.palettes.find(q => q.id === p.style.palette) || d.palettes[0]).colors;
-  S.steps = jobSteps(d.paths.filter(p => p.segs.length), colorsOf, d.paint);
+  S.steps = jobSteps(d.paths.filter(p => p.segs.length), colorsOf, d.paint, S.mode);
   S.tl = jobTimeline(S.steps, S.model);
   S.t = frac * S.tl.total;
 }
 
-// Per-viewer settings: the time model and the playback speed.
+// Per-viewer settings: the time model, the playback speed, Pencil or Brush.
 function loadPrefs() {
   try {
     const o = JSON.parse(localStorage.getItem('rubens.job.v01') || 'null');
     if (o?.model) Object.assign(S.model, o.model);
     if (o?.speed) S.speed = o.speed;
+    if (MODES.includes(o?.mode)) S.mode = o.mode;
   } catch { /* defaults */ }
 }
 function savePrefs() {
-  try { localStorage.setItem('rubens.job.v01', JSON.stringify({ model: S.model, speed: S.speed })); } catch { /* not kept */ }
+  try { localStorage.setItem('rubens.job.v01', JSON.stringify({ model: S.model, speed: S.speed, mode: S.mode })); } catch { /* not kept */ }
 }
 
 // ---------- numbers ----------
@@ -67,11 +68,11 @@ function summary() {
   el.innerHTML = `<table>
     <tr><td>Format</td><td class="r">${F.label}</td></tr>
     <tr><td>Strokes</td><td class="r">${strokes}</td></tr>
-    <tr><td>Passes</td><td class="r">${count('paint')}</td></tr>
+    <tr><td>${S.mode === 'brush' ? 'Trips' : 'Passes'}</td><td class="r">${count('paint')}</td></tr>
     <tr><td>Painted</td><td class="r">${fmt(L.paint * PT_MM / 1000, 2)} m</td></tr>
     <tr><td>Travel, brush off</td><td class="r">${fmt(L.travel * PT_MM / 1000, 2)} m · ${count('travel')}×</td></tr>
-    <tr><td>Snake turns</td><td class="r">${count('turn')}</td></tr>
-    <tr><td>Mode</td><td class="r">${lift ? 'brush off after each pass' : 'snake'}</td></tr>
+    <tr><td>Turns, brush down</td><td class="r">${count('turn')}</td></tr>
+    <tr><td>Between lanes</td><td class="r">${lift ? 'brush off' : S.mode === 'brush' ? 'one line' : 'snake'}</td></tr>
     <tr><td>Estimated time</td><td class="r"><b>${minutes(S.tl.total)}</b></td></tr>
   </table>`;
 }
@@ -104,7 +105,7 @@ function machine() {
     el.innerHTML = `<p class="warn">The canvas corners give ${off.map(e => `${e.name} ${fmt(e.length)} mm`).join(', ')} against the format's ${fmt(F.w)} × ${fmt(F.h)} mm — the job would be stretched. Record the corners of the canvas itself on the Calibration tab.</p>`;
     return;
   }
-  const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint });
+  const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint, mode: S.mode });
   S.fit = rep.fit;
   S.onMachine = { ...jobToMachine(file, rep.fit, { paintMMs: S.model.paintMMs, travelMMs: S.model.travelMMs }), corners: n };
   const b = S.onMachine.blocks, cut = S.onMachine.skipped;
@@ -255,6 +256,21 @@ addEventListener('keydown', e => {
   e.preventDefault();
   play(!S.playing);
 });
+// Pencil: one trip per lane. Brush: every lane there and back without
+// leaving the canvas (job.js). Between lanes the Create tab's "Brush off after
+// each pass" still decides.
+function syncMode() {
+  document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.m === S.mode));
+  $('#modeNote').textContent = S.mode === 'brush'
+    ? 'Every lane there and back on the canvas: up a quarter of the lane to one side of its line, a semicircle, down a quarter to the other side.'
+    : 'One trip per lane, bottom to top.';
+}
+$('#modeSeg').onclick = e => {
+  const b = e.target.closest('button');
+  if (!b || b.dataset.m === S.mode) return;
+  S.mode = b.dataset.m; savePrefs(); syncMode(); build(); summary(); machine(); render();
+};
+
 function syncSpeed() { document.querySelectorAll('#speedSeg button').forEach(b => b.classList.toggle('on', +b.dataset.k === S.speed)); }
 $('#speedSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; S.speed = +b.dataset.k; syncSpeed(); savePrefs(); };
 
@@ -277,7 +293,7 @@ addEventListener('resize', () => render());
 async function saveJob() {
   if (!S.doc) return false;
   const F = FORMATS[S.doc.format];
-  const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint });
+  const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint, mode: S.mode });
   if (S.onMachine) file.machine = { paintMMs: S.model.paintMMs, travelMMs: S.model.travelMMs, ...S.onMachine };
   const body = JSON.stringify(file, null, 1);
   try {
@@ -350,7 +366,7 @@ addEventListener('keydown', e => { if (e.key === 'Escape') machineStop(false); }
 // ---------- start ----------
 loadPrefs();
 for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#mSwing', 'swingS']]) $(id).value = S.model[key];
-syncSpeed();
+syncSpeed(); syncMode();
 build(); summary(); render();
 await loadCalibration(); machine();
 pollRun();   // a run may already be going: show it

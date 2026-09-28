@@ -121,6 +121,18 @@ test('job on the machine: the snake paints a whole stroke in one run', () => {
   assert.equal(runs[0].cmds.filter(c => c[0] === 'A').length, 7);   // seven semicircle turns
 });
 
+test('job on the machine: brush mode paints each lane there and back in one run, brush down', () => {
+  const p = shape([['L', MM(400)]], { start: P(MM(100), MM(300)), weight: 272 });
+  const file = jobFile(jobSteps([p], () => EIGHT, { ...PAINT, lift: true }, 'brush'),
+    { formatKey: 'p60x80', format: { w: 600, h: 800 }, paint: PAINT, mode: 'brush' });
+  assert.equal(file.mode, 'brush');
+  const { blocks } = jobToMachine(file, straight().fit);
+  const runs = blocks.filter(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
+  assert.equal(runs.length, 8);                                        // one run per lane
+  for (const r of runs) assert.deepEqual(r.cmds.map(c => c[0]), ['F', 'L', 'A', 'L', 'G']);
+  assert.equal(blocks.filter(b => b.kind === 'arm').length, 17);       // off, then on / off around every lane
+});
+
 // Every coordinate the board gets, from L, A (end and centre excluded) and M.
 const pointsOf = blocks => blocks.filter(b => b.kind === 'move').flatMap(b => b.cmds)
   .filter(c => /^[LAM] /.test(c)).map(c => { const n = c.split(' ').slice(1).map(Number); return c[0] === 'A' ? { x: n[2], y: n[3] } : { x: n[0], y: n[1] }; });
