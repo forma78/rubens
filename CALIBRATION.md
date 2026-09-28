@@ -232,11 +232,13 @@ stop. The owner stopped it; nothing else moved.
 pencil followed the line, nothing strange — "everything came out wonderfully".
 No photos.
 
-The job, from `rubens-preview/job.json` as the Job tab wrote it at 23:22 (to
-confirm it is the one that ran): one stroke of eight passes, 2324 … 1998 mm
+The job, from `rubens-preview/job.json` as the Job tab wrote it at 23:22 (the
+owner confirms it is the one that ran): one stroke of eight passes 22.05 mm
+apart (500 pt wide, the widest), 2324 … 1998 mm
 each, the brush off and a travel back after every pass; 15.8 m drawn and
 5.9 m of travel, 1.5 m cut at the walls; passes at 20 mm/s, travel at
-100 mm/s — about 13 min of drawing by the plan.
+100 mm/s — about 13 min of drawing by the plan. The real time was not
+noted; "about 13 minutes, probably", from memory.
 
 ### Home — every time after power-on
 
