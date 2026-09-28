@@ -170,6 +170,15 @@ tab at the stop (`Screenshot 2026-09-28 Rubens.png`).
   it.
 - **After the stop** the X count is 200 mm high: the walls stand 200 mm too
   low for the carriage. Home again before anything moves.
+- **The count at the stop.** The owner drove X down to its stop and Y left:
+  the Calibration tab read **X 152.1 mm** at the stop (it should be −9.45),
+  **Y −0.8 mm, at the left wall** (not at the stop). So the X count was
+  **161.6 mm high** — if the carriage was stopped at the first knock (asked).
+  The ruler said 200 mm between the return and the pencil. The rest, about
+  38 mm, may be the new arm pose: in the photo the brush lies about 4 cm
+  below the pencil already before the stall, at the point of the teardrop —
+  if the pencil job ran with the pose before 23:05 (asked), the tip now
+  stands that much lower relative to the carriage.
 - **Next:** measure X's margin going up instead of guessing a speed. Jog X up
   from the bottom at level 2, 3, 4, 5 (20–50 mm/s; a jog has the same
   250 mm/s² as a pass), brush on the canvas and brush off, and listen for the
