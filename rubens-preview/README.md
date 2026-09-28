@@ -1,4 +1,4 @@
-# RUBENS · Brush Preview v0.1
+# RUBENS · Brush Preview v0.1.2
 
 A prototype that previews brush strokes for Motor Brush. Draw a path, pick
 eight drops of paint, see what you will get, export an SVG. Three tabs:

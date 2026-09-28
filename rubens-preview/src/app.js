@@ -1,4 +1,4 @@
-// RUBENS · Brush Preview v0.1 — the page: state, input, panels, screen.
+// RUBENS · Brush Preview v0.1.2 — the page: state, input, panels, screen.
 //
 // Model: paint is squeezed onto the canvas beforehand, eight drops across the
 // brush. The brush follows the path and drags each drop along its own lane.

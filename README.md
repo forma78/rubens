@@ -7,6 +7,8 @@ the canvas.
 | where | what |
 |---|---|
 | [`Rubens_v2.md`](Rubens_v2.md) | the spec: decisions, the contract with the machine, work order |
+| [`CHANGELOG.md`](CHANGELOG.md) | what changed, version by version |
+| [`CALIBRATION.md`](CALIBRATION.md) | the dated log of machine measurements (CNCDM-001) |
 | [`rubens-preview/`](rubens-preview/) | the app: Create, Calibration and Job tabs. How to run it — in its `README.md` |
 | [`images_CNC_drawing_machine/`](images_CNC_drawing_machine/) | photos of the machine and the arm drawing "Lapa" |
 
