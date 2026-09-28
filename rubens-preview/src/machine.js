@@ -160,6 +160,16 @@ export function reach() {
 // slightly; lines are exact. Which side J3 swings to is not decided yet
 // (Rubens_v2.md, section 4.5).
 export const SWING_DEG = 90;
+// Pass speed. The board takes 1…200 mm/s. Its planner limits the
+// acceleration along the path (PATH_ACCEL, 250 mm/s²), not across it, so a
+// tight arc at a high speed would jerk the carriage: the 5.5 mm turns of
+// Brush mode at 80 mm/s ask 1160 mm/s² of the X axis, which was only ever
+// run at 250. RUBENS slows every arc to v = √(a·r) — 37 mm/s on those turns —
+// and lets the lines keep the pass speed (the owner, 2026-09-28: 4× faster,
+// or the paint dries).
+export const SPEED_MAX = 200;
+export const TURN_ACCEL = 250;   // mm/s², the X axis's (the firmware's ACCEL and PATH_ACCEL)
+export const arcSpeed = (v, r) => Math.min(v, Math.max(1, Math.floor(Math.sqrt(TURN_ACCEL * r))));
 const EDGE_IN = 0.1;   // mm inside the walls: rounding to 0.01 mm must not land a point past one
 
 const f2 = v => (Math.round(v * 100) / 100).toFixed(2);
@@ -208,6 +218,7 @@ function clipArc(c, r, a0, s, B) {
 }
 
 export function jobToMachine(job, fit, { paintMMs = 20, travelMMs = 100 } = {}) {
+  paintMMs = Math.min(SPEED_MAX, Math.max(1, Math.round(paintMMs)));
   const det = fit.a * fit.e - fit.b * fit.d, sign = det > 0 ? 1 : -1;
   const at = q => fit.at(q.x, q.y);
   const R = reach();
@@ -218,17 +229,18 @@ export function jobToMachine(job, fit, { paintMMs = 20, travelMMs = 100 } = {}) 
   const blocks = [], skipped = [];
   let run = null, off = null, end = null;          // off: null — unknown at the start; end: where the run has got to
   const arm = o => { if (o !== off) { blocks.push({ kind: 'arm', cmd: `J 3 ${o ? SWING_DEG : 0}`, off: o }); off = o; } };
-  const close = () => { if (run) { run.cmds.push('G'); blocks.push(run); run = null; } };
+  const close = () => { if (run) { run.cmds.push('G'); delete run.v; blocks.push(run); run = null; } };
   const near = (p, q) => p && q && Math.hypot(p.x - q.x, p.y - q.y) < 0.01;
   // A piece that starts where the run is continues it; anything else starts
   // a new run: brush off, travel, brush on.
-  const piece = (from, to, cmd, len, painted) => {
+  const piece = (from, to, cmd, len, painted, v = paintMMs) => {
     if (!run || !near(from, end)) {
       close(); arm(true);
       blocks.push({ kind: 'move', cmds: [`T ${travelMMs}`, `M ${f2(from.x)} ${f2(from.y)}`, 'G'], lengthMM: null, paintMM: 0 });
       arm(false);
-      run = { kind: 'move', cmds: [`F ${paintMMs}`], lengthMM: 0, paintMM: 0 };
+      run = { kind: 'move', cmds: [`F ${paintMMs}`], lengthMM: 0, paintMM: 0, v: paintMMs };
     }
+    if (v !== run.v) { run.cmds.push(`F ${v}`); run.v = v; }   // an arc slower than the pass, and back
     run.cmds.push(cmd); run.lengthMM += len; if (painted) run.paintMM += len;
     end = to;
   };
@@ -256,7 +268,7 @@ export function jobToMachine(job, fit, { paintMMs = 20, travelMMs = 100 } = {}) 
         for (const [t0, t1] of clipArc(c, r, a0, s, B)) {
           const u = { x: c.x + r * Math.cos(a0 + s * t0), y: c.y + r * Math.sin(a0 + s * t0) };
           const w = t1 >= 1 - 1e-9 ? q : { x: c.x + r * Math.cos(a0 + s * t1), y: c.y + r * Math.sin(a0 + s * t1) };
-          piece(u, w, `A ${f2(c.x)} ${f2(c.y)} ${f2(w.x)} ${f2(w.y)} ${s > 0 ? 1 : -1}`, L * (t1 - t0), painted);
+          piece(u, w, `A ${f2(c.x)} ${f2(c.y)} ${f2(w.x)} ${f2(w.y)} ${s > 0 ? 1 : -1}`, L * (t1 - t0), painted, arcSpeed(paintMMs, r));
           kept += t1 - t0;
         }
         cut += L * (1 - kept);

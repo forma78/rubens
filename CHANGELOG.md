@@ -7,6 +7,11 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **Pass speed ×1 / ×2 / ×4 / ×10** on the Job tab (20, 40, 80, 200 mm/s),
+  so the paint does not dry before the brush is back. Tight arcs are slowed
+  to √(250 mm/s² · r) — the 5.5 mm turns of Brush run at 37 mm/s — because
+  the board limits the acceleration along the path, not across it. After a
+  pause a pass keeps its slow turns.
 - **Round 10 mm** on the Create tab, the brush on the machine (a Raphael
   No. 4), and the default for new strokes. Its 10 mm and its texture are a
   guess until the first paint photos. The brush note counts 16 trips when

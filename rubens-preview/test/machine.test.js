@@ -2,7 +2,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { STEPS_PER_MM, HOME_STEPS, STOPS, WALLS, toMm, parsePing, cornerAt, fitAffine, canvasReport, artboardCorner, jobToMachine } from '../src/machine.js';
+import { STEPS_PER_MM, HOME_STEPS, STOPS, WALLS, toMm, parsePing, cornerAt, fitAffine, canvasReport, artboardCorner, jobToMachine, arcSpeed } from '../src/machine.js';
 import { jobSteps, jobFile } from '../src/job.js';
 import { PT_MM } from '../src/config.js';
 import { P } from '../src/util.js';
@@ -177,4 +177,18 @@ test('job on the machine: an arc across a wall is cut at the wall', () => {
   for (const q of pointsOf(blocks)) assert.ok(q.x >= 0, `past the bottom wall: ${q.x}`);
   const lost = 2 * Math.acos(10 / 30) * 30;                     // the part below X 0
   assert.ok(Math.abs(skippedMM - lost) < 0.5, `skipped ${skippedMM}, expected ${lost}`);
+});
+
+test('pass speed: lines at the pass speed, tight arcs no faster than √(250 · r)', () => {
+  assert.equal(arcSpeed(80, 5.5), 37);          // the Brush turns at ×4
+  assert.equal(arcSpeed(20, 5.5), 20);          // at ×1 nothing changes
+  assert.equal(arcSpeed(80, 300), 80);          // a wide arc keeps the pass speed
+  const p = shape([['L', MM(400)]], { start: P(MM(100), MM(300)), weight: 272 });
+  const file = jobFile(jobSteps([p], () => EIGHT, { ...PAINT, lift: true }, 'brush'),
+    { formatKey: 'p60x80', format: { w: 600, h: 800 }, paint: PAINT, mode: 'brush' });
+  const runs = jobToMachine(file, straight().fit, { paintMMs: 80 }).blocks.filter(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
+  const turnR = 272 * 25.4 / 72 / 32;           // a quarter of the lane, mm
+  for (const r of runs) assert.deepEqual(r.cmds, [r.cmds[0], r.cmds[1], `F ${arcSpeed(80, turnR)}`, r.cmds[3], 'F 80', r.cmds[5], 'G']);
+  assert.equal(runs[0].cmds[0], 'F 80');
+  assert.equal(jobToMachine(file, straight().fit, { paintMMs: 900 }).blocks.find(b => b.cmds?.[0]?.startsWith('F')).cmds[0], 'F 200');
 });

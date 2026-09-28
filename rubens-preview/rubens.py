@@ -136,6 +136,26 @@ def _near_arc(q, a, c, b, turn):
     return min(math.hypot(q[0] - a[0], q[1] - a[1]), math.hypot(q[0] - b[0], q[1] - b[1]))
 
 
+def rest_of(cmds, j):
+    """A move block's commands from its piece j on, with the speed in force
+    at that piece first: speeds change inside a pass (a tight arc slower),
+    and a pass that goes on after a pause must keep them."""
+    rest, speed, k = [], None, -1
+    for c in cmds:
+        if c == "G":
+            continue
+        if c[0] in "FT":
+            if k < j:
+                speed = c
+            else:
+                rest.append(c)
+            continue
+        k += 1
+        if k >= j:
+            rest.append(c)
+    return ([speed] if speed else []) + rest + ["G"]
+
+
 def piece_at(start, path, here, first=0):
     """Which piece of a path (L, M, A commands, the first starting at
     `start`) the carriage stands on, from piece `first` on — where a braked
@@ -385,9 +405,8 @@ class Runner:
             raise Abort(f"paused off the path, at X {here[0]:.1f} Y {here[1]:.1f}: HARD STOP sent")
         if not self._hold():
             return
-        speed = [c for c in b["cmds"] if c[0] in "FT"]
         left = max(0.0, (b.get("paintMM") or 0) - (self.painted - base))
-        self._move({"kind": "move", "cmds": speed + path[j:] + ["G"], "paintMM": left})
+        self._move({"kind": "move", "cmds": rest_of(b["cmds"], j), "paintMM": left})
 
     def _hold(self):
         # Paused: the brush off the canvas, the motors still, the watchdog fed

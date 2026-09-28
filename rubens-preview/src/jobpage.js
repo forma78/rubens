@@ -8,7 +8,7 @@ import { fmt, clamp } from './util.js';
 import { luminance } from './color.js';
 import { segLen } from './geometry.js';
 import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, timeAtPercent, MODES, TIME_MODEL } from './job.js';
-import { canvasReport, jobToMachine, CORNERS } from './machine.js';
+import { canvasReport, jobToMachine, arcSpeed, SPEED_MAX, CORNERS } from './machine.js';
 
 const $ = s => document.querySelector(s);
 const INK = '#24221F', ORANGE = '#EB7A25';
@@ -233,6 +233,28 @@ function render() {
 // Pencil: one trip per lane. Brush: every lane there and back without
 // leaving the canvas (job.js). Between lanes the Create tab's "Brush off after
 // each pass" still decides.
+// Pass speed, ×1 = 20 mm/s (the owner, 2026-09-28: faster, or the paint
+// dries). It is the Paint field of the time model, which is what the machine
+// gets. Tight arcs stay slower: jobToMachine, arcSpeed.
+const SPEED_1X = 20;
+function syncSpeedX() {
+  const v = S.model.paintMMs, live = runLive();
+  document.querySelectorAll('#speedX button').forEach(b => {
+    b.classList.toggle('on', SPEED_1X * +b.dataset.x === v);
+    b.disabled = live;
+  });
+  const turn = arcSpeed(v, 5.5);
+  $('#speedNote').innerHTML = `Passes at <b>${fmt(Math.min(v, SPEED_MAX), 0)} mm/s</b>`
+    + (turn < v ? `; tight arcs slower — the 5.5 mm turns of Brush at ${turn} mm/s.` : '.')
+    + (v > 100 ? ' <span class="warn">Faster than any run so far (travel is 100 mm/s): try it with a pencil first.</span>' : '');
+}
+$('#speedX').onclick = e => {
+  const b = e.target.closest('button');
+  if (!b || runLive()) return;
+  S.model.paintMMs = SPEED_1X * +b.dataset.x; $('#mPaint').value = S.model.paintMMs;
+  savePrefs(); build(); summary(); machine(); render(); syncSpeedX();
+};
+
 function syncMode() {
   document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.m === S.mode));
   $('#modeNote').textContent = S.mode === 'brush'
@@ -251,7 +273,7 @@ for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#
   el.addEventListener('change', () => {
     const v = +el.value;
     if (!(v > 0 || (key === 'swingS' && v === 0))) { el.value = S.model[key]; return; }
-    S.model[key] = v; savePrefs(); build(); summary(); machine(); render();
+    S.model[key] = v; savePrefs(); build(); summary(); machine(); render(); syncSpeedX();
   });
 }
 
@@ -324,6 +346,7 @@ function showRun() {
   pb.disabled = !live || !['running', 'paused'].includes(st.state);
   pb.classList.toggle('primary', paused);
   document.querySelectorAll('#modeSeg button').forEach(b => { b.disabled = live; });
+  syncSpeedX();
   if (live && S.tl) S.t = timeAtPercent(S.tl, st.percent || 0);
   if (!live && st?.state === 'done' && S.tl) S.t = S.tl.total;
   render();
@@ -370,7 +393,7 @@ addEventListener('keydown', e => { if (e.key === 'Escape') machineStop(false); }
 // ---------- start ----------
 loadPrefs();
 for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#mSwing', 'swingS']]) $(id).value = S.model[key];
-syncMode();
+syncMode(); syncSpeedX();
 build(); summary(); render();
 await loadCalibration(); machine();
 pollRun();   // a run may already be going: show it

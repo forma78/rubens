@@ -11,7 +11,7 @@ import unittest
 from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from rubens import STEPS_PER_MM, Park, Runner, block_end, in_english, parse_ping, piece_at  # noqa: E402
+from rubens import STEPS_PER_MM, Park, Runner, block_end, in_english, parse_ping, piece_at, rest_of  # noqa: E402
 
 
 class FakeBoard:
@@ -341,6 +341,12 @@ class PauseTest(unittest.TestCase):
             r.state = "paused"
         ok, _ = r.start([arm(True)])
         self.assertFalse(ok)                                            # a paused job is still a job
+
+    def test_after_a_pause_the_turn_stays_slow(self):
+        cmds = ["F 80", "L 10 0", "F 37", "A 10 5 10 10 1", "F 80", "L 0 10", "G"]
+        self.assertEqual(rest_of(cmds, 0), cmds)
+        self.assertEqual(rest_of(cmds, 1), ["F 37", "A 10 5 10 10 1", "F 80", "L 0 10", "G"])
+        self.assertEqual(rest_of(cmds, 2), ["F 80", "L 0 10", "G"])
 
     def test_piece_at_finds_the_piece_on_lines_and_arcs(self):
         path = ["L 10 0", "A 10 5 10 10 1", "L 0 10"]                   # a U: right, a half circle up, back left
