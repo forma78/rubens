@@ -105,9 +105,11 @@ RUNS_ENABLED = True
 # minus — to the right, elbow plus — to the right, wrist minus left, plus right).
 JOINTS = {"shoulder": (1, -1, 45), "elbow": (2, +1, 45), "wrist": (3, +1, 90)}
 TICKS_PER_DEG = 4096 / 360
-# The working pose, raw servo poses (4096 a turn): the pose the canvas was
-# calibrated in (CALIBRATION.md, 2026-09-28). calibration.json "arm" wins.
-ARM_ZERO = {"shoulder": 2501, "elbow": 1759, "wrist": 1489}
+# The working pose, raw servo poses (4096 a turn). calibration.json "arm" is
+# the one in use; this is its copy for when the file has none. 2026-09-28,
+# late: the owner set the arm to the middle of the field with the handles —
+# the elbow 24.6° from the pose of the evening before (2501 · 1759 · 1489).
+ARM_ZERO = {"shoulder": 2498, "elbow": 2039, "wrist": 1492}
 
 
 def parse_look(text):
@@ -163,6 +165,18 @@ class Arm:
                     raise ArmError(f"{joint}: {in_english(r)}")
                 self._settle(jid, raw[jid] + sign * step * TICKS_PER_DEG)
             raise ArmError(f"the {joint} does not get to {deg}°")
+
+    def hold(self):
+        # After power-on the shoulder and elbow hold only once commanded
+        # (2026-09-28: the shoulder was dragged 67°). Z moves nothing, and a
+        # zero step of the wrist then makes the board send all three poses.
+        with self.lock:
+            r = self.send("/zero")
+            if not r.startswith("ok Z"):
+                raise ArmError(f"arm zero: {in_english(r)}")
+            r = self.send("/servo?j=wrist&d=0")
+            if not r.startswith("ok J"):
+                raise ArmError(f"wrist: {in_english(r)}")
 
     def _settle(self, jid, target):
         # until the servo is there, or stands still (held back by something)
@@ -359,6 +373,11 @@ class Runner:
             if not r.startswith("ok "):
                 raise Abort("the board cannot run a path yet (" + r + "): apply bridge.patch and flash "
                             "the pass firmware, RAIL-drawing_machine/drafts/rubens-pass")
+            if self.arm:
+                try:
+                    self.arm.hold()     # nothing moves; the whole arm holds from here on
+                except ArmError as e:
+                    raise Abort(str(e))
             for i, b in enumerate(self.blocks):
                 if self._stop:
                     break
@@ -787,6 +806,18 @@ class Handler(SimpleHTTPRequestHandler):
             json.loads(body)
         except ValueError:
             return self.reply(400, "not JSON")
+        if path == FILES["/calibration"]:
+            # The Calibration tab saves the corners it loaded; one opened
+            # before the arm zero was written would drop it. Keep it.
+            new = json.loads(body)
+            try:
+                with open(path, encoding="utf-8") as f:
+                    old = json.load(f)
+            except (OSError, ValueError):
+                old = {}
+            if "arm" not in new and "arm" in old:
+                new["arm"] = old["arm"]
+                body = json.dumps(new, indent=2).encode("utf-8")
         tmp = path + ".tmp"
         with open(tmp, "wb") as f:
             f.write(body)

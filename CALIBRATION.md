@@ -117,6 +117,16 @@ was measured, how, and what it changed. Numbers here are the source for
   working pose (rubens.py, class Arm): it reads where a joint is, sets the
   board's zero there and sends the difference — the board's zero no longer
   matters. The Calibration tab has the three handles for it.
+- **A new working pose of the arm (just before midnight).** The owner set the
+  arm to the middle of the field with the new handles: **shoulder 2498,
+  elbow 2039, wrist 1492** (raw, 4096 a turn) — the elbow 24.6° from the pose
+  of the evening before (2501 · 1759 · 1489), shoulder and wrist within
+  0.3°. Kept in `rubens-preview/calibration.json` "arm" (dated), not in the
+  firmware: RUBENS moves the arm from where the servos really are, so the
+  arm comes back to this pose after any power-on. **The canvas corners were
+  recorded with the old pose:** with the elbow turned, the tip stands
+  elsewhere relative to the carriage — record the corners again before the
+  next job.
 - **The owner's answers:** a thicker brush is out; the trips go closer —
   **4 trips a lane**, 5.5 mm apart on a 500 pt stroke, 32 trips in all. The
   paint: made liquid, it now stays wet for about 12 hours.

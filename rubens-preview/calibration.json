@@ -29,5 +29,12 @@
       "right": 15,
       "at": "2026-09-27T19:16:54.392Z"
     }
+  },
+  "arm": {
+    "shoulder": 2498,
+    "elbow": 2039,
+    "wrist": 1492,
+    "at": "2026-09-28T23:05:19+02:00",
+    "note": "the owner set the arm to the middle of the field with the handles"
   }
 }

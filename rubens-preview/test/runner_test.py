@@ -386,8 +386,10 @@ class ArmTest(unittest.TestCase):
     """The arm in RUBENS's degrees, whatever zero the board took (2026-09-28:
     twice the wrist took its zero at +90° and swung the brush to 180°)."""
 
+    ZERO = {"shoulder": 2501, "elbow": 1759, "wrist": 1489}   # the working pose these cases were met in
+
     def arm(self, b):
-        return Arm(b.send, sleep=b.sleep)
+        return Arm(b.send, zero=lambda: self.ZERO, sleep=b.sleep)
 
     def near(self, raw, want, ticks=7):
         self.assertLessEqual(abs(raw - want), ticks, f"{raw} instead of {want}")
@@ -429,6 +431,16 @@ class ArmTest(unittest.TestCase):
         self.assertEqual(r.state, "done", r.message)
         self.near(b.raw[3], 2513)                                 # +90°, not 180°
         self.assertFalse(r.brush_on)
+
+    def test_a_job_makes_the_whole_arm_hold_before_anything_moves(self):
+        b = FakeBoard()
+        before = dict(b.raw)
+        r = Runner(b.send, sleep=b.sleep, swing_s=0.2, arm=self.arm(b))
+        r.start([arm(True)])
+        r.thread.join(10)
+        self.assertEqual(r.state, "done", r.message)
+        self.assertTrue(all(b.zt[j] >= 0 for j in (1, 2, 3)), "all three joints were commanded")
+        self.assertEqual((b.raw[1], b.raw[2]), (before[1], before[2]))   # and did not move
 
     def test_parse_look(self):
         self.assertEqual(parse_look("ok V | X MCPWM_PCNT | 1: поза 2499, 11,3 В, 31 °C | 2: поза 1757, 11,3 В | 3: молчит"),
