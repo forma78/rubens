@@ -9,3 +9,6 @@ job.json
 
 # Python bytecode from running rubens.py and its tests
 __pycache__/
+
+# Where the carriage stood at Turn off; machine state, not source
+park.json

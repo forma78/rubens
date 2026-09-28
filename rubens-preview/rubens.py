@@ -10,8 +10,10 @@ the machine through its bridge (Rubens_v2.md, section 6).
   the axis zero. The arm is not among them.
 - /calibration and /job: GET returns calibration.json / job.json, PUT saves
   it. The Job tab writes job.json — the job in mm, in the order it runs.
+- /park (GET), POST /shutdown and /restore: the place where the carriage
+  stood when the motors were shut down, put back after power-on (class Park).
 - /run: the runner (class Runner) — GET is its state; POST starts the machine
-  blocks of job.json; POST /run/stop brakes along the path, /run/kill stops at
+  blocks of job.json, or the blocks in its body (strips.py); POST /run/stop brakes along the path, /run/kill stops at
   once. POST /brush/off and /brush/on swing the wrist to +90° or back to 0°
   (only the wrist, only these two, not while a job runs — the owner asked for
   them on the Job tab, 2026-09-27). It needs the firmware and bridge from
@@ -30,21 +32,25 @@ import threading
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import urlopen
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = 8766
 BRIDGE = "http://127.0.0.1:8765"
 FILES = {"/calibration": os.path.join(HERE, "calibration.json"), "/job": os.path.join(HERE, "job.json")}
+PARK_FILE = os.path.join(HERE, "park.json")   # class Park; written by rubens.py only
 PASS = {"/ping", "/look", "/cmd", "/origin/x", "/origin/y"}
 STEPS_PER_MM = (80.0, 3200.0 / 120.0)   # X, Y — the same as src/machine.js
 # The walls in mm (src/machine.js, the firmware). A carriage counted more
 # than RUNAWAY_MM past one means the board is sending steps it should not:
 # the runner stops the motors at once (2026-09-27: the watchdog could not,
 # because the runner kept pinging while the Y motor ground on the stop).
+# The line is the board's own (RUNAWAY_STEPS in the firmware): the reserve up
+# to the stop plus 2 mm. Home itself lies in the reserve, at X −9.45 and
+# Y −8.3; with 5 mm here the runner took home for a runaway (2026-09-28).
 WALLS_MM = ((0.0, 865.0), (0.0, 15160 / (3200.0 / 120.0)))
-RUNAWAY_MM = 5.0
+RUNAWAY_MM = 12.0
 # Runs were off on 2026-09-27 after a diagonal pass ran the Y axis away;
 # on again the same night once the pass core ran on FastAccelStepper 1.3.4
 # and passed the air tests (CALIBRATION.md). Set to False to lock them.
@@ -120,6 +126,17 @@ class Runner:
                 self._stop = "K" if hard else "S"
                 self.state = "stopping"
         return self.send("/cmd?a=K&n=0" if hard else "/cmd?a=S&n=0")
+
+    def board_stopped(self, hard=False):
+        # A STOP or HARD STOP sent to the board by a page, not through the
+        # runner (the Calibration tab): the board stops, and the runner must
+        # not take the end of the path for the end of a block and send the
+        # next one. The command itself goes on to the board as it is.
+        with self.lock:
+            if self.state in ("running", "stopping"):
+                if hard or self._stop != "K":
+                    self._stop = "K" if hard else "S"
+                self.state = "stopping"
 
     # ---- the run ----
     def run(self):
@@ -243,6 +260,85 @@ class Runner:
                 self.painted = base + share
 
 
+def write_json(path, obj):
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(obj, f, indent=2)
+    os.replace(tmp, path)
+
+
+class Park:
+    """Where the carriage stood when the motors were shut down, so the zero
+    lives through the 12 V going off. The owner, 2026-09-28: the carriage and
+    the arm on it do not move at night; the motors wake up where they fell
+    asleep. One button before power-off (shut_down), one after power-on
+    (restore).
+
+    The place is good for one zero only. Restoring it, setting home at the
+    stops, a jog or a job — anything that moves the carriage or sets a zero
+    through rubens.py — uses it up, so a place from an older evening is never
+    put back after a power-off without Shut down.
+    """
+
+    def __init__(self, path, send, sleep=time.sleep):
+        self.path, self.send, self.sleep = path, send, sleep
+
+    def read(self):
+        try:
+            with open(self.path, encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return None
+
+    def forget(self):
+        p = self.read()
+        if p and not p.get("used"):
+            p["used"] = True
+            write_json(self.path, p)
+
+    def shut_down(self, runner):
+        # HARD STOP first, whatever is running: a stop is never refused.
+        r = runner.stop(hard=True)
+        if r == "no bridge":
+            return False, "No bridge: the motors were not reached, nothing saved.", None
+        prev = None
+        for _ in range(15):
+            self.sleep(0.2)
+            p = parse_ping(self.send("/ping"))
+            if p is None:
+                return False, "No answer from the board: nothing saved.", None
+            if p["x"] is None or p["y"] is None:
+                return False, ("Motors stopped. No zero on the axes, so there is nothing to remember: "
+                               "after power-on find home at the stops."), None
+            if prev and p["path"] is None and (p["x"], p["y"]) == (prev["x"], prev["y"]):
+                park = {"x": p["x"], "y": p["y"], "at": time.strftime("%Y-%m-%d %H:%M:%S"), "used": False}
+                write_json(self.path, park)
+                return True, "Motors stopped, the place is saved. Now switch off the 12 V.", park
+            prev = p
+        return False, "The carriage does not stand still: nothing saved.", None
+
+    def restore(self):
+        park = self.read()
+        if not park or park.get("used"):
+            return False, "No parked place: find home at the stops.", park
+        p = parse_ping(self.send("/ping"))
+        if p is None:
+            return False, "No answer from the board.", park
+        if p["x"] is not None or p["y"] is not None:
+            return False, "The board already has a zero: nothing changed.", park
+        rx = self.send(f"/origin/x?at={park['x']}")
+        ry = self.send(f"/origin/y?at={park['y']}")
+        ok_x, ok_y = rx.startswith("ok O"), ry.startswith("ok O")
+        if not ok_x and not ok_y:
+            return False, f"Not restored ({rx} · {ry}).", park
+        park["used"] = True
+        write_json(self.path, park)
+        if ok_x and ok_y:
+            return True, "The parked place is back: the walls are on.", park
+        axis = "Y" if ok_x else "X"
+        return False, f"Only {'X' if ok_x else 'Y'} restored: find {axis} home at its stop.", park
+
+
 def bridge_get(path):
     try:
         with urlopen(BRIDGE + path, timeout=3) as r:
@@ -254,6 +350,7 @@ def bridge_get(path):
 
 
 RUNNER = Runner(bridge_get)
+PARK = Park(PARK_FILE, bridge_get)
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -284,6 +381,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.machine(u)
         if u.path == "/run":
             return self.reply(200, json.dumps(RUNNER.status()), "application/json")
+        if u.path == "/park":
+            return self.reply(200, json.dumps(PARK.read() or {}), "application/json")
         if u.path in FILES:
             if not os.path.exists(FILES[u.path]):
                 return self.reply(200, "{}", "application/json")
@@ -295,6 +394,12 @@ class Handler(SimpleHTTPRequestHandler):
         cmd = u.path[len("/machine"):]
         if cmd not in PASS:
             return self.reply(403, "not passed to the machine")
+        q = parse_qs(u.query)
+        if cmd == "/cmd" and q.get("a", [""])[0] in ("S", "K"):
+            RUNNER.board_stopped(hard=q["a"][0] == "K")
+        if cmd in ("/origin/x", "/origin/y") or (
+                cmd == "/cmd" and q.get("a", [""])[0] in ("X", "Y") and q.get("n", ["0"])[0] != "0"):
+            PARK.forget()   # a new zero or a jog: the parked place is no longer where the carriage is
         url = BRIDGE + cmd + ("?" + u.query if u.query else "")
         try:
             with urlopen(url, timeout=3) as r:
@@ -316,16 +421,29 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(200, RUNNER.stop())
         if path == "/run/kill":
             return self.reply(200, RUNNER.stop(hard=True))
+        if path in ("/shutdown", "/restore"):
+            ok, msg, park = PARK.shut_down(RUNNER) if path == "/shutdown" else PARK.restore()
+            return self.reply(200, json.dumps({"ok": ok, "message": msg, "park": park}), "application/json")
         if path != "/run":
             return self.reply(404, "")
         if not RUNS_ENABLED:
             return self.reply(503, "runs are off: the pass firmware is being fixed after a diagonal pass ran the Y axis away (2026-09-27)")
+        # A body {"blocks": [...]} runs those blocks (a calibration run, such
+        # as strips.py); no body runs the machine blocks of job.json.
+        body = self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
         try:
-            with open(FILES["/job"], encoding="utf-8") as f:
-                blocks = json.load(f)["machine"]["blocks"]
+            if body:
+                blocks = json.loads(body)["blocks"]
+            else:
+                with open(FILES["/job"], encoding="utf-8") as f:
+                    blocks = json.load(f)["machine"]["blocks"]
+            if not isinstance(blocks, list) or not blocks:
+                raise ValueError
         except (OSError, ValueError, KeyError, TypeError):
-            return self.reply(400, "job.json has no machine blocks: record the canvas corners, then Save job.json")
+            return self.reply(400, "no machine blocks: record the canvas corners, then Save job.json")
         ok, msg = RUNNER.start(blocks)
+        if ok:
+            PARK.forget()
         return self.reply(200 if ok else 409, msg)
 
     def do_PUT(self):
