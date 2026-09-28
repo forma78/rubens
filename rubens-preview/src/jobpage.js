@@ -147,14 +147,15 @@ function showProgress(at) {
   // seven segments, the time left and the total, the sticks, where it is.
   const state = !live ? (S.run && S.run.state !== 'idle' ? S.run.state : 'plan') : S.run.state === 'paused' ? 'paused' : 'live';
   const block = live && S.run.blocks ? `block ${S.run.block + 1}/${S.run.blocks}` : S.steps.length ? `${S.steps.filter(s => s.kind === 'paint').length} passes` : '';
-  // three cells, as on an electronic clock: the cells not in use stay there
-  // unlit, faint; no leading zeros — "  0", " 51", "100" (the owner). "07:42".
+  // two cells, as on an electronic clock (the owner): below 10 % the tens
+  // cell stays unlit and faint — " 0", " 7", "51". Only 100 needs a third
+  // cell, and gets it only then. "07:42".
   const hms = t => { const c = clock(Math.max(0, t || 0)); return c.length === 4 ? '0' + c : c; };
-  const pct3 = v => String(Math.min(100, Math.max(0, Math.floor(v)))).padStart(3, ' ');
+  const pct2 = v => String(Math.min(100, Math.max(0, Math.floor(v)))).padStart(2, ' ');
   $('#lcd').innerHTML = `
     <div class="lcd-top"><span>${state === 'live' ? '▶ ' : state === 'paused' ? '❚❚ ' : ''}${state}</span><span>${block}</span></div>
     <div class="lcd-mid">
-      <div class="lcd-big">${segments(at ? pct3(pct) : ' --', 46)}<span class="u">%</span></div>
+      <div class="lcd-big">${segments(at ? pct2(pct) : '--', 46)}<span class="u">%</span></div>
       <div class="lcd-times">
         <span class="k">left</span>${segments(at ? hms(left) : '--:--', 17)}
         <span class="k">total</span>${segments(at ? hms(total) : '--:--', 17)}
