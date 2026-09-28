@@ -174,8 +174,8 @@ tab at the stop (`Screenshot 2026-09-28 Rubens.png`).
   the Calibration tab read **X 152.1 mm** at the stop (it should be −9.45),
   **Y −0.8 mm, at the left wall** (not at the stop). So the X count was
   **161.6 mm high**: no knock at the stop (the owner), so that is the stall.
-  X was then set to −9.45 at the stop (`origin/x?at=-756`), Y left as it
-  was. The ruler said 200 mm between the return and the pencil. The rest, about
+  X was then set to −9.45 at the stop (`origin/x?at=-756`); the owner
+  brought Y to its stop and set home, both axes. The ruler said 200 mm between the return and the pencil. The rest, about
   38 mm, may be the new arm pose: in the photo the brush lies about 4 cm
   below the pencil already before the stall, at the point of the teardrop —
   if the pencil job ran with the pose before 23:05 (asked), the tip now
