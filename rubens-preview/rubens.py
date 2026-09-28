@@ -13,8 +13,8 @@ the machine through its bridge (Rubens_v2.md, section 6).
 - /park (GET), POST /shutdown and /restore: the place where the carriage
   stood when the motors were shut down, put back after power-on (class Park).
 - /run: the runner (class Runner) — GET is its state; POST starts the machine
-  blocks of job.json, or the blocks in its body (strips.py); POST /run/stop brakes along the path, /run/kill stops at
-  once. POST /brush/off and /brush/on swing the wrist to +90° or back to 0°
+  blocks of job.json, or the blocks in its body (a calibration run); POST /run/stop brakes along the path, /run/kill stops at
+  once; /run/pause and /run/continue pause a run and go on from the same point. POST /brush/off and /brush/on swing the wrist to +90° or back to 0°
   (only the wrist, only these two, not while a job runs — the owner asked for
   them on the Job tab, 2026-09-27). It needs the firmware and bridge from
   RAIL-drawing_machine/drafts/rubens-pass (not flashed yet); until then a
@@ -111,6 +111,50 @@ class Abort(Exception):
     pass
 
 
+LIVE = ("running", "stopping", "pausing", "paused")   # a run the page must not start over
+SWING_DEG = 90                                          # brush off: the wrist to +90° (src/machine.js)
+ON_PATH_MM = 0.5                                        # a braked carriage stands on its path
+
+
+def _near_line(q, a, b):
+    ab = (b[0] - a[0], b[1] - a[1])
+    L2 = ab[0] ** 2 + ab[1] ** 2
+    t = 0.0 if L2 == 0 else max(0.0, min(1.0, ((q[0] - a[0]) * ab[0] + (q[1] - a[1]) * ab[1]) / L2))
+    return math.hypot(q[0] - a[0] - ab[0] * t, q[1] - a[1] - ab[1] * t)
+
+
+def _near_arc(q, a, c, b, turn):
+    # the board's arc: radius from its start, from the start angle to the
+    # end's angle, turning from +X towards +Y when turn > 0
+    r = math.hypot(a[0] - c[0], a[1] - c[1])
+    a0, a1, aq = (math.atan2(p[1] - c[1], p[0] - c[0]) for p in (a, b, q))
+    TAU = 2 * math.pi
+    sweep = (a1 - a0) % TAU if turn > 0 else -((a0 - a1) % TAU)
+    along = (aq - a0) % TAU if turn > 0 else (a0 - aq) % TAU
+    if along <= abs(sweep):
+        return abs(math.hypot(q[0] - c[0], q[1] - c[1]) - r)
+    return min(math.hypot(q[0] - a[0], q[1] - a[1]), math.hypot(q[0] - b[0], q[1] - b[1]))
+
+
+def piece_at(start, path, here, first=0):
+    """Which piece of a path (L, M, A commands, the first starting at
+    `start`) the carriage stands on, from piece `first` on — where a braked
+    pass goes on from. None if it is on none of them."""
+    at = start
+    for j, c in enumerate(path):
+        p = c.split()
+        if p[0] in ("L", "M"):
+            end = (float(p[1]), float(p[2]))
+            d = _near_line(here, at, end)
+        else:
+            end = (float(p[3]), float(p[4]))
+            d = _near_arc(here, at, (float(p[1]), float(p[2])), end, int(p[5]))
+        if j >= first and d <= ON_PATH_MM:
+            return j
+        at = end
+    return None
+
+
 class Runner:
     """Runs the machine blocks of job.json on the board, through the bridge
     (Rubens_v2.md, section 6: the job is run here, not by the page).
@@ -135,6 +179,7 @@ class Runner:
         self.started = None              # time.time() of the last start
         self.brush_on = False
         self._stop = None                # None, "S" or "K"
+        self._pause = False              # Pause asked for; Continue clears it
 
     def status(self):
         with self.lock:
@@ -149,11 +194,11 @@ class Runner:
 
     def start(self, blocks):
         with self.lock:
-            if self.state in ("running", "stopping"):
+            if self.state in LIVE:
                 return False, "already running"
             self.blocks, self.block, self.painted = list(blocks), 0, 0.0
             self.paint_total = sum(b.get("paintMM") or 0 for b in blocks if b.get("kind") == "move")
-            self.state, self.message, self._stop = "running", "", None
+            self.state, self.message, self._stop, self._pause = "running", "", None, False
             self.started = time.time()
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
@@ -164,7 +209,7 @@ class Runner:
         # is going on: the board always gets it. (2026-09-27: HARD STOP after
         # STOP did nothing, because STOP had already moved the state on.)
         with self.lock:
-            if self.state in ("running", "stopping"):
+            if self.state in LIVE:
                 self._stop = "K" if hard else "S"
                 self.state = "stopping"
         return self.send("/cmd?a=K&n=0" if hard else "/cmd?a=S&n=0")
@@ -175,10 +220,28 @@ class Runner:
         # not take the end of the path for the end of a block and send the
         # next one. The command itself goes on to the board as it is.
         with self.lock:
-            if self.state in ("running", "stopping"):
+            if self.state in LIVE:
                 if hard or self._stop != "K":
                     self._stop = "K" if hard else "S"
                 self.state = "stopping"
+
+    def pause(self):
+        # Pause (the owner, 2026-09-28: a pencil gone blunt, to be sharpened
+        # without starting the job over). On a pass the carriage brakes on
+        # its line and the brush leaves the canvas; elsewhere the step in
+        # hand ends first. STOP and HARD STOP work while paused.
+        with self.lock:
+            if self.state != "running":
+                return False
+            self._pause, self.state = True, "pausing"
+        return True
+
+    def resume(self):
+        with self.lock:
+            if self.state not in ("pausing", "paused"):
+                return False
+            self._pause, self.state = False, "running"
+        return True
 
     # ---- the run ----
     def run(self):
@@ -196,6 +259,8 @@ class Runner:
                             "the pass firmware, RAIL-drawing_machine/drafts/rubens-pass")
             for i, b in enumerate(self.blocks):
                 if self._stop:
+                    break
+                if self._pause and not self._hold():
                     break
                 with self.lock:
                     self.block = i
@@ -258,11 +323,16 @@ class Runner:
         pieces = [c for c in b["cmds"] if c != "G"]
         total = sum(1 for c in pieces if c[0] in "LAM")
         base, share = self.painted, b.get("paintMM") or 0
+        # A pass (brush on) can be paused on its line; a travel ends first.
+        pausable = self.brush_on and any(c[0] == "F" for c in pieces)
+        start = self._here() if pausable else None
         started, sent = False, 0
         for c in pieces:
             while True:
                 if self._stop:
                     return self._finish(started)
+                if pausable and started and self._pause:
+                    return self._brake(b, start, sent, base)
                 r = self._raw(c)
                 if r.startswith("ok "):
                     break
@@ -279,9 +349,63 @@ class Runner:
                     started = self._go()
         if not started:
             started = self._go()
-        self._finish(started, base, share, sent, total)
+        if not self._finish(started, base, share, sent, total, pausable):
+            return self._brake(b, start, sent, base)
         if not self._stop:
             self._arrived(b)
+
+    def _here(self):
+        p = self._ping()
+        if p is None or p["x"] is None or p["y"] is None:
+            raise Abort("lost the board")
+        return p["x"] / STEPS_PER_MM[0], p["y"] / STEPS_PER_MM[1]
+
+    def _brake(self, b, start, sent, base):
+        # Pause on a pass: brake on the line (S keeps the X driver well; K may
+        # not), find the piece the carriage stands on, hold with the brush off,
+        # then run the rest of the pass from right there: a piece sent again
+        # from a point on it goes on to its own end.
+        queued = (self.pos or {}).get("path") or 0
+        self.send("/cmd?a=S&n=0")
+        while not self._stop:
+            p = self._ping()
+            if p is None:
+                raise Abort("lost the board")
+            if p["path"] is None:
+                break
+            self.sleep(0.1)
+        self._wait(0.4)
+        if self._stop:
+            return
+        path = [c for c in b["cmds"] if c[0] in "LAM"]
+        here = self._here()
+        j = piece_at(start, path, here, first=max(0, sent - queued - 1))
+        if j is None:
+            self.send("/cmd?a=K&n=0")
+            raise Abort(f"paused off the path, at X {here[0]:.1f} Y {here[1]:.1f}: HARD STOP sent")
+        if not self._hold():
+            return
+        speed = [c for c in b["cmds"] if c[0] in "FT"]
+        left = max(0.0, (b.get("paintMM") or 0) - (self.painted - base))
+        self._move({"kind": "move", "cmds": speed + path[j:] + ["G"], "paintMM": left})
+
+    def _hold(self):
+        # Paused: the brush off the canvas, the motors still, the watchdog fed
+        # by the pings. Continue puts the brush back as it was.
+        was_on = self.brush_on
+        if was_on:
+            self._arm(f"J 3 {SWING_DEG}")
+        with self.lock:
+            if self._pause and not self._stop:
+                self.state = "paused"
+        while self._pause and not self._stop:
+            self.sleep(0.2)
+            self._ping()
+        if self._stop:
+            return False
+        if was_on:
+            self._arm("J 3 0")
+        return True
 
     def _arrived(self, b):
         # Before the next block — above all before the brush goes down — the
@@ -299,14 +423,17 @@ class Runner:
                         f"X {end[0]:.1f} Y {end[1]:.1f}. The board stopped the path itself "
                         "(a restart of the board clears it). HARD STOP sent")
 
-    def _finish(self, started, base=None, share=0, sent=0, total=0):
-        # the block is over when the board no longer reports a path
+    def _finish(self, started, base=None, share=0, sent=0, total=0, pausable=False):
+        # the block is over when the board no longer reports a path; False:
+        # a pause came first, the path is still running
         while started:
             p = self._ping()
             if p is None:
                 raise Abort("lost the board")
             if p["path"] is None:
                 break
+            if pausable and self._pause and not self._stop:
+                return False
             if base is not None and total:
                 with self.lock:
                     self.painted = base + share * max(0, sent - p["path"]) / total
@@ -318,6 +445,7 @@ class Runner:
         if base is not None and not self._stop:
             with self.lock:
                 self.painted = base + share
+        return True
 
 
 def write_json(path, obj):
@@ -470,7 +598,7 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         path = urlparse(self.path).path
         if path in ("/brush/off", "/brush/on"):
-            if RUNNER.state in ("running", "stopping"):
+            if RUNNER.state in LIVE:
                 return self.reply(409, "a job is running")
             deg = 90 if path == "/brush/off" else 0
             r = bridge_get(f"/servo?j=wrist&d={deg}")
@@ -481,6 +609,9 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(200, RUNNER.stop())
         if path == "/run/kill":
             return self.reply(200, RUNNER.stop(hard=True))
+        if path in ("/run/pause", "/run/continue"):
+            ok = RUNNER.pause() if path == "/run/pause" else RUNNER.resume()
+            return self.reply(200 if ok else 409, "ok" if ok else f"not now: the runner is {RUNNER.state}")
         if path in ("/shutdown", "/restore"):
             ok, msg, park = PARK.shut_down(RUNNER) if path == "/shutdown" else PARK.restore()
             return self.reply(200, json.dumps({"ok": ok, "message": msg, "park": park}), "application/json")
@@ -489,7 +620,7 @@ class Handler(SimpleHTTPRequestHandler):
         if not RUNS_ENABLED:
             return self.reply(503, "runs are off: the pass firmware is being fixed after a diagonal pass ran the Y axis away (2026-09-27)")
         # A body {"blocks": [...]} runs those blocks (a calibration run, such
-        # as strips.py); no body runs the machine blocks of job.json.
+        # a calibration run); no body runs the machine blocks of job.json.
         body = self.rfile.read(int(self.headers.get("Content-Length", 0) or 0))
         try:
             if body:

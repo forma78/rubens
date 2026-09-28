@@ -13,7 +13,7 @@ import { canvasReport, jobToMachine, CORNERS } from './machine.js';
 const $ = s => document.querySelector(s);
 const INK = '#24221F', ORANGE = '#EB7A25';
 
-const S = { doc: null, steps: [], tl: null, t: 0, playing: false, speed: 10, mode: 'pencil', model: { ...TIME_MODEL }, cal: null, onMachine: null, fit: null, run: null };
+const S = { doc: null, steps: [], tl: null, t: 0, mode: 'pencil', model: { ...TIME_MODEL }, cal: null, onMachine: null, fit: null, run: null };
 
 // ---------- the drawing and the plan ----------
 // The Create tab keeps its drawing in this browser; read it from there.
@@ -34,17 +34,16 @@ function build() {
   S.t = frac * S.tl.total;
 }
 
-// Per-viewer settings: the time model, the playback speed, Pencil or Brush.
+// Per-viewer settings: the time model, Pencil or Brush.
 function loadPrefs() {
   try {
     const o = JSON.parse(localStorage.getItem('rubens.job.v01') || 'null');
     if (o?.model) Object.assign(S.model, o.model);
-    if (o?.speed) S.speed = o.speed;
     if (MODES.includes(o?.mode)) S.mode = o.mode;
   } catch { /* defaults */ }
 }
 function savePrefs() {
-  try { localStorage.setItem('rubens.job.v01', JSON.stringify({ model: S.model, speed: S.speed, mode: S.mode })); } catch { /* not kept */ }
+  try { localStorage.setItem('rubens.job.v01', JSON.stringify({ model: S.model, mode: S.mode })); } catch { /* not kept */ }
 }
 
 // ---------- numbers ----------
@@ -125,11 +124,11 @@ const strokeList = items => {
   return [...new Set(items.map(o => order.indexOf(o.stroke) + 1))].sort((a, b) => a - b).join(', ');
 };
 
-// While the machine runs, the progress is the machine's (the owner,
-// 2026-09-28: a giant 0 % from the on-screen clock beside a running machine).
-// The playhead follows the runner's painted percent; the time left is
-// measured from the start of the run once there is enough of it, otherwise
-// the time model's.
+// The progress is the machine's (the owner, 2026-09-28: the on-screen play
+// was of no use, and its giant 0 % sat beside a running machine). Idle, it
+// shows the plan and the estimated time. While a run is live the marker
+// follows the runner's painted percent; the time left is measured from the
+// start of the run once there is enough of it, otherwise the time model's.
 function showProgress(at) {
   const total = S.tl ? S.tl.total : 0, live = runLive();
   const pct = live ? (S.run.percent || 0) : at?.percent;
@@ -140,7 +139,6 @@ function showProgress(at) {
   $('#bar').style.width = at ? `${pct}%` : '0';
   $('#elapsed').textContent = clock(S.t);
   $('#total').textContent = clock(total);
-  $('#scrub').value = total ? Math.round(S.t / total * 1000) : 0;
   let now = '—';
   if (at) {
     const st = S.steps[at.i], n = [...new Set(S.steps.map(s => s.stroke))].indexOf(st.stroke) + 1;
@@ -149,10 +147,6 @@ function showProgress(at) {
   }
   if (live && S.run.blocks) now += ` · block ${S.run.block + 1} of ${S.run.blocks}`;
   $('#now').textContent = now;
-  // Only when it changes: Safari drops a click on a button whose text is
-  // replaced between mouse down and up, and this runs every frame.
-  const btn = $('#btnPlay'), label = S.playing ? '❚❚ Pause' : '▶ Play';
-  if (btn.textContent !== label) btn.textContent = label;
 }
 
 // ---------- the view ----------
@@ -231,40 +225,11 @@ function draw(at) {
   ctx.restore();
 }
 
-// ---------- play ----------
-let last = 0;
-function tick(now) {
-  if (!S.playing) return;
-  const dt = last ? (now - last) / 1000 : 0; last = now;
-  S.t = Math.min(S.tl.total, S.t + dt * S.speed);
-  if (S.t >= S.tl.total) S.playing = false;
-  render();
-  if (S.playing) requestAnimationFrame(tick);
-}
-function play(on) {
-  if (!S.tl || !S.tl.total || runLive()) return;
-  if (on && S.t >= S.tl.total) S.t = 0;
-  S.playing = on; last = 0;
-  render();
-  if (on) requestAnimationFrame(tick);
-}
 function render() {
   const at = S.tl ? jobAt(S.tl, S.t) : null;
   showProgress(at); draw(at);
 }
 
-// A clicked button drops the focus, so Space is not taken by it as well.
-$('#btnPlay').onclick = e => { e.currentTarget.blur(); play(!S.playing); };
-$('#btnRestart').onclick = () => { S.t = 0; render(); };
-$('#scrub').addEventListener('input', e => { if (S.tl) { S.t = e.target.value / 1000 * S.tl.total; render(); } });
-addEventListener('keydown', e => {
-  if (e.code !== 'Space' || e.repeat) return;
-  const tag = document.activeElement?.tagName || '';
-  if (/INPUT|SELECT|TEXTAREA/.test(tag)) return;
-  if (tag === 'BUTTON') document.activeElement.blur();   // or the button would click on key up as well
-  e.preventDefault();
-  play(!S.playing);
-});
 // Pencil: one trip per lane. Brush: every lane there and back without
 // leaving the canvas (job.js). Between lanes the Create tab's "Brush off after
 // each pass" still decides.
@@ -279,9 +244,6 @@ $('#modeSeg').onclick = e => {
   if (!b || b.dataset.m === S.mode || runLive()) return;   // the plan on screen must stay the running one
   S.mode = b.dataset.m; savePrefs(); syncMode(); build(); summary(); machine(); render();
 };
-
-function syncSpeed() { document.querySelectorAll('#speedSeg button').forEach(b => b.classList.toggle('on', +b.dataset.k === S.speed)); }
-$('#speedSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; S.speed = +b.dataset.k; syncSpeed(); savePrefs(); };
 
 for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#mSwing', 'swingS']]) {
   const el = $(id);
@@ -316,7 +278,7 @@ $('#btnSaveJob').onclick = saveJob;
 // ---------- ⚡️ Do Job: the run on the machine ----------
 // rubens.py runs the job; the page only starts it and asks how it goes. The
 // run does not depend on this tab: closing it does not stop the machine.
-const runLive = () => !!S.run && (S.run.state === 'running' || S.run.state === 'stopping');
+const runLive = () => !!S.run && ['running', 'stopping', 'pausing', 'paused'].includes(S.run.state);
 $('#btnDoJob').onclick = async e => {
   e.currentTarget.blur();
   if (!S.doc) return;
@@ -351,14 +313,37 @@ function showRun() {
     $('#runState').innerHTML = `<b>Machine: ${st.state}</b> · ${fmt(st.percent || 0, 1)} % painted${blocks}`
       + (st.message ? `<br><span class="warn">${st.message}</span>` : '');
   }
-  const hint = $('#progHint');
-  hint.textContent = live ? 'the machine, live' : 'on screen, by painted length';
+  const hint = $('#progHint'), paused = live && st.state === 'paused';
+  hint.textContent = !live ? 'the plan, by painted length' : paused ? 'the machine, paused' : 'the machine, live';
   hint.classList.toggle('live', live);
-  for (const id of ['#btnPlay', '#btnRestart', '#scrub']) $(id).disabled = live;
+  // One button: Pause while it runs, Continue once it waits. Only when the
+  // label changes: Safari drops a click on a button whose text is replaced
+  // between mouse down and up.
+  const pb = $('#btnRunPause'), label = paused ? '▶ Continue' : st?.state === 'pausing' ? 'Pausing…' : '❚❚ Pause';
+  if (pb.textContent !== label) pb.textContent = label;
+  pb.disabled = !live || !['running', 'paused'].includes(st.state);
+  pb.classList.toggle('primary', paused);
   document.querySelectorAll('#modeSeg button').forEach(b => { b.disabled = live; });
-  if (live && S.tl) { S.playing = false; S.t = timeAtPercent(S.tl, st.percent || 0); }
+  if (live && S.tl) S.t = timeAtPercent(S.tl, st.percent || 0);
+  if (!live && st?.state === 'done' && S.tl) S.t = S.tl.total;
   render();
 }
+async function pauseOrContinue() {
+  const st = S.run?.state;
+  if (st !== 'running' && st !== 'paused') return;
+  await fetch(st === 'paused' ? '/run/continue' : '/run/pause', { method: 'POST' }).catch(() => {});
+  pollRun();
+}
+$('#btnRunPause').onclick = e => { e.currentTarget.blur(); pauseOrContinue(); };
+// Space pauses a running machine; it never continues one: the hands may be
+// at the holder.
+addEventListener('keydown', e => {
+  if (e.code !== 'Space' || e.repeat) return;
+  const tag = document.activeElement?.tagName || '';
+  if (/INPUT|SELECT|TEXTAREA|BUTTON/.test(tag)) return;
+  e.preventDefault();
+  if (S.run?.state === 'running') pauseOrContinue();
+});
 // The brush by hand: the wrist to +90° (off the canvas) or 0° (on it).
 async function brush(where) {
   const r = await fetch('/brush/' + where, { method: 'POST' }).catch(() => null);
@@ -385,7 +370,7 @@ addEventListener('keydown', e => { if (e.key === 'Escape') machineStop(false); }
 // ---------- start ----------
 loadPrefs();
 for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#mSwing', 'swingS']]) $(id).value = S.model[key];
-syncSpeed(); syncMode();
+syncMode();
 build(); summary(); render();
 await loadCalibration(); machine();
 pollRun();   // a run may already be going: show it

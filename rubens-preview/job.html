@@ -34,29 +34,21 @@
 
   <aside class="panel">
     <section class="sec">
-      <h3>Progress <span class="hint" id="progHint">on screen, by painted length</span></h3>
+      <h3>Progress <span class="hint" id="progHint">the plan, by painted length</span></h3>
       <div class="progress">
         <span class="pct" id="pct">0 %</span>
         <span class="left" id="left">—</span>
       </div>
       <div class="bar"><i id="bar"></i></div>
-      <input id="scrub" type="range" min="0" max="1000" value="0" class="slider" aria-label="Time">
       <div class="scale"><span id="elapsed">0:00</span><span id="now">—</span><span id="total">0:00</span></div>
-      <div class="row play-row">
-        <button class="btn primary" id="btnPlay">▶ Play</button>
-        <button class="btn" id="btnRestart" title="Back to the start">⟲</button>
-        <div class="seg speed-seg" id="speedSeg">
-          <button data-k="1">×1</button><button data-k="10">×10</button><button data-k="60">×60</button><button data-k="300">×300</button>
-        </div>
-      </div>
-      <p class="read">Play is on screen only: the machine does not move. Space = play / pause.</p>
       <div class="run">
         <p class="read" id="runState" hidden></p>
         <div class="stops">
+          <button class="btn" id="btnRunPause" disabled title="Brake on the line, brush off the canvas, wait (Space)">❚❚ Pause</button>
           <button class="btn" id="btnRunStop" title="Stop the machine, braking (Esc)">STOP</button>
           <button class="btn danger" id="btnRunKill" title="Stop the machine at once, no braking">HARD STOP</button>
         </div>
-        <p class="read">Always here, always on: they go straight to the motors, whatever this page thinks is running.</p>
+        <p class="read">Pause: the machine brakes on the line, the brush leaves the canvas, the machine waits; Continue puts the brush back and goes on from the same point. Continue is a click only, never a key. STOP and HARD STOP: always here, always on — they go straight to the motors, whatever this page thinks is running, paused included.</p>
       </div>
     </section>
 

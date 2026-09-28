@@ -175,6 +175,7 @@ main.cal{grid-template-columns:1fr 340px}
 .ticks i span{position:absolute;top:9px;left:0;transform:translateX(-50%);font:10px var(--mono);font-style:normal;color:var(--mute);white-space:nowrap}
 .stops{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .stops .btn{padding:10px}
+#btnRunPause{grid-column:1 / -1}
 .home-row{gap:8px;margin-top:10px}
 .warn{color:#B3470C}
 .cal-format{margin-bottom:8px}
@@ -196,9 +197,6 @@ main.cal{grid-template-columns:1fr 340px}
 .left{font:14px var(--mono);color:var(--mute);white-space:nowrap}
 .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden;margin:8px 0 2px}
 .bar i{display:block;height:100%;width:0;background:var(--orange)}
-.play-row{gap:8px;margin-top:12px}
-.speed-seg{grid-template-columns:repeat(4,auto);margin-left:auto}
-.speed-seg button{padding:6px 8px;font:12px var(--mono);flex-direction:row}
 .mode-seg{margin:2px 0 8px}
 .seg button:disabled{opacity:.45;cursor:default}
 .hint.live{color:var(--orange)}

@@ -11,7 +11,7 @@ import unittest
 from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from rubens import STEPS_PER_MM, Park, Runner, block_end, in_english, parse_ping  # noqa: E402
+from rubens import STEPS_PER_MM, Park, Runner, block_end, in_english, parse_ping, piece_at  # noqa: E402
 
 
 class FakeBoard:
@@ -42,9 +42,15 @@ class FakeBoard:
             self.log.append(f"J 3 {q['d'][0]}")
             return f"ok J 3 {q['d'][0]}"
         if u.path == "/cmd":
-            self.log.append(q["a"][0])
+            a = q["a"][0]
+            self.log.append(a)
+            if a == "S" and self.running and self.queue and self.queue[0][0] == "L":
+                # braking on the line: the carriage stops halfway along the piece it is on
+                end = block_end([self.queue[0]])
+                self.x = round((self.x + end[0] * STEPS_PER_MM[0]) / 2)
+                self.y = round((self.y + end[1] * STEPS_PER_MM[1]) / 2)
             self.running, self.queue = False, []
-            return f"ok {q['a'][0]}"
+            return f"ok {a}"
         if u.path == "/raw":
             if not self.paths:                 # the old bridge: no /raw at all
                 return "bridge answers 404 to /raw"
@@ -74,12 +80,13 @@ class FakeBoard:
         if self.on_sleep:
             self.on_sleep()
         if self.running:
-            del self.queue[:self.rate]
+            done, self.queue = self.queue[:self.rate], self.queue[self.rate:]
             if self.stuck_x:                   # the board stops the path on the fault
                 self.queue = []
                 self.y = self.goal[1]
-            elif not self.queue:
-                self.x, self.y = self.goal
+            elif done:                         # the carriage is at the end of the last piece run
+                end = block_end([done[-1]])
+                self.x, self.y = round(end[0] * STEPS_PER_MM[0]), round(end[1] * STEPS_PER_MM[1])
             if not self.queue:
                 self.running = False
 
@@ -268,6 +275,80 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(parse_ping("ok P X 800 Y 267 путь 3"), {"x": 800, "y": 267, "path": 3})
         self.assertEqual(parse_ping("ok P X 0 край Y ? "), {"x": 0, "y": None, "path": None})
         self.assertIsNone(parse_ping("нет платы"))
+
+
+class PauseTest(unittest.TestCase):
+    """Pause and Continue (the owner, 2026-09-28: a blunt pencil, sharpened
+    without starting the job over)."""
+
+    def paused_run(self, blocks, when, then=None):
+        # Pause on tick `when`; `then(r, b)` runs once the runner is paused,
+        # and by default presses Continue.
+        b = FakeBoard(rate=1)
+        r = Runner(b.send, sleep=b.sleep, swing_s=0.2)
+        ticks = {"n": 0, "done": False}
+
+        def later():
+            ticks["n"] += 1
+            if ticks["n"] == when:
+                self.assertTrue(r.pause())
+            if r.state == "paused" and not ticks["done"]:
+                ticks["done"] = True
+                (then or (lambda r, b: r.resume()))(r, b)
+        b.on_sleep = later
+        r.start(blocks)
+        r.thread.join(10)
+        return r, b
+
+    def test_a_pass_brakes_the_brush_lifts_and_the_rest_goes_on_from_that_point(self):
+        r, b = self.paused_run([arm(False), paint(12)], when=4)
+        self.assertEqual(r.state, "done", r.message)
+        i = b.log.index("S")
+        self.assertEqual(b.log[i + 1:i + 3], ["J 3 90", "J 3 0"])      # off the canvas, and back
+        after = [c for c in b.log[i:] if c.startswith("L")]
+        before = [c for c in b.log[:i] if c.startswith("L")]
+        self.assertEqual(after[-1], "L 12.00 50.00")                    # the pass is finished
+        first = int(after[0].split()[1].split(".")[0])
+        self.assertEqual(after, [f"L {k}.00 50.00" for k in range(first, 13)])   # nothing skipped
+        ran = [c for c in before if int(c.split()[1].split(".")[0]) < first]
+        self.assertTrue(ran, "some of the pass ran before the pause")
+        self.assertNotIn("K", b.log)
+        self.assertEqual(r.status()["percent"], 100.0)
+
+    def test_a_travel_ends_first_then_the_pause(self):
+        r, b = self.paused_run([arm(True), travel(100, 20), arm(False), paint(3)], when=2)
+        self.assertEqual(r.state, "done", r.message)
+        self.assertNotIn("S", b.log)                                    # the travel was not braked
+        self.assertLess(b.log.index("M 100 20"), b.log.index("J 3 0"))
+
+    def test_stop_while_paused_ends_the_job(self):
+        r, b = self.paused_run([arm(False), paint(12), arm(True), travel(10, 20)], when=4,
+                               then=lambda r, b: r.stop())
+        self.assertEqual(r.state, "stopped")
+        self.assertNotIn("M 10 20", b.log)
+        self.assertEqual(b.log.count("J 3 0"), 1)                       # the brush stays off
+
+    def test_hard_stop_while_paused_reaches_the_board(self):
+        r, b = self.paused_run([arm(False), paint(12)], when=4, then=lambda r, b: r.stop(hard=True))
+        self.assertEqual(r.state, "stopped")
+        self.assertEqual(b.log[-1], "K")
+
+    def test_continue_only_when_paused_and_no_new_start_meanwhile(self):
+        r = Runner(FakeBoard().send)
+        self.assertFalse(r.resume())
+        self.assertFalse(r.pause())                                     # idle: nothing to pause
+        with r.lock:
+            r.state = "paused"
+        ok, _ = r.start([arm(True)])
+        self.assertFalse(ok)                                            # a paused job is still a job
+
+    def test_piece_at_finds_the_piece_on_lines_and_arcs(self):
+        path = ["L 10 0", "A 10 5 10 10 1", "L 0 10"]                   # a U: right, a half circle up, back left
+        self.assertEqual(piece_at((0, 0), path, (4, 0)), 0)
+        self.assertEqual(piece_at((0, 0), path, (15, 5)), 1)            # the far side of the half circle
+        self.assertIsNone(piece_at((0, 0), path, (5, 5)))               # inside the U: on no piece
+        self.assertEqual(piece_at((0, 0), path, (6, 10)), 2)
+        self.assertEqual(piece_at((0, 0), path, (10, 0), first=1), 1)  # a joint: the later piece, if asked
 
 
 class ParkTest(unittest.TestCase):
