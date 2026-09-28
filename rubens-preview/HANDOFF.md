@@ -111,7 +111,7 @@ The user's words (translated): "after every paint run — bottom to top — the
 - In Export CNC, travel moves get their own kind (`data-kind="travel"`) so
   RUBENS can tell "paint" from "air" (`Rubens_v2.md`, section 5).
 
-### 3.2. Brush: flat or round
+### 3.2. Brush: round — decided 2026-09-28
 
 A flat brush must stay across the direction of travel at all times. On bends
 it would have to turn with the line, otherwise it runs sideways and the trace
@@ -119,11 +119,12 @@ narrows almost to nothing.
 
 Nothing on the arm can turn it (confirmed 2026-09-27): J3 swings the brush
 sideways instead of turning it about the vertical axis, and the shoulder and
-elbow move the tip when they rotate. The user leans towards a **round**
-brush, which needs no turning. Wait for the user's decision.
+elbow move the tip when they rotate. **The owner chose a round brush**
+(2026-09-28, a Raphael No. 4, `../CALIBRATION.md`), which needs no turning.
 
-In the UI, Flat 8 / Flat 12 is only the preview texture for now. Rework to
-match the decision: a round brush gets its own texture profile.
+In the UI, Flat 8 / Flat 12 is only the preview texture for now. Left: a round
+brush gets its own texture profile, fitted from the first paint photos
+(section 3.4), not invented.
 
 ### 3.3. Pause for brush change and refill
 

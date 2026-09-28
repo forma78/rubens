@@ -7,13 +7,35 @@ was measured, how, and what it changed. Numbers here are the source for
 
 ---
 
+## 2026-09-28 — first paint
+
+### Set-up
+
+- **Brush: round** — the owner's decision (Rubens_v2.md, section 4.8). Raphael,
+  No. 4; printed on the handle, as the owner read it: "804 kaerell (s) 304. 4".
+  Diameter about 10 mm — to confirm whether that is the hair or the ferrule.
+  The real trace width is measured on the canvas.
+- **Holder:** the same spring clamp as for the pencil. The owner: the springs
+  "wander like drunk sailors on a deck" — the tip floats sideways too freely.
+  Watch what that does to repeatability with the brush.
+- **The canvas is 100 × 70 cm, not 60 × 80.** The owner laid a 1000 × 700 mm
+  canvas and drew a 600 × 800 mm frame on it with a blue pencil, on purpose:
+  during the tests the pencil and the pen roll over canvas everywhere in the
+  work area and never drop off an edge. The canvas corners recorded on
+  2026-09-27 are the corners of that frame. It has not moved; no new
+  calibration.
+
+---
+
 ## 2026-09-27 — first calibration, with a pencil
 
 **Set-up.** A mechanical pencil in the new spring clamp: the clamp lets the
 pencil float left–right and forward–back, so it never stands rigid at 90° and
 cannot pierce a sagging canvas (the floor is uneven, the canvas can sag in the
 middle). Canvas 60 × 80 cm lying with its long side along the frame, bottom of
-the picture at the beam. Arm straight (pendant zero), not moved during the
+the picture at the beam. *(Correction 2026-09-28: the canvas is 100 × 70 cm
+with a 60 × 80 cm frame drawn on it in blue pencil; the "canvas" below is that
+frame.)* Arm straight (pendant zero), not moved during the
 session. Photos: `images_CNC_drawing_machine/photo_2026-09-27 15.17.41.jpeg`
 (the clamp), `photo_2026-09-27 15.17.43.jpeg` (the canvas on the machine).
 

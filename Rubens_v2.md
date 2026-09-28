@@ -35,7 +35,7 @@ messages (decided 2026-09-27). The app UI was English from the start.
 | Layer = one tool, one colour, one pass | A stroke of width W = eight passes of one brush, each pass with its own drop of paint |
 | Strokes are sorted for short travel moves | For the brush, stroke order = drawing order: it decides what lands on top of what while wet. *Claude's decision* |
 | A standalone program on the Mac | A browser page with three tabs, Create, Calibration and Job, plus a Python process that runs the job (section 6) |
-| Brush 3–5 mm | Brush 8 or 12 mm. Flat or round is not decided |
+| Brush 3–5 mm | Round, decided 2026-09-28 (a Raphael No. 4). The trace width is measured, not assumed |
 | `U` lifts the tool with a spare servo, ID 4 | The wrist J3 swings the brush off the canvas sideways, like a broom (section 4.5) |
 
 Unchanged from RUBENS.md:
@@ -216,7 +216,8 @@ Spots marked "!" are only shown (section 4.4).
 
 ### 4.8. The brush
 
-Flat or round is not decided. A flat brush has to stay across the direction
+**Round** — decided by the owner 2026-09-28 (a Raphael No. 4, see
+`CALIBRATION.md`). A flat brush would have to stay across the direction
 of travel and turn with the line on bends. Nothing on the arm can do that:
 the shoulder and elbow rotate about vertical axes but move the tip when they
 do, and J3 swings the brush sideways instead of turning it about the vertical
@@ -427,7 +428,7 @@ plausible value is filled in.
    of the picture: X (as in `RAIL.md`) or Y? Which way is plus?
 3. ~~**How the board runs a smooth pass** (section 6)~~ — decided
    2026-09-27, a draft to flash and test together with the owner.
-4. **Flat or round brush.** Flat cannot be turned with the line (section 4.8).
+4. ~~**Flat or round brush.**~~ — round, the owner 2026-09-28 (section 4.8).
 5. **Manual mode on the Create tab:** is the dry tail intended texture (then no
    refills) or should it refill (then the preview shows fresh paint after each
    refill)?
