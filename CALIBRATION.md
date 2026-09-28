@@ -131,6 +131,52 @@ was measured, how, and what it changed. Numbers here are the source for
   **4 trips a lane**, 5.5 mm apart on a 500 pt stroke, 32 trips in all. The
   paint: made liquid, it now stays wet for about 12 hours.
 
+### The first job with 4 trips: X stalled and lost 200 mm going up (midnight)
+
+Photos `images_CNC_drawing_machine/photo_2026-09-28 23.33.36 brush.jpeg`,
+the same with the return marked in green by the owner (`… brush 2.jpeg`), the
+pencil under it (`23.33.33`, `23.33.35`, `23.33.37 pencil.jpeg`), and the Job
+tab at the stop (`Screenshot 2026-09-28 Rubens.png`).
+
+- **The job:** the same stroke, Brush mode, 4 trips a lane, brush off between
+  lanes, **40 mm/s (×2)**, `job.json` of 23:29. The canvas had been painted
+  over (white into pink) and the pencil job run on it; then only Pencil was
+  switched to Brush. The owner stopped it during lane 1 (block 3 of 46), on
+  its second trip.
+- **What the canvas shows.** Trip 1 (up, from the bottom right) lies near the
+  pencil to about the point of the teardrop; above it the trace is squashed:
+  the big arc at the top right (radius 233 mm, 193.6 mm up) came out as a
+  small corner and the top line lies low. Trip 2 (the return, down) is the
+  exact shape of the lane, all of it **200 mm too low** — the owner, with a
+  ruler.
+- **The X motor crackled** on the climb (the owner). It stalled on that arc
+  and caught up only as the arc turned towards level and its X speed fell
+  (40 mm/s at the start of the arc, 16 mm/s at its end); Y ran on, so the arc
+  was painted as a corner. The arc climbs 193.6 mm — the 200 mm lost.
+- **The plan was right.** All 46 blocks replayed as the firmware reads arcs
+  (`path.h`, radius from the start): every arc ends within 0.3 mm of the job,
+  no sweep over 180.2°.
+- **The board sent every step.** V after the stop: "пусто 0, повторов 12,
+  сбоев 0". Ping: X 19757 (246.96 mm), Y 13582 (509.3 mm) — on the return,
+  where the dot on the Job tab stood; the carriage stood 200 mm lower, at the
+  bottom of the drawing. The count cannot see a stall, so neither can the
+  runner's check that the carriage arrived. X also reported "край" at
+  247 mm, probably left from an earlier jog — to check.
+- **Unlike the first canvas** (the same stroke, also ×2, geometry right):
+  4 trips instead of 2; the new arm pose of 23:05 with all three joints
+  holding from the job's start (rubens.py was restarted at 23:05:53 with
+  that); liquid paint. Not known yet: the speed and the arm pose of the
+  pencil job on this canvas. So ×2 going up is at X's edge, not clearly past
+  it.
+- **After the stop** the X count is 200 mm high: the walls stand 200 mm too
+  low for the carriage. Home again before anything moves.
+- **Next:** measure X's margin going up instead of guessing a speed. Jog X up
+  from the bottom at level 2, 3, 4, 5 (20–50 mm/s; a jog has the same
+  250 mm/s² as a pass), brush on the canvas and brush off, and listen for the
+  crackle; after each, X down to its stop at level 1 and read the count at
+  the first knock (loss = count + 9.45 mm). The speed going up follows from
+  that.
+
 ---
 
 ## 2026-09-27 — first calibration, with a pencil
