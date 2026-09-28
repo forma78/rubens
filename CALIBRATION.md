@@ -25,6 +25,35 @@ was measured, how, and what it changed. Numbers here are the source for
   2026-09-27 are the corners of that frame. It has not moved; no new
   calibration.
 
+### The arm after the first night (morning)
+
+- **J3 took the wrong zero.** The firmware takes each joint's zero from the
+  pose it stands in at the first command after power-on. The job of the night
+  ended with the brush off (+90°) and the wrist stood so all night, so this
+  morning +90° became 0: "Brush off" swung the pencil to +180°. The servos
+  read their pose after a power-off (an absolute sensor, 4096 per turn,
+  1024 = 90°): J3 read 2513, so the zero of the evening was 1489.
+- **Fixed without flashing:** J3 −90 brought the pencil to 1490 (the real
+  0°, on the canvas); the board was then reset over the serial line (RTS, as
+  the flasher does), which also cleared a home set at the wrong stop; the
+  first J3 command after the reset took the zero at 1490; +90° is 2513.
+- **Raw poses to keep:** J3 on the canvas (0°) **1489**, off (+90°) **2513**.
+  Shoulder (J1) **2501** and elbow (J2) **1759** as they stood overnight after
+  the pencil job.
+- **Shoulder and elbow do not hold until they get a command.** After the
+  reset only J3 was commanded; the shoulder drifted 2501 → 2492 during a
+  wrist swing and to about 2500 during homing. Held with J1 −5 and J2 −5
+  (with the +5° offset that is "hold where you are"): 2499 and 1757. On the
+  way J1 once went to 2511, a degree off: the command was worked out from a
+  reading taken before homing had moved the shoulder again. Read the pose
+  right before any arm command.
+- **To do, firmware, with the owner:** the three zeros as fixed raw numbers
+  instead of "the pose at the first command", and the shoulder and elbow
+  holding from power-on.
+- The home of the morning was first set with X at the wrong stop (the X
+  slider moved right, which is up, instead of left, which is down to the
+  beam); after the reset it was set again at the right stops.
+
 ---
 
 ## 2026-09-27 — first calibration, with a pencil
