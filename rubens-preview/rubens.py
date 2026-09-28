@@ -470,6 +470,7 @@ class Runner:
                     if not started:
                         started = self._go()
                     self._wait(0.1)
+                    self._progress(base, share, sent, total)
                     continue
                 raise Abort(f"{c}: {in_english(r)}")
             if c[0] in "LAM":
@@ -552,6 +553,17 @@ class Runner:
                         f"X {end[0]:.1f} Y {end[1]:.1f}. The board stopped the path itself "
                         "(a restart of the board clears it). HARD STOP sent")
 
+    def _progress(self, base, share, sent, total):
+        # What the block has painted by the last ping: the pieces the board
+        # has run, which is those sent less those still queued. Counted also
+        # while the rest is still being sent: a Brush lane is one block of
+        # some 80 pieces, and its percent stood at 0 for most of the lane
+        # (2026-09-28).
+        queued = (self.pos or {}).get("path")
+        if total and queued is not None:
+            with self.lock:
+                self.painted = base + share * max(0, sent - queued) / total
+
     def _finish(self, started, base=None, share=0, sent=0, total=0, pausable=False):
         # the block is over when the board no longer reports a path; False:
         # a pause came first, the path is still running
@@ -563,9 +575,8 @@ class Runner:
                 break
             if pausable and self._pause and not self._stop:
                 return False
-            if base is not None and total:
-                with self.lock:
-                    self.painted = base + share * max(0, sent - p["path"]) / total
+            if base is not None:
+                self._progress(base, share, sent, total)
             self.sleep(0.2)
         if started:
             # the flag can drop while the motors still run the last queued

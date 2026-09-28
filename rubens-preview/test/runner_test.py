@@ -155,6 +155,20 @@ class RunnerTest(unittest.TestCase):
         self.assertEqual(b.log.count("G"), 1)
         self.assertLessEqual(b.max_queue, 16)
 
+    def test_the_percent_moves_while_a_long_block_is_still_being_sent(self):
+        # a Brush lane is one block of some 80 pieces (2026-09-28: 0 % for most of it)
+        b = FakeBoard()
+        r = Runner(b.send, sleep=b.sleep, swing_s=0.2)
+        seen = []
+        b.on_sleep = lambda: seen.append((sum(c.startswith("L") for c in b.log), r.status()["percent"]))
+        r.start([paint(80)])
+        r.thread.join(10)
+        self.assertEqual(r.state, "done", r.message)
+        self.assertTrue(any(sent < 80 and pct > 0 for sent, pct in seen), seen)
+        pcts = [pct for _, pct in seen]
+        self.assertEqual(pcts, sorted(pcts))           # never goes back
+        self.assertEqual(r.status()["percent"], 100.0)
+
     def test_a_piece_past_the_wall_stops_everything(self):
         b = FakeBoard(edge_on="L 3.00")
         r = run(b, [arm(False), paint(5)])

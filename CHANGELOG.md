@@ -7,6 +7,10 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **The percent moves through a Brush lane.** A lane in Brush mode is one
+  block of some 80 pieces, and the runner counted what was painted only once
+  it had sent them all: the Job tab stood at 0 % for most of the lane, then
+  jumped. It now counts from the board's queue all along.
 - **Rams look.** Neutral grey keys; the chosen one is pressed and marked with
   an orange dot; "• STOP", "•• HARD STOP". The Job tab's progress is a grey
   LCD in a niche: the percent in two seven-segment cells (the tens faint
