@@ -108,6 +108,15 @@ was measured, how, and what it changed. Numbers here are the source for
   asked for ×4.
 - Afterwards a new run was stopped at block 2 of 110 with the brush on the
   canvas, at X 0.1, Y 549.2.
+- **The brush swung to 180° (late).** The board had been restarted with the
+  wrist at +90° and took its zero there; the next job's "brush off" sent it to
+  raw 3535 (179.8° from the working pose) and nearly broke the brush. The
+  shoulder, never commanded since the restart, did not hold and was dragged
+  to raw 1742 (66.7° off), the elbow to 1678 (7.1°). Carriage at X −1.05,
+  Y −8.3. From here RUBENS moves the arm only in its own degrees from the
+  working pose (rubens.py, class Arm): it reads where a joint is, sets the
+  board's zero there and sends the difference — the board's zero no longer
+  matters. The Calibration tab has the three handles for it.
 - **The owner's answers:** a thicker brush is out; the trips go closer —
   **4 trips a lane**, 5.5 mm apart on a 500 pt stroke, 32 trips in all. The
   paint: made liquid, it now stays wet for about 12 hours.
