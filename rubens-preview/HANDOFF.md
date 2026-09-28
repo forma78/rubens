@@ -61,6 +61,11 @@ through firmware yet (the firmware has no `M` and `U` commands yet).
 - **Small kinks (under 0.5°) stay unrounded** — texture, not a defect.
   **Spots marked "!"** are shown on the Job tab but do not block the start;
   the machine slows to zero there. Decided 2026-09-27.
+- **Brush mode: every lane in 2 or 4 trips on the canvas** (Job tab), the
+  brush down within a lane, a lane / trips apart about its centre line. The
+  first canvas (2026-09-28) had 2 trips, 11 mm apart, and the round No. 4
+  left canvas between them; the owner: no thicker brush, **4 trips a lane**
+  (the default). Decided 2026-09-28.
 - **Lines may cross and overlap** — it is painting (the owner, 2026-09-27,
   with an Illustrator example). Loops of the centre line cross by nature.
 - **Where the rounding does not fit ("!") the inner passes meet in a sharp

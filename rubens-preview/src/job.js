@@ -14,13 +14,15 @@
 // The first step is a paint step: getting to its start is the runner's job.
 //
 // mode 'brush' (the owner, 2026-09-28): the brush trace is narrower than a
-// lane, so every lane is painted there and back without leaving the canvas —
-// up a quarter of the lane to one side of its centre line, a semicircle at
-// the top, and down a quarter to the other side; the two trips split the lane
-// between them. The return lies on the side of the next lane, so the step to
-// it is as wide as the step between the trips. Between lanes, paint.lift still
-// decides: the brush leaves the canvas, or turns into the next lane (one line
-// for the whole stroke). mode 'pencil' is one trip per lane, as before.
+// lane, so every lane is painted in `perLane` trips without leaving the
+// canvas — up, a semicircle, down, a semicircle, up… — a lane / perLane
+// apart, spread evenly about the lane's centre line. perLane is even, so a
+// lane ends at the bottom, where the next one starts, as far away as the
+// trips are from each other. 2 trips was the first canvas: 11 mm apart on a
+// 500 pt stroke, and the round No. 4 left canvas between them; 4 trips is
+// the owner's answer. Between lanes, paint.lift still decides: the brush
+// leaves the canvas, or turns into the next lane (one line for the whole
+// stroke). mode 'pencil' is one trip per lane, as before.
 
 import { PT_MM } from './config.js';
 import { dist, clamp } from './util.js';
@@ -29,9 +31,11 @@ import { cncPlan, reverseSegs } from './cnc.js';
 import { offsetSegs } from './fillet.js';
 
 export const MODES = ['pencil', 'brush'];
+export const PER_LANE = [2, 4];
 
-export function jobSteps(paths, colorsOf, paint, mode = 'pencil') {
+export function jobSteps(paths, colorsOf, paint, mode = 'pencil', perLane = 2) {
   const lift = paint.lift ?? true, brush = mode === 'brush';
+  const n = Math.max(2, 2 * Math.round(perLane / 2));   // trips per lane, even
   const steps = [];
   let at = null, heading = null;
   // From where the last step ended to `start`: a semicircle with the brush
@@ -42,9 +46,12 @@ export function jobSteps(paths, colorsOf, paint, mode = 'pencil') {
     if (arc) { delete arc.tangent; steps.push({ kind: 'turn', stroke, segs: [arc] }); }
     else steps.push({ kind: 'travel', stroke, segs: [{ t: 'L', a: { ...at }, b: { ...start } }] });
   };
-  const paintStep = (p, ps, segs, back) => {
+  // trip t of a lane: even trips go up the picture, odd ones come back down;
+  // the drops are where a lane starts, at its first trip
+  const paintStep = (p, ps, segs, t) => {
+    const back = t % 2 === 1;
     steps.push({ kind: 'paint', stroke: p.id, lane: ps.lane, dir: back ? -ps.dir : ps.dir, color: ps.color, segs,
-      pass: back ? { ...ps, drops: [] } : ps, ...(back ? { back: true } : {}) });
+      pass: t > 0 ? { ...ps, drops: [] } : ps, trip: t, ...(back ? { back: true } : {}) });
     const last = segs[segs.length - 1];
     at = segEnd(last); heading = segDirEnd(last);
   };
@@ -52,23 +59,24 @@ export function jobSteps(paths, colorsOf, paint, mode = 'pencil') {
     if (!p.segs.length) continue;
     // Brush: every lane goes up first, as with the brush off after each pass.
     const plan = cncPlan(p, colorsOf(p), brush ? { ...paint, lift: true } : paint);
-    const W = p.style.weight, q = W / 32;          // a quarter of the lane (the lane is W / 8)
+    const W = p.style.weight, pitch = W / 8 / n;   // between trips (the lane is W / 8)
     plan.passes.forEach((ps, k) => {
       if (!ps.segs.length) return;
       if (!brush) {
         to(p.id, segStart(ps.segs[0]), !lift && k > 0);
-        paintStep(p, ps, ps.segs, false);
+        paintStep(p, ps, ps.segs, 0);
         return;
       }
       const o = ((ps.lane - 0.5) / 8 - 0.5) * W;   // the lane's centre line, as in cncPlan
-      const up = offsetSegs(plan.axis, o - q), down = offsetSegs(plan.axis, o + q);
-      const there = ps.dir > 0 ? up : reverseSegs(up);
-      const back = ps.dir > 0 ? reverseSegs(down) : down;
-      if (!there.length || !back.length) return;
-      to(p.id, segStart(there[0]), !lift && k > 0);
-      paintStep(p, ps, there, false);
-      to(p.id, segStart(back[0]), true);
-      paintStep(p, ps, back, true);
+      const trips = Array.from({ length: n }, (_, t) => {
+        const along = offsetSegs(plan.axis, o + (t - (n - 1) / 2) * pitch);
+        return (t % 2 === 0) === (ps.dir > 0) ? along : reverseSegs(along);   // up, down, up…
+      });
+      if (trips.some(s => !s.length)) return;
+      trips.forEach((segs, t) => {
+        to(p.id, segStart(segs[0]), t > 0 || (!lift && k > 0));
+        paintStep(p, ps, segs, t);
+      });
     });
   }
   return steps;
@@ -157,7 +165,7 @@ export function jobAt(tl, t) {
 // order it runs. Coordinates are on the artboard — x to the right, y down from
 // its top left corner; where the artboard lies on the machine comes from the
 // calibration at run time, not from this file.
-export function jobFile(steps, { formatKey, format, paint, mode = 'pencil' }) {
+export function jobFile(steps, { formatKey, format, paint, mode = 'pencil', perLane }) {
   const mm = v => Math.round(v * PT_MM * 1000) / 1000;
   const pt = q => ({ x: mm(q.x), y: mm(q.y) });
   const seg = g => g.t === 'L'
@@ -166,11 +174,11 @@ export function jobFile(steps, { formatKey, format, paint, mode = 'pencil' }) {
   return {
     rubens: 'job', version: 1, units: 'mm',
     artboard: { format: formatKey, w: format.w, h: format.h, axes: 'x right, y down, from the top left corner' },
-    lift: paint.lift ?? true, mode,
+    lift: paint.lift ?? true, mode, ...(mode === 'brush' && perLane ? { perLane } : {}),
     steps: steps.map(st => {
       const o = { kind: st.kind, stroke: st.stroke, length: mm(lengthPt(st.segs)), segs: st.segs.map(seg) };
       if (st.kind === 'paint') Object.assign(o, {
-        lane: st.lane, dir: st.dir > 0 ? 'with' : 'against', color: st.color, ...(st.back ? { back: true } : {}),
+        lane: st.lane, dir: st.dir > 0 ? 'with' : 'against', color: st.color, trip: st.trip ?? 0, ...(st.back ? { back: true } : {}),
         drops: st.pass.drops.map(d => ({ at: pt(d.at), ml: Math.round(st.pass.ml * 1000) / 1000 })),
       });
       return o;

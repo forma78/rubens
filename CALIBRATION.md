@@ -108,6 +108,9 @@ was measured, how, and what it changed. Numbers here are the source for
   asked for ×4.
 - Afterwards a new run was stopped at block 2 of 110 with the brush on the
   canvas, at X 0.1, Y 549.2.
+- **The owner's answers:** a thicker brush is out; the trips go closer —
+  **4 trips a lane**, 5.5 mm apart on a 500 pt stroke, 32 trips in all. The
+  paint: made liquid, it now stays wet for about 12 hours.
 
 ---
 

@@ -7,6 +7,10 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **Brush: 2 or 4 trips a lane** on the Job tab, 4 by default: up, down, up,
+  down, a quarter lane apart — 32 trips, 5.5 mm apart on a 500 pt stroke.
+  The first canvas had 2 trips 11 mm apart and the round No. 4 left canvas
+  between them. The 2.8 mm turns run at 26 mm/s whatever the pass speed.
 - **Pass speed ×1 / ×2 / ×4 / ×10** on the Job tab (20, 40, 80, 200 mm/s),
   so the paint does not dry before the brush is back. Tight arcs are slowed
   to √(250 mm/s² · r) — the 5.5 mm turns of Brush run at 37 mm/s — because

@@ -87,6 +87,9 @@ main{display:grid;grid-template-columns:60px 1fr 340px;min-height:0}
 .seg button.on{background:var(--ink);color:var(--bg)}
 #brushSeg{grid-template-columns:repeat(3,1fr)}
 #speedX{grid-template-columns:repeat(4,1fr);margin:2px 0 6px}
+#perLaneSeg{margin:0 0 6px}
+#perLaneSeg[hidden]{display:none}
+#perLaneSeg button{padding:6px;flex-direction:row;justify-content:center;font-size:12px}
 #speedX button{padding:7px 6px;flex-direction:row;justify-content:center;font:12px var(--mono)}
 .seg .bico{height:18px;display:flex;align-items:flex-end;gap:0}
 .seg .bico i{display:block;background:currentColor;border-radius:1px 1px 0 0}

@@ -388,9 +388,13 @@ $('#btnDel').onclick = () => { if (!S.sel) return; undoPush(); S.paths = S.paths
 $('#btnClear').onclick = () => { if (!S.paths.length) return; undoPush(); finishAll(); S.paths = []; S.sel = null; invalidate(); };
 
 // ---------- panel ----------
-// Pencil or Brush, chosen on the Job tab (its settings in this browser).
-function jobMode() {
-  try { return JSON.parse(localStorage.getItem('rubens.job.v01') || 'null')?.mode === 'brush' ? 'brush' : 'pencil'; } catch { return 'pencil'; }
+// Trips per lane as chosen on the Job tab (its settings in this browser):
+// 1 for Pencil, 2 or 4 for Brush.
+function jobTrips() {
+  try {
+    const o = JSON.parse(localStorage.getItem('rubens.job.v01') || 'null');
+    return o?.mode === 'brush' ? (o.perLane === 2 ? 2 : 4) : 1;
+  } catch { return 1; }
 }
 addEventListener('storage', e => { if (e.key === 'rubens.job.v01') updatePanel(); });   // switched on the Job tab
 
@@ -494,12 +498,12 @@ function updatePanel() {
   document.querySelectorAll('#brushSeg button').forEach(b => b.classList.toggle('on', b.dataset.brush === st.brush));
   // CNC: eight lanes of this brush, lane = stroke / 8. In the Job tab's Brush
   // mode every lane is two trips, so the trips lie stroke / 16 apart.
-  const B = BRUSHES[st.brush], trips = jobMode() === 'brush' ? 16 : 8;
+  const B = BRUSHES[st.brush], perLane = jobTrips(), trips = 8 * perLane;
   const pitch = st.weight * PT_MM / trips, fullPt = B.mm * trips / PT_MM, gap = pitch - B.mm;
   let note = '';
   if (gap > 0.5) note = ` <span class="warn">Gaps of ${fmt(gap, 1)} mm between passes.</span>`;
   else if (gap < -0.5) note = ` <span class="warn">Passes overlap by ${fmt(-gap, 1)} mm.</span>`;
-  const how = trips === 16 ? '<b>8 lanes there and back</b> (Brush on the Job tab): 16 trips' : '<b>8 passes</b>';
+  const how = perLane > 1 ? `<b>8 lanes × ${perLane} trips</b> (Brush on the Job tab): ${trips} trips` : '<b>8 passes</b>';
   $('#bRead').innerHTML = `CNC runs ${how} of the ${B.mm} mm brush, ${fmt(pitch, 1)} mm apart.${note}` +
     (Math.abs(gap) > 0.5 ? ` <button class="link" id="matchBrush">Stroke = ${trips} × ${B.mm} mm (${fmt(fullPt, 0)} pt)</button>` : '') +
     (B.guess ? ` <span class="hint">${B.mm} mm and the texture are a guess until the first paint photos.</span>` : '');

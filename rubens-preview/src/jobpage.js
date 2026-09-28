@@ -7,13 +7,13 @@ import { PT_MM, FORMATS, PAPER } from './config.js';
 import { fmt, clamp } from './util.js';
 import { luminance } from './color.js';
 import { segLen } from './geometry.js';
-import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, timeAtPercent, MODES, TIME_MODEL } from './job.js';
+import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, timeAtPercent, MODES, PER_LANE, TIME_MODEL } from './job.js';
 import { canvasReport, jobToMachine, arcSpeed, SPEED_MAX, CORNERS } from './machine.js';
 
 const $ = s => document.querySelector(s);
 const INK = '#24221F', ORANGE = '#EB7A25';
 
-const S = { doc: null, steps: [], tl: null, t: 0, mode: 'pencil', model: { ...TIME_MODEL }, cal: null, onMachine: null, fit: null, run: null };
+const S = { doc: null, steps: [], tl: null, t: 0, mode: 'pencil', perLane: 4, model: { ...TIME_MODEL }, cal: null, onMachine: null, fit: null, run: null };
 
 // ---------- the drawing and the plan ----------
 // The Create tab keeps its drawing in this browser; read it from there.
@@ -29,7 +29,7 @@ function build() {
   const d = S.doc;
   if (!d) { S.steps = []; S.tl = null; S.t = 0; return; }
   const colorsOf = p => (d.palettes.find(q => q.id === p.style.palette) || d.palettes[0]).colors;
-  S.steps = jobSteps(d.paths.filter(p => p.segs.length), colorsOf, d.paint, S.mode);
+  S.steps = jobSteps(d.paths.filter(p => p.segs.length), colorsOf, d.paint, S.mode, S.perLane);
   S.tl = jobTimeline(S.steps, S.model);
   S.t = frac * S.tl.total;
 }
@@ -40,10 +40,11 @@ function loadPrefs() {
     const o = JSON.parse(localStorage.getItem('rubens.job.v01') || 'null');
     if (o?.model) Object.assign(S.model, o.model);
     if (MODES.includes(o?.mode)) S.mode = o.mode;
+    if (PER_LANE.includes(o?.perLane)) S.perLane = o.perLane;
   } catch { /* defaults */ }
 }
 function savePrefs() {
-  try { localStorage.setItem('rubens.job.v01', JSON.stringify({ model: S.model, mode: S.mode })); } catch { /* not kept */ }
+  try { localStorage.setItem('rubens.job.v01', JSON.stringify({ model: S.model, mode: S.mode, perLane: S.perLane })); } catch { /* not kept */ }
 }
 
 // ---------- numbers ----------
@@ -104,7 +105,7 @@ function machine() {
     el.innerHTML = `<p class="warn">The canvas corners give ${off.map(e => `${e.name} ${fmt(e.length)} mm`).join(', ')} against the format's ${fmt(F.w)} × ${fmt(F.h)} mm — the job would be stretched. Record the corners of the canvas itself on the Calibration tab.</p>`;
     return;
   }
-  const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint, mode: S.mode });
+  const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint, mode: S.mode, perLane: S.perLane });
   S.fit = rep.fit;
   S.onMachine = { ...jobToMachine(file, rep.fit, { paintMMs: S.model.paintMMs, travelMMs: S.model.travelMMs }), corners: n };
   const b = S.onMachine.blocks, cut = S.onMachine.skipped;
@@ -257,10 +258,19 @@ $('#speedX').onclick = e => {
 
 function syncMode() {
   document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.m === S.mode));
+  document.querySelectorAll('#perLaneSeg button').forEach(b => b.classList.toggle('on', +b.dataset.n === S.perLane));
+  $('#perLaneSeg').hidden = S.mode !== 'brush';
+  const W = S.doc ? Math.max(...S.doc.paths.filter(p => p.segs.length).map(p => p.style.weight), 0) * PT_MM : 0;
+  const apart = W ? ` — ${fmt(W / 8 / S.perLane, 1)} mm apart on the widest stroke` : '';
   $('#modeNote').textContent = S.mode === 'brush'
-    ? 'Every lane there and back on the canvas: up a quarter of the lane to one side of its line, a semicircle, down a quarter to the other side.'
+    ? `Every lane in ${S.perLane} trips on the canvas: up, a semicircle, down${S.perLane > 2 ? ', and again' : ''}, a lane / ${S.perLane} apart${apart}. The brush stays down in the lane.`
     : 'One trip per lane, bottom to top.';
 }
+$('#perLaneSeg').onclick = e => {
+  const b = e.target.closest('button');
+  if (!b || +b.dataset.n === S.perLane || runLive()) return;
+  S.perLane = +b.dataset.n; savePrefs(); syncMode(); build(); summary(); machine(); render();
+};
 $('#modeSeg').onclick = e => {
   const b = e.target.closest('button');
   if (!b || b.dataset.m === S.mode || runLive()) return;   // the plan on screen must stay the running one
@@ -278,7 +288,7 @@ for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#
 }
 
 // The drawing changed on the Create tab (another tab of this browser).
-addEventListener('storage', e => { if (e.key === 'rubens.v01') { build(); summary(); machine(); render(); } });
+addEventListener('storage', e => { if (e.key === 'rubens.v01') { build(); syncMode(); summary(); machine(); render(); } });
 // Back from the Calibration tab: the corners may have changed.
 addEventListener('focus', async () => { await loadCalibration(); machine(); });
 addEventListener('resize', () => render());
@@ -286,7 +296,7 @@ addEventListener('resize', () => render());
 async function saveJob() {
   if (!S.doc) return false;
   const F = FORMATS[S.doc.format];
-  const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint, mode: S.mode });
+  const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint, mode: S.mode, perLane: S.perLane });
   if (S.onMachine) file.machine = { paintMMs: S.model.paintMMs, travelMMs: S.model.travelMMs, ...S.onMachine };
   const body = JSON.stringify(file, null, 1);
   try {
@@ -345,7 +355,7 @@ function showRun() {
   if (pb.textContent !== label) pb.textContent = label;
   pb.disabled = !live || !['running', 'paused'].includes(st.state);
   pb.classList.toggle('primary', paused);
-  document.querySelectorAll('#modeSeg button').forEach(b => { b.disabled = live; });
+  document.querySelectorAll('#modeSeg button, #perLaneSeg button').forEach(b => { b.disabled = live; });
   syncSpeedX();
   if (live && S.tl) S.t = timeAtPercent(S.tl, st.percent || 0);
   if (!live && st?.state === 'done' && S.tl) S.t = S.tl.total;
@@ -393,7 +403,7 @@ addEventListener('keydown', e => { if (e.key === 'Escape') machineStop(false); }
 // ---------- start ----------
 loadPrefs();
 for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#mSwing', 'swingS']]) $(id).value = S.model[key];
-syncMode(); syncSpeedX();
-build(); summary(); render();
+build(); syncMode(); syncSpeedX();
+summary(); render();
 await loadCalibration(); machine();
 pollRun();   // a run may already be going: show it

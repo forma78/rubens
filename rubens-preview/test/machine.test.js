@@ -192,3 +192,16 @@ test('pass speed: lines at the pass speed, tight arcs no faster than √(250 · 
   assert.equal(runs[0].cmds[0], 'F 80');
   assert.equal(jobToMachine(file, straight().fit, { paintMMs: 900 }).blocks.find(b => b.cmds?.[0]?.startsWith('F')).cmds[0], 'F 200');
 });
+
+test('job on the machine: brush with 4 trips a lane is one run per lane, three slow turns in it', () => {
+  const p = shape([['L', MM(400)]], { start: P(MM(100), MM(300)), weight: 500 });
+  const file = jobFile(jobSteps([p], () => EIGHT, { ...PAINT, lift: true }, 'brush', 4),
+    { formatKey: 'p60x80', format: { w: 600, h: 800 }, paint: PAINT, mode: 'brush', perLane: 4 });
+  assert.equal(file.perLane, 4);
+  const runs = jobToMachine(file, straight().fit, { paintMMs: 80 }).blocks.filter(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
+  assert.equal(runs.length, 8);
+  const turnV = arcSpeed(80, 500 * 25.4 / 72 / 64);
+  assert.equal(turnV, 26);
+  for (const r of runs) assert.deepEqual(r.cmds.map(c => c.split(' ')[0] === 'F' ? c : c[0]),
+    ['F 80', 'L', `F ${turnV}`, 'A', 'F 80', 'L', `F ${turnV}`, 'A', 'F 80', 'L', `F ${turnV}`, 'A', 'F 80', 'L', 'G']);
+});
