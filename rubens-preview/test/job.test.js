@@ -7,7 +7,7 @@ import { P, dist } from '../src/util.js';
 import { segStart, segEnd, segDirStart, segDirEnd } from '../src/geometry.js';
 import { cncPlan, strokeDir } from '../src/cnc.js';
 import { filleted } from '../src/fillet.js';
-import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, pointAlong } from '../src/job.js';
+import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, pointAlong, timeAtPercent } from '../src/job.js';
 import { shape, poly, polyline, crossings, PAINT, EIGHT } from './shapes.js';
 
 const LIFT = { ...PAINT, lift: true }, SNAKE = { ...PAINT, lift: false };
@@ -219,4 +219,12 @@ test('the job file: mm, execution order, drops on paint steps', () => {
   assert.ok(Math.abs(s0.segs[0].a.x - g0.a.x * PT_MM) < 1e-3);
   assert.ok(s0.drops.length >= 1 && s0.drops[0].ml > 0);
   assert.equal(f.steps[1].drops, undefined);
+});
+
+test('clock: the time at which a running machine has painted a given percent', () => {
+  const p = drawnDown(), tl = jobTimeline(jobSteps([p], () => EIGHT, LIFT));
+  assert.equal(timeAtPercent(tl, 0), 0);
+  for (const pct of [12.5, 50, 87]) assert.ok(Math.abs(jobAt(tl, timeAtPercent(tl, pct)).percent - pct) < 1e-6, `${pct} %`);
+  const lastPaint = tl.rows.filter(r => r.step.kind === 'paint').pop();
+  assert.ok(Math.abs(timeAtPercent(tl, 100) - (lastPaint.t0 + lastPaint.dur)) < 1e-9);
 });

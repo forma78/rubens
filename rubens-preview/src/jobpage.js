@@ -7,7 +7,7 @@ import { PT_MM, FORMATS, PAPER } from './config.js';
 import { fmt, clamp } from './util.js';
 import { luminance } from './color.js';
 import { segLen } from './geometry.js';
-import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, MODES, TIME_MODEL } from './job.js';
+import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, timeAtPercent, MODES, TIME_MODEL } from './job.js';
 import { canvasReport, jobToMachine, CORNERS } from './machine.js';
 
 const $ = s => document.querySelector(s);
@@ -125,11 +125,19 @@ const strokeList = items => {
   return [...new Set(items.map(o => order.indexOf(o.stroke) + 1))].sort((a, b) => a - b).join(', ');
 };
 
+// While the machine runs, the progress is the machine's (the owner,
+// 2026-09-28: a giant 0 % from the on-screen clock beside a running machine).
+// The playhead follows the runner's painted percent; the time left is
+// measured from the start of the run once there is enough of it, otherwise
+// the time model's.
 function showProgress(at) {
-  const total = S.tl ? S.tl.total : 0;
-  $('#pct').textContent = at ? `${Math.floor(at.percent)} %` : '—';
-  $('#left').textContent = !at ? '—' : at.left <= 0 ? 'done' : `${minutes(at.left)} left`;
-  $('#bar').style.width = at ? `${at.percent}%` : '0';
+  const total = S.tl ? S.tl.total : 0, live = runLive();
+  const pct = live ? (S.run.percent || 0) : at?.percent;
+  let left = at?.left;
+  if (live && S.run.started && pct >= 3) left = (Date.now() / 1000 - S.run.started) * (100 - pct) / pct;
+  $('#pct').textContent = at ? `${Math.floor(pct)} %` : '—';
+  $('#left').textContent = !at ? '—' : left <= 0 ? 'done' : `${minutes(left)} left`;
+  $('#bar').style.width = at ? `${pct}%` : '0';
   $('#elapsed').textContent = clock(S.t);
   $('#total').textContent = clock(total);
   $('#scrub').value = total ? Math.round(S.t / total * 1000) : 0;
@@ -139,6 +147,7 @@ function showProgress(at) {
     now = st.kind === 'paint' ? `stroke ${n} · lane ${st.lane} · ${st.dir > 0 ? 'with' : 'against'} the drawing`
       : st.kind === 'turn' ? `stroke ${n} · turn to the next lane` : `travel · brush off the canvas`;
   }
+  if (live && S.run.blocks) now += ` · block ${S.run.block + 1} of ${S.run.blocks}`;
   $('#now').textContent = now;
   // Only when it changes: Safari drops a click on a button whose text is
   // replaced between mouse down and up, and this runs every frame.
@@ -233,7 +242,7 @@ function tick(now) {
   if (S.playing) requestAnimationFrame(tick);
 }
 function play(on) {
-  if (!S.tl || !S.tl.total) return;
+  if (!S.tl || !S.tl.total || runLive()) return;
   if (on && S.t >= S.tl.total) S.t = 0;
   S.playing = on; last = 0;
   render();
@@ -267,7 +276,7 @@ function syncMode() {
 }
 $('#modeSeg').onclick = e => {
   const b = e.target.closest('button');
-  if (!b || b.dataset.m === S.mode) return;
+  if (!b || b.dataset.m === S.mode || runLive()) return;   // the plan on screen must stay the running one
   S.mode = b.dataset.m; savePrefs(); syncMode(); build(); summary(); machine(); render();
 };
 
@@ -307,7 +316,7 @@ $('#btnSaveJob').onclick = saveJob;
 // ---------- ⚡️ Do Job: the run on the machine ----------
 // rubens.py runs the job; the page only starts it and asks how it goes. The
 // run does not depend on this tab: closing it does not stop the machine.
-const runLive = () => S.run && (S.run.state === 'running' || S.run.state === 'stopping');
+const runLive = () => !!S.run && (S.run.state === 'running' || S.run.state === 'stopping');
 $('#btnDoJob').onclick = async e => {
   e.currentTarget.blur();
   if (!S.doc) return;
@@ -332,12 +341,22 @@ async function pollRun() {
   if (runLive()) runTimer = setTimeout(pollRun, 300);
 }
 function showRun() {
-  const st = S.run;
-  $('#runState').hidden = !st || st.state === 'idle';
-  if (!st || st.state === 'idle') return;
-  const blocks = st.blocks ? ` · block ${st.block + 1} of ${st.blocks}` : '';
-  $('#runState').innerHTML = `<b>Machine: ${st.state}</b> · ${fmt(st.percent || 0, 1)} % painted${blocks}`
-    + (st.message ? `<br><span class="warn">${st.message}</span>` : '');
+  const st = S.run, live = runLive();
+  // While it runs the progress above is the machine's; this line is for how
+  // the run ended: done, stopped, or an error and where it stopped.
+  const over = !!st && !live && st.state !== 'idle';
+  $('#runState').hidden = !over;
+  if (over) {
+    const blocks = st.state !== 'done' && st.blocks ? ` · at block ${st.block + 1} of ${st.blocks}` : '';
+    $('#runState').innerHTML = `<b>Machine: ${st.state}</b> · ${fmt(st.percent || 0, 1)} % painted${blocks}`
+      + (st.message ? `<br><span class="warn">${st.message}</span>` : '');
+  }
+  const hint = $('#progHint');
+  hint.textContent = live ? 'the machine, live' : 'on screen, by painted length';
+  hint.classList.toggle('live', live);
+  for (const id of ['#btnPlay', '#btnRestart', '#scrub']) $(id).disabled = live;
+  document.querySelectorAll('#modeSeg button').forEach(b => { b.disabled = live; });
+  if (live && S.tl) { S.playing = false; S.t = timeAtPercent(S.tl, st.percent || 0); }
   render();
 }
 // The brush by hand: the wrist to +90° (off the canvas) or 0° (on it).

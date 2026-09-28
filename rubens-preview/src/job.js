@@ -108,6 +108,17 @@ export function jobTimeline(steps, model = TIME_MODEL) {
   return { rows, total: t, paintMM: painted, model };
 }
 
+// The time on the clock at which `percent` of the painted length is done:
+// where a running machine is in the plan, from the runner's percent.
+export function timeAtPercent(tl, percent) {
+  const want = clamp(percent, 0, 100) / 100 * tl.paintMM;
+  for (const row of tl.rows) {
+    if (row.step.kind !== 'paint') continue;
+    if (want <= row.painted0 + row.Lmm) return row.t0 + (row.Lmm ? (want - row.painted0) / row.Lmm : 0) * row.dur;
+  }
+  return tl.total;
+}
+
 // A point `d` document units along a chain of segments.
 export function pointAlong(segs, d) {
   for (const g of segs) {

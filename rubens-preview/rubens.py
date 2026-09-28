@@ -132,6 +132,7 @@ class Runner:
         self.blocks, self.block = [], 0
         self.paint_total = self.painted = 0.0
         self.pos = None                  # last ping: {"x", "y", "path"}
+        self.started = None              # time.time() of the last start
         self.brush_on = False
         self._stop = None                # None, "S" or "K"
 
@@ -143,7 +144,8 @@ class Runner:
             return {"state": self.state, "message": self.message, "block": self.block,
                     "blocks": len(self.blocks), "painted_mm": round(self.painted, 1),
                     "paint_mm": round(self.paint_total, 1), "percent": round(pct, 1),
-                    "x_mm": mm("x", 0), "y_mm": mm("y", 1), "brush_on": self.brush_on}
+                    "x_mm": mm("x", 0), "y_mm": mm("y", 1), "brush_on": self.brush_on,
+                    "started": self.started}
 
     def start(self, blocks):
         with self.lock:
@@ -152,6 +154,7 @@ class Runner:
             self.blocks, self.block, self.painted = list(blocks), 0, 0.0
             self.paint_total = sum(b.get("paintMM") or 0 for b in blocks if b.get("kind") == "move")
             self.state, self.message, self._stop = "running", "", None
+            self.started = time.time()
         self.thread = threading.Thread(target=self.run, daemon=True)
         self.thread.start()
         return True, "started"
