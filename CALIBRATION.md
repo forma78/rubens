@@ -225,6 +225,19 @@ stop. The owner stopped it; nothing else moved.
   not move; the four canvas corners of the evening were put back from git
   (600.1 × 801.6 mm).
 
+### The first pencil job (just before midnight)
+
+⚡️ Do Job with the pencil, right after the air tests on FastAccelStepper
+1.3.4. The owner, the next morning: it ran through on the first try, the
+pencil followed the line, nothing strange — "everything came out wonderfully".
+No photos.
+
+The job, from `rubens-preview/job.json` as the Job tab wrote it at 23:22 (to
+confirm it is the one that ran): one stroke of eight passes, 2324 … 1998 mm
+each, the brush off and a travel back after every pass; 15.8 m drawn and
+5.9 m of travel, 1.5 m cut at the walls; passes at 20 mm/s, travel at
+100 mm/s — about 13 min of drawing by the plan.
+
 ### Home — every time after power-on
 
 1. X down to its stop, level 1, stop at the first sound.
