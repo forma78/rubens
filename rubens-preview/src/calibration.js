@@ -133,18 +133,21 @@ addEventListener('pagehide', () => { if (moving()) fetch('/machine/cmd?a=S&n=0',
 
 // ---------- the arm ----------
 // Three handles, as on the MELNICOMM pendant: shoulder and elbow ±45°, the
-// wrist ±90°, 5° a step. Plus is the brush to the right for the shoulder
-// too, unlike the pendant (rubens.py, TURN). Degrees are RUBENS's own, from
+// wrist −90…+10° (a USB camera on the holder is in the way past +10°,
+// 2026-09-30; rubens.py, REACH, refuses more), 5° a step. Plus is the brush
+// to the right for the shoulder too, unlike the pendant (rubens.py, TURN).
+// Degrees are RUBENS's own, from
 // the working pose (rubens.py, class Arm): the servos say where they are, so
 // a handle moves its joint from where it really is, whatever zero the board
 // took at power-on. A joint moves when the handle is let go.
-const ARM = [['shoulder', 'Shoulder', 45], ['elbow', 'Elbow', 45], ['wrist', 'Wrist', 90]];
+const ARM = [['shoulder', 'Shoulder', -45, 45], ['elbow', 'Elbow', -45, 45], ['wrist', 'Wrist', -90, 10]];
 const armBusy = new Set();
-function servoTicks(el, max) {
+function servoTicks(el, lo, hi) {
+  const every = Math.max(-lo, hi) / 3;   // a label every 15° on ±45°, every 30° on the wrist, and at both ends
   let h = '';
-  for (let v = -max; v <= max; v += 5) {
-    const left = `calc(9px + (100% - 18px) * ${(v + max) / (2 * max)})`;
-    const lab = v % (max / 3) === 0 ? `<span>${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)}</span>` : '';
+  for (let v = lo; v <= hi; v += 5) {
+    const left = `calc(9px + (100% - 18px) * ${(v - lo) / (hi - lo)})`;
+    const lab = v % every === 0 || v === lo || v === hi ? `<span>${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)}</span>` : '';
     h += `<i class="${lab ? 'major' : ''}" style="left:${left}">${lab}</i>`;
   }
   el.innerHTML = h;
@@ -154,17 +157,17 @@ async function armLook() {
   if (armBusy.size) return;
   let a = null;
   try { const r = await fetch('/arm', { cache: 'no-store' }); if (r.ok) a = (await r.json()).angles; } catch { /* no server */ }
-  for (const [k, K, max] of ARM) {
+  for (const [k, K, lo, hi] of ARM) {
     const v = a?.[k], input = $('#arm' + K);
     $('#pos' + K).textContent = v == null ? '—' : signed(v);
     $('#pos' + K).className = 'pos' + (v == null ? ' none' : '');
     // the handle shows where the joint is, unless it is being held
-    if (v != null && document.activeElement !== input && !armBusy.has(k)) input.value = Math.max(-max, Math.min(max, Math.round(v / 5) * 5));
-    $('#arm' + K + 'V').textContent = v != null && Math.abs(v) > max ? 'OUT OF RANGE' : '';
+    if (v != null && document.activeElement !== input && !armBusy.has(k)) input.value = Math.max(lo, Math.min(hi, Math.round(v / 5) * 5));
+    $('#arm' + K + 'V').textContent = v != null && (v < lo - 0.6 || v > hi + 0.6) ? 'OUT OF RANGE' : '';
   }
 }
-for (const [k, K, max] of ARM) {
-  servoTicks($('#tick' + K), max);
+for (const [k, K, lo, hi] of ARM) {
+  servoTicks($('#tick' + K), lo, hi);
   $('#arm' + K).addEventListener('change', async e => {
     const d = +e.target.value, ax = $('#ax' + K);
     armBusy.add(k); ax.classList.add('busy'); $('#arm' + K + 'V').textContent = `→ ${signed(d)}`;

@@ -67,8 +67,8 @@
       </div>
       <div class="axis servo" id="axWrist">
         <div class="axis-head"><span class="k">WRIST</span><span class="pos" id="posWrist">—</span><span class="speed" id="armWristV"></span></div>
-        <div class="dir">minus: the brush swings left · plus: right · 0°: on the canvas, +90°: off</div>
-        <input id="armWrist" class="jog-slider" type="range" min="-90" max="90" step="5" value="0" aria-label="Wrist, degrees">
+        <div class="dir">minus: the brush swings left · 0°: on the canvas, −45°: off · plus stops at +10°: the camera</div>
+        <input id="armWrist" class="jog-slider" type="range" min="-90" max="10" step="5" value="0" aria-label="Wrist, degrees">
         <div class="ticks" id="tickWrist"></div>
       </div>
       <p class="read" id="armNote">The arm in degrees from its working pose (0°), the pose the canvas was calibrated in. The servos report where they are, so this holds whatever zero the board took. The slider moves the joint when you let go; STOP does not stop the arm — a move takes up to 2 s.</p>

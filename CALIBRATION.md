@@ -13,6 +13,21 @@ own name, its own firmware folder and its own log.
 
 ---
 
+## 2026-09-30 — a USB camera on the holder; the wrist's plus side is taken
+
+- **A USB camera is mounted on the brush holder**, on a bracket beside the
+  brush. Photos: `images_CNC_drawing_machine/photo_2026-09-30 00.42.56.jpeg`,
+  `… 00.42.58.jpeg`, `… 00.43.00.jpeg`.
+- **The wrist (J3) may not go past +10°**, clockwise: the owner, "otherwise
+  the arm breaks the camera". RUBENS refuses any wrist move past +10°
+  (`rubens.py`, `REACH`), and a job that asks for one does not start. The
+  firmware's own limit is still ±90°: nothing but RUBENS talks to the board.
+- **The brush now leaves the canvas at −45°**, the other way — the safest
+  pose the owner found (it was +90°). Read from the servos at 00:4x:
+  wrist −45.2°, raw **978** (zero 1492).
+
+---
+
 ## 2026-09-29 — the arm reaches past the Y walls
 
 - **The canvas is now the real one, 70 cm across (Y).** Between the Y walls

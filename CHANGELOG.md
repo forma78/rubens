@@ -7,6 +7,21 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **The wrist never goes past +10°.** A USB camera now sits on the brush
+  holder, on the wrist's plus side. The brush leaves the canvas at −45°
+  instead of +90°; RUBENS refuses any wrist move past +10° — from the
+  Calibration tab, Brush off, Pause or a job — and a job.json saved before
+  (with +90°) does not start: save it again. The Calibration tab's wrist
+  handle runs −90…+10°.
+- **One program, one address.** `rubens.py` talks to the board on USB
+  itself; the bridge on port 8765 and its MELNICOMM pendant are gone. The
+  Calibration tab says NO BOARD when the USB or the 12 V is missing.
+- **The firmware is in this repository**, `firmware/CNCDM-001/`, with the
+  board, pins, drivers, power and serial commands in its README. The
+  machine's first repository is archived.
+- **Arm: plus is the brush to the right** for the shoulder too, as for the
+  elbow. The pose that reaches the right edge reads shoulder +15.5°, elbow
+  +14.9°; the left one −14.7°, −14.9°.
 - **The brush no longer leaves the canvas in the middle of a painting.**
   The first paintings showed every lift: J3 swings the wet brush off and on
   like a broom and leaves a sideways mark. In Brush mode all trips of a

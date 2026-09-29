@@ -13,8 +13,8 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import rubens  # noqa: E402
-from rubens import (STEPS_PER_MM, TICKS_PER_DEG, Arm, Board, Park, Runner, block_end, board_get,  # noqa: E402
-                    board_line, in_english, parse_look, parse_ping, piece_at, rest_of)
+from rubens import (REACH, STEPS_PER_MM, SWING_DEG, TICKS_PER_DEG, Arm, ArmError, Board, Park, Runner,  # noqa: E402
+                    block_end, board_get, board_line, in_english, parse_look, parse_ping, piece_at, rest_of)
 
 
 class FakeBoard:
@@ -127,7 +127,7 @@ def run(board, blocks, **kw):
 
 
 def arm(off):
-    return {"kind": "arm", "cmd": f"J 3 {90 if off else 0}", "off": off}
+    return {"kind": "arm", "cmd": f"J 3 {SWING_DEG if off else 0}", "off": off}
 
 
 def travel(x, y):
@@ -143,8 +143,8 @@ class RunnerTest(unittest.TestCase):
         b = FakeBoard()
         r = run(b, [arm(True), travel(10, 20), arm(False), paint(5), arm(True)])
         self.assertEqual(r.state, "done", r.message)
-        self.assertEqual(b.log, ["T 100", "J 3 90", "T 100", "M 10 20", "G", "J 3 0", "F 20"]
-                         + [f"L {i}.00 50.00" for i in range(1, 6)] + ["G", "J 3 90"])
+        self.assertEqual(b.log, ["T 100", "J 3 -45", "T 100", "M 10 20", "G", "J 3 0", "F 20"]
+                         + [f"L {i}.00 50.00" for i in range(1, 6)] + ["G", "J 3 -45"])
         self.assertEqual(r.status()["percent"], 100.0)
         self.assertFalse(r.brush_on)
 
@@ -192,7 +192,7 @@ class RunnerTest(unittest.TestCase):
         r.thread.join(10)
         self.assertEqual(r.state, "stopped")
         self.assertIn("S", b.log)
-        self.assertNotIn("J 3 90", b.log)          # the next blocks never ran
+        self.assertNotIn("J 3 -45", b.log)          # the next blocks never ran
         self.assertIn("brush on the canvas", r.message)
 
     def test_hard_stop_after_stop_still_reaches_the_board(self):
@@ -234,7 +234,7 @@ class RunnerTest(unittest.TestCase):
         r.thread.join(10)
         self.assertEqual(r.state, "stopped")
         self.assertNotIn("M 10 20", b.log)
-        self.assertNotIn("J 3 90", b.log)
+        self.assertNotIn("J 3 -45", b.log)
 
     def test_a_hard_stop_from_a_page_is_not_softened(self):
         b = FakeBoard(rate=1)
@@ -345,7 +345,7 @@ class PauseTest(unittest.TestCase):
         r, b = self.paused_run([arm(False), paint(12)], when=4)
         self.assertEqual(r.state, "done", r.message)
         i = b.log.index("S")
-        self.assertEqual(b.log[i + 1:i + 3], ["J 3 90", "J 3 0"])      # off the canvas, and back
+        self.assertEqual(b.log[i + 1:i + 3], ["J 3 -45", "J 3 0"])     # off the canvas, and back
         after = [c for c in b.log[i:] if c.startswith("L")]
         before = [c for c in b.log[:i] if c.startswith("L")]
         self.assertEqual(after[-1], "L 12.00 50.00")                    # the pass is finished
@@ -412,11 +412,11 @@ class ArmTest(unittest.TestCase):
 
     def test_the_brush_comes_back_from_180(self):
         b = FakeBoard()
-        b.raw = {1: 1742, 2: 1678, 3: 3535}            # tonight: the brush upside down, the shoulder 67° off
+        b.raw = {1: 1742, 2: 1678, 3: 3535}            # 2026-09-28: the brush upside down, the shoulder 67° off
         b.zt[3], b.tdeg[3] = 2511, 90                  # the zero the board took at +90°
         self.assertEqual(self.arm(b).angles()[0], {"shoulder": -66.7, "elbow": -7.1, "wrist": 179.8})
-        self.arm(b).move_to("wrist", 90)
-        self.near(b.raw[3], 2513)
+        self.arm(b).move_to("wrist", SWING_DEG)
+        self.near(b.raw[3], 1489 - round(45 * TICKS_PER_DEG))
         self.assertEqual((b.raw[1], b.raw[2]), (1742, 1678))   # the others only hold
 
     def test_the_shoulder_comes_back_from_67_degrees_in_steps(self):
@@ -444,13 +444,55 @@ class ArmTest(unittest.TestCase):
 
     def test_the_runner_swings_the_brush_in_rubens_degrees(self):
         b = FakeBoard()
-        b.raw[3] = 2513                                           # left at +90° over the night
+        off = 1489 - round(45 * TICKS_PER_DEG)
+        b.raw[3] = off                                            # left off the canvas over the night, −45°
         r = Runner(b.send, sleep=b.sleep, swing_s=0.2, arm=self.arm(b))
         r.start([arm(True), travel(100, 20), arm(False), paint(3), arm(True)])
         r.thread.join(10)
         self.assertEqual(r.state, "done", r.message)
-        self.near(b.raw[3], 2513)                                 # +90°, not 180°
+        self.near(b.raw[3], off)                                  # −45°, not −90°
         self.assertFalse(r.brush_on)
+
+    # ---- the camera on the holder, 2026-09-30: the wrist never past +10° ----
+    def wrist_deg(self, b):
+        return (b.raw[3] - self.ZERO["wrist"]) / TICKS_PER_DEG
+
+    def test_the_brush_leaves_the_canvas_the_other_way_now(self):
+        self.assertEqual(SWING_DEG, -45)
+        self.assertEqual(REACH["wrist"], (-90, 10))
+
+    def test_the_wrist_past_plus_10_is_refused_and_nothing_moves(self):
+        for deg in (11, 15, 45, 90):
+            b = FakeBoard()
+            with self.assertRaises(ArmError, msg=deg):
+                self.arm(b).move_to("wrist", deg)
+            self.assertEqual([c for c in b.log if c.startswith("J")], [], f"{deg}°: a J was sent")
+
+    def test_the_wrist_goes_to_plus_10_and_never_steps_past_it(self):
+        for start in (-45.6, -45.4, -90, 0, 9.4):
+            b = FakeBoard()
+            b.raw[3] = self.ZERO["wrist"] + round(start * TICKS_PER_DEG)
+            got = self.arm(b).move_to("wrist", 10)
+            self.assertLessEqual(self.wrist_deg(b), 10.05, f"from {start}°: {self.wrist_deg(b):.2f}°")
+            self.assertLessEqual(got, 10.05)
+
+    def test_a_job_from_before_the_camera_does_not_start(self):
+        b = FakeBoard()
+        r = Runner(b.send, sleep=b.sleep, swing_s=0.2, arm=self.arm(b))
+        old = {"kind": "arm", "cmd": "J 3 90", "off": True}
+        ok, msg = r.start([old, travel(100, 20), arm(False), paint(3), old])
+        self.assertFalse(ok)
+        self.assertIn("camera", msg)
+        self.assertEqual(r.state, "idle")
+        self.assertEqual(b.log, [])                               # not even a ping
+
+    def test_the_runner_without_an_arm_refuses_it_too(self):
+        b = FakeBoard()
+        r = Runner(b.send, sleep=b.sleep, swing_s=0.2)
+        r.blocks = []
+        with self.assertRaises(Exception):
+            r._arm("J 3 90")
+        self.assertEqual([c for c in b.log if c.startswith("J")], [])
 
     def test_a_job_makes_the_whole_arm_hold_before_anything_moves(self):
         b = FakeBoard()

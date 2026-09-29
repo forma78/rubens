@@ -18,7 +18,7 @@ bridge.py of the old machine repo held it on port 8765.
   stood when the motors were shut down, put back after power-on (class Park).
 - /run: the runner (class Runner) — GET is its state; POST starts the machine
   blocks of job.json, or the blocks in its body (a calibration run); POST /run/stop brakes along the path, /run/kill stops at
-  once; /run/pause and /run/continue pause a run and go on from the same point. POST /brush/off and /brush/on swing the wrist to +90° or back to 0°
+  once; /run/pause and /run/continue pause a run and go on from the same point. POST /brush/off and /brush/on swing the wrist to −45° or back to 0° (never past +10°: REACH)
   (only the wrist, only these two, not while a job runs — the owner asked for
   them on the Job tab, 2026-09-27). A board without the pass firmware
   (../firmware/CNCDM-001) fails a start on the first path command, and
@@ -269,6 +269,14 @@ JOINTS = {"shoulder": (1, -1, 45), "elbow": (2, +1, 45), "wrist": (3, +1, 90)}
 # round; once the firmware is flashed with its sign put right, this is +1.
 # The wrist: minus left, plus right, as on the pendant.
 TURN = {"shoulder": -1, "elbow": +1, "wrist": +1}
+# How far RUBENS lets each joint go, in its own degrees. The firmware's
+# JOINT_LIMIT is wider (the wrist ±90°) and is not trusted with this: every
+# joint move goes through Arm.move_to, and it refuses anything outside.
+# The wrist: a USB camera on the holder (2026-09-30, photos
+# images_CNC_drawing_machine/photo_2026-09-30 00.42.*) is in the way past
+# +10°, clockwise — the owner: "the arm would break the camera". The brush
+# now leaves the canvas at −45°, the other way (SWING_DEG; it was +90°).
+REACH = {"shoulder": (-45, 45), "elbow": (-45, 45), "wrist": (-90, 10)}
 TICKS_PER_DEG = 4096 / 360
 # The working pose, raw servo poses (4096 a turn). calibration.json "arm" is
 # the one in use; this is its copy for when the file has none. 2026-09-28,
@@ -312,16 +320,23 @@ class Arm:
 
     def move_to(self, joint, deg):
         jid, sign, lim = JOINTS[joint]
-        deg = max(-lim, min(lim, deg))
+        lo, hi = REACH[joint]
+        if not lo <= deg <= hi:
+            raise ArmError(f"the {joint} may go {lo}…+{hi}° only, not {deg:+g}°"
+                           + (": the camera is in the way past +10°" if joint == "wrist" else ""))
         with self.lock:
             for _ in range(6):
                 ang, raw = self.angles()
                 if ang[joint] is None:
                     raise ArmError(f"the {joint} does not answer: is the 12 V on?")
-                d = deg - ang[joint]
-                step = max(-lim, min(lim, round(d)))
+                a = ang[joint]
+                d = deg - a
+                # whole degrees from where it stands, and no step past the reach
+                step = round(d)
+                step = min(step, math.floor(hi - a + 1e-9)) if step > 0 else max(step, math.ceil(lo - a - 1e-9))
+                step = max(-lim, min(lim, step))
                 if abs(d) < 0.6 or step == 0:
-                    return ang[joint]
+                    return a
                 r = self.send("/zero")
                 if not r.startswith("ok Z"):
                     raise ArmError(f"arm zero: {in_english(r)}")
@@ -374,7 +389,7 @@ class Abort(Exception):
 
 
 LIVE = ("running", "stopping", "pausing", "paused")   # a run the page must not start over
-SWING_DEG = 90                                          # brush off: the wrist to +90° (src/machine.js)
+SWING_DEG = -45                                         # brush off: the wrist to −45° (src/machine.js; +90° until the camera, 2026-09-30)
 ON_PATH_MM = 0.5                                        # a braked carriage stands on its path
 
 
@@ -476,6 +491,13 @@ class Runner:
                     "started": self.started}
 
     def start(self, blocks):
+        # A job saved before the camera (2026-09-30) swings the brush off to
+        # +90°: refuse the whole job before anything is sent.
+        lo, hi = REACH["wrist"]
+        for b in blocks:
+            if b.get("kind") == "arm" and not lo <= int(b["cmd"].split()[2]) <= hi:
+                return False, (f"{b['cmd']}: the wrist may go {lo}…+{hi}° only, the camera is in the way. "
+                               "This job.json is from before the camera: Save job.json again on the Job tab.")
         with self.lock:
             if self.state in LIVE:
                 return False, "already running"
@@ -588,6 +610,9 @@ class Runner:
 
     def _arm(self, cmd):
         deg = int(cmd.split()[2])
+        lo, hi = REACH["wrist"]
+        if not lo <= deg <= hi:                        # the camera (2026-09-30); Arm.move_to refuses it too
+            raise Abort(f"{cmd}: the wrist may go {lo}…+{hi}° only: the camera is in the way past +10°")
         if self.arm:
             # in RUBENS's degrees, from where the wrist really is (class Arm)
             try:

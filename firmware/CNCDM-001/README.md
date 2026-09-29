@@ -171,8 +171,13 @@ board's terminal.
 |---|---|---|---|---|---|
 | 1 | shoulder | ST3215, 30 kg·cm | ±45° | +5° | −1 |
 | 2 | elbow | ST3215-HS, 20 kg·cm | ±45° | +5° | +1 |
-| 3 | wrist (J3) | ST3235, aluminium | ±90° | 0 | +1 |
+| 3 | wrist (J3) | ST3235, aluminium | ±90° (RUBENS: −90…+10°) | 0 | +1 |
 
+- **The wrist: never past +10°.** A USB camera on the holder is in the way
+  on the plus side (2026-09-30); the brush leaves the canvas at −45°. The
+  firmware's limit is still ±90°: RUBENS refuses the rest (`rubens.py`,
+  `REACH`). When the firmware is flashed next, its wrist limit goes to
+  −90…+10° too.
 - 777 on the bus is the family, not the model: an ST3215 and an ST3215-HS
   answer alike. The factory ids 16, 17, 13 were set to 1, 2, 3.
 - The shoulder is mounted face down. The firmware's −1 was meant to make

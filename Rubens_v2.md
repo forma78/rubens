@@ -164,7 +164,10 @@ does not block the start. *Claude's decision.*
 **How the brush leaves the canvas.** Not straight up as on a pen plotter.
 The wrist J3 swings the brush sideways like a clock hand, up to 90°, like a
 broom (confirmed 2026-09-27). Turned 90°, the stick lies flat and the tip is in
-the air.
+the air. **Since 2026-09-30 it swings to −45° only:** a USB camera on the
+holder takes the plus side, and the wrist never goes past +10° (RUBENS
+refuses it; `CALIBRATION.md`). −45° is the safest pose the owner found with
+the brush off the canvas.
 
 While the spring holds the tip on the canvas, the swing drags the tip
 sideways across the neighbouring lanes. The length of that mark is L·sin θ,
@@ -175,8 +178,9 @@ compressed. The same mark appears when the brush comes back down.
 θ = 18.2° and a mark of about 31 mm — more than two lanes at a 12 mm pitch.
 
 *Claude's proposal:* swing towards the lanes not painted yet, so the next
-passes paint over the mark. J3 can swing either way (±90°), so RUBENS picks
-the side for every pass. The last pass of a stroke has no unpainted
+passes paint over the mark. J3 could swing either way (±90°), so RUBENS
+would pick the side for every pass — no longer: since the camera
+(2026-09-30) only the minus side is free. The last pass of a stroke has no unpainted
 neighbours: its mark goes either outside the stroke or back over painted
 lanes. That is the owner's call (section 9).
 

@@ -108,8 +108,9 @@ export function jobLengths(steps) {
 // A time model in mm/s and s. The numbers are estimates until the first run
 // (Rubens_v2.md, section 8): paint and turns at the pass speed; a travel move
 // at the travel speed, plus the wrist swinging the brush off the canvas before
-// it and back after it (J3, 90° at about 53°/s ≈ 1.7 s).
-export const TIME_MODEL = { paintMMs: 20, travelMMs: 100, swingS: 1.7 };
+// it and back after it (J3, 45° at about 53°/s ≈ 0.9 s; 90° and 1.7 s until
+// the camera, 2026-09-30).
+export const TIME_MODEL = { paintMMs: 20, travelMMs: 100, swingS: 0.9 };
 
 const lengthPt = segs => segs.reduce((a, g) => a + segLen(g), 0);
 
