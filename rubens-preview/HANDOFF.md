@@ -227,8 +227,8 @@ paint-use parameters. Do not fill in plausible numbers without a measurement
 Measured 2026-09-27 (`../CALIBRATION.md`): X walls 0 … 865 mm, Y walls
 0 … 568.5 mm (the right Y stop still to confirm). Zero is at the walls, home
 is the bottom left corner. The Calibration tab records the canvas corners and
-reports the strips out of reach. Left: draw the work area over the artboard
-on the Create tab and warn when a stroke leaves it.
+reports the strips out of reach. The Create tab draws the walls over the
+artboard (the Reach toggle, 2026-09-30). Left: warn when a stroke leaves them.
 
 ### 3.6. Code
 

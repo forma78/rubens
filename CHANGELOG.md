@@ -5,6 +5,10 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **Reach on the Create tab.** The machine's walls are drawn over the
+  canvas as on the Calibration tab — dashed, and hatched where the machine
+  does not reach — from the canvas recorded there, when it is the drawing's
+  format. The **Reach** toggle hides them.
 - **The canvas by its four edges.** The canvas lies parallel to the rails,
   so the Calibration tab asks, for each edge, where the tip stood and how
   far the canvas edge is past it — one ruler number an edge instead of two

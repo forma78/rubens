@@ -22,6 +22,7 @@ import { getStrips, renderPaint } from './render.js';
 import { cncPlan, cncSvg } from './cnc.js';
 import { jobSteps, PER_LANE } from './job.js';
 import { drawingSvg, simplify } from './svg.js';
+import { canvasReport, reach } from './machine.js';
 import './ui.js';
 
 // ---------- state ----------
@@ -37,7 +38,7 @@ const S = {
   angleSnap: 15,
   defaults: { weight: 200, brush: 'round10', mix: 35, palette: 'L1', load: 'auto', ml: 1 },
   paint: { film: 0.3, retention: 25, nozzle: 6, maxDrop: 1, cornerR: 10, lift: true },   // lift: brush off after each pass
-  view: { wires: false, drops: false, grid: false, snapGrid: false, cnc: false, unit: 'mm' },   // unit: the Stroke panel's, mm or pt
+  view: { wires: false, drops: false, grid: false, snapGrid: false, cnc: false, reach: true, unit: 'mm' },   // unit: the Stroke panel's, mm or pt
   nextId: 1,
 };
 const docW = () => FORMATS[S.format].w / PT_MM;
@@ -95,6 +96,7 @@ function drawWire() {
   c.clearRect(0, 0, wireCv.width, wireCv.height);
   if (S.view.cnc) drawCnc(c, k);
   if (S.view.grid) drawGrid(c, k);
+  if (S.view.reach) drawReach(c, k);
   for (const p of S.paths) {
     const selected = p.id === S.sel;
     if (!p.segs.length) continue;
@@ -148,6 +150,42 @@ function segLabel(g) {
   if (g.t === 'L') { const a = mod(-deg(Math.atan2(g.b.y - g.a.y, g.b.x - g.a.x)), 360); return `Line ${fmt(a, 0)}° · ${fmt(segLen(g) * PT_MM / 10, 1)} cm`; }
   return `Arc ${fmt(Math.abs(deg(g.s)), 0)}° · r ${fmt(g.r * PT_MM / 10, 1)} cm`;
 }
+// ---------- the machine's reach on this canvas ----------
+// The walls drawn over the artboard, as on the Calibration tab (the owner,
+// 2026-09-30: "I draw blind, it is not clear where the edges are"): from the
+// canvas recorded there, when it is this drawing's format. Hatched: where
+// the machine does not reach (there the brush runs along the wall); dashed:
+// the walls.
+let CAL = null;
+async function loadCal() {
+  try { const r = await fetch('/calibration', { cache: 'no-store' }); CAL = r.ok ? await r.json() : null; } catch { CAL = null; }
+  kick();
+}
+function reachOnBoard() {           // the walls' box on the artboard, pt; null without a canvas of this format
+  if (!CAL || CAL.format !== S.format) return null;
+  const F = FORMATS[S.format], fit = canvasReport(CAL.corners || {}, F.w, F.h).fit;
+  if (!fit) return null;
+  const det = fit.a * fit.e - fit.b * fit.d;
+  const board = (X, Y) => { const x = X - fit.c, y = Y - fit.f; return P((fit.e * x - fit.b * y) / det / PT_MM, (-fit.d * x + fit.a * y) / det / PT_MM); };
+  const R = reach();
+  return [[R.x.min, R.y.min], [R.x.max, R.y.min], [R.x.max, R.y.max], [R.x.min, R.y.max]].map(([x, y]) => board(x, y));
+}
+function drawReach(c, k) {
+  const box = reachOnBoard(); if (!box) return;
+  const W = docW() * k, H = docH() * k;
+  const outline = () => { c.beginPath(); box.forEach((q, i) => i ? c.lineTo(q.x * k, q.y * k) : c.moveTo(q.x * k, q.y * k)); c.closePath(); };
+  c.save();
+  c.beginPath(); c.rect(0, 0, W, H);
+  box.forEach((q, i) => i ? c.lineTo(q.x * k, q.y * k) : c.moveTo(q.x * k, q.y * k)); c.closePath();
+  c.clip('evenodd');                                     // the artboard less the reach
+  c.strokeStyle = 'rgba(179,71,12,.3)'; c.lineWidth = 1;
+  for (let d = -H; d < W; d += 7) { c.beginPath(); c.moveTo(d, H); c.lineTo(d + H, 0); c.stroke(); }
+  c.restore();
+  c.save(); outline(); c.strokeStyle = '#EB7A25'; c.lineWidth = 1.2; c.setLineDash([6, 4]); c.stroke(); c.restore();
+}
+addEventListener('focus', loadCal);   // back from the Calibration tab: the canvas may be another
+loadCal();
+
 function drawGrid(c, k) {
   const step = 10 / PT_MM; // 10 mm
   c.lineWidth = 1;
@@ -797,6 +835,7 @@ function load() {
     const o = JSON.parse(localStorage.getItem('rubens.v01') || 'null'); if (!o) return false;
     Object.assign(S, { format: o.format, paths: o.paths, palettes: o.palettes, defaults: o.defaults, paint: o.paint, view: o.view, angleSnap: o.angleSnap, nextId: o.nextId });
     if (!FORMATS[S.format]) S.format = 'p60x80';
+    if (S.view && S.view.reach === undefined) S.view.reach = true;   // saved before the Reach toggle
     return true;
   } catch (e) { return false; }
 }
