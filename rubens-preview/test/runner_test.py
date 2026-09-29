@@ -412,7 +412,7 @@ class ArmTest(unittest.TestCase):
         b = FakeBoard()
         b.raw = {1: 1742, 2: 1678, 3: 3535}            # tonight: the brush upside down, the shoulder 67° off
         b.zt[3], b.tdeg[3] = 2511, 90                  # the zero the board took at +90°
-        self.assertEqual(self.arm(b).angles()[0], {"shoulder": 66.7, "elbow": -7.1, "wrist": 179.8})
+        self.assertEqual(self.arm(b).angles()[0], {"shoulder": -66.7, "elbow": -7.1, "wrist": 179.8})
         self.arm(b).move_to("wrist", 90)
         self.near(b.raw[3], 2513)
         self.assertEqual((b.raw[1], b.raw[2]), (1742, 1678))   # the others only hold
@@ -427,10 +427,14 @@ class ArmTest(unittest.TestCase):
         self.assertGreaterEqual(len(steps), 2)                   # no step past the 45° limit
         self.assertTrue(all(abs(int(c.split()[2])) <= 45 for c in steps))
 
-    def test_signs_as_on_the_pendant(self):
+    def test_signs_plus_is_right_for_the_shoulder_and_the_elbow(self):
+        # the owner, 2026-09-29: the shoulder's plus is the brush to the right,
+        # as the elbow's; the firmware (JOINT_SIGN −1) and the pendant say minus
         b = FakeBoard()
-        self.arm(b).move_to("shoulder", -15)
-        self.near(b.raw[1], 2501 + round(15 * TICKS_PER_DEG))      # JOINT_SIGN −1
+        self.assertEqual(self.arm(b).move_to("shoulder", 15), 15)
+        self.near(b.raw[1], 2501 + round(15 * TICKS_PER_DEG))      # where −15° of the firmware takes it
+        self.assertTrue(all(c.startswith("J 1 -") for c in b.log if c.startswith("J 1")))
+        self.assertEqual(self.arm(b).angles()[0]["shoulder"], 15)
         self.arm(b).move_to("elbow", 15)
         self.near(b.raw[2], 1759 + round(15 * TICKS_PER_DEG))
         self.arm(b).move_to("wrist", -45)

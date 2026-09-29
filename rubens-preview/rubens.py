@@ -100,10 +100,17 @@ RUNS_ENABLED = True
 
 
 # The arm (RAIL-drawing_machine/src/main.cpp: JOINT_ID, JOINT_SIGN,
-# JOINT_LIMIT): servo id, sign, limit in degrees. The same signs as the
-# MELNICOMM pendant (images_CNC_drawing_machine/servo direction.png: shoulder
-# minus — to the right, elbow plus — to the right, wrist minus left, plus right).
+# JOINT_LIMIT): servo id, the firmware's sign, limit in degrees.
 JOINTS = {"shoulder": (1, -1, 45), "elbow": (2, +1, 45), "wrist": (3, +1, 90)}
+# RUBENS's degrees against the firmware's. Plus is the brush to the right
+# for the shoulder as for the elbow (the owner, 2026-09-29: the shoulder
+# stands face down, and the pose that reaches the right edge read −15.5°).
+# The firmware's −1 for the shoulder was meant to give just that ("вправо
+# везде плюс"), yet on the machine its minus goes right, as on the MELNICOMM
+# pendant (images_CNC_drawing_machine/servo direction.png). RUBENS turns it
+# round; once the firmware is flashed with its sign put right, this is +1.
+# The wrist: minus left, plus right, as on the pendant.
+TURN = {"shoulder": -1, "elbow": +1, "wrist": +1}
 TICKS_PER_DEG = 4096 / 360
 # The working pose, raw servo poses (4096 a turn). calibration.json "arm" is
 # the one in use; this is its copy for when the file has none. 2026-09-28,
@@ -142,7 +149,7 @@ class Arm:
         raw, z = parse_look(self.send("/look")), self.zero()
         out = {}
         for k, (jid, sign, _) in JOINTS.items():
-            out[k] = None if jid not in raw else round(sign * (raw[jid] - z[k]) / TICKS_PER_DEG, 1)
+            out[k] = None if jid not in raw else round(TURN[k] * sign * (raw[jid] - z[k]) / TICKS_PER_DEG, 1)
         return out, raw
 
     def move_to(self, joint, deg):
@@ -160,10 +167,11 @@ class Arm:
                 r = self.send("/zero")
                 if not r.startswith("ok Z"):
                     raise ArmError(f"arm zero: {in_english(r)}")
-                r = self.send(f"/servo?j={joint}&d={step}")
+                fw = TURN[joint] * step                    # the firmware's degrees
+                r = self.send(f"/servo?j={joint}&d={fw}")
                 if not r.startswith("ok J"):
                     raise ArmError(f"{joint}: {in_english(r)}")
-                self._settle(jid, raw[jid] + sign * step * TICKS_PER_DEG)
+                self._settle(jid, raw[jid] + sign * fw * TICKS_PER_DEG)
             raise ArmError(f"the {joint} does not get to {deg}°")
 
     def hold(self):

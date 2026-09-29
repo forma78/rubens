@@ -11,6 +11,32 @@ was measured, how, and what it changed. Numbers here are the source for
 
 ---
 
+## 2026-09-29 — the arm reaches past the Y walls
+
+- **The canvas is now the real one, 70 cm across (Y).** Between the Y walls
+  the carriage runs 0…568.5 mm, and with the arm in its working pose (0°,
+  0°) the tip does not reach the side edges of the canvas.
+- **Turned, the arm does:** shoulder **+15.5°**, elbow **+14.9°** (RUBENS
+  degrees, plus = the brush to the right) brings the tip to the right edge
+  with the carriage at X 431.4, Y 570.1 mm, at the Y wall (EDGE).
+  Screenshot: `images_CNC_drawing_machine/Screenshot 2026-09-29 3DOF.png`.
+  Raw servo poses, worked out from the degrees and the working pose (2498,
+  2039), not read: shoulder ≈ 2674, elbow ≈ 2208 — read them next time.
+- **The owner:** turned both ways, the arm gives about 80 cm across — the
+  70 cm canvas plus 5 cm past each side.
+- **Not measured yet:** how far the tip moves between the poses, in mm.
+  That shift is what the job needs, not the degrees.
+- **The shoulder's sign was wrong in RUBENS.** This pose read −15.5°: the
+  firmware (`JOINT_SIGN` −1) and the MELNICOMM pendant have the shoulder's
+  minus going right, the elbow's plus going right. The firmware's comment
+  says its −1 makes the right plus — on the machine it does not. RUBENS now
+  reads and moves the shoulder with the sign turned round (`rubens.py`,
+  `TURN`): plus is right for both joints, and this pose reads +15.5°. The
+  firmware is not changed; when it is flashed next, its sign goes right and
+  `TURN` goes back to +1.
+
+---
+
 ## 2026-09-28 — first paint
 
 ### Set-up

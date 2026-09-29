@@ -133,7 +133,8 @@ addEventListener('pagehide', () => { if (moving()) fetch('/machine/cmd?a=S&n=0',
 
 // ---------- the arm ----------
 // Three handles, as on the MELNICOMM pendant: shoulder and elbow ±45°, the
-// wrist ±90°, 5° a step, the pendant's signs. Degrees are RUBENS's own, from
+// wrist ±90°, 5° a step. Plus is the brush to the right for the shoulder
+// too, unlike the pendant (rubens.py, TURN). Degrees are RUBENS's own, from
 // the working pose (rubens.py, class Arm): the servos say where they are, so
 // a handle moves its joint from where it really is, whatever zero the board
 // took at power-on. A joint moves when the handle is let go.
