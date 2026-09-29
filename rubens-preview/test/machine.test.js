@@ -205,3 +205,18 @@ test('job on the machine: brush with 4 trips a lane is one run per lane, three s
   for (const r of runs) assert.deepEqual(r.cmds.map(c => c.split(' ')[0] === 'F' ? c : c[0]),
     ['F 80', 'L', `F ${turnV}`, 'A', 'F 80', 'L', `F ${turnV}`, 'A', 'F 80', 'L', `F ${turnV}`, 'A', 'F 80', 'L', 'G']);
 });
+
+test('job on the machine: brush with 8 trips a lane is one run per lane, seven slow turns of r 1.4 mm in it', () => {
+  const p = shape([['L', MM(400)]], { start: P(MM(100), MM(300)), weight: 500 });
+  const file = jobFile(jobSteps([p], () => EIGHT, { ...PAINT, lift: true }, 'brush', 8),
+    { formatKey: 'p60x80', format: { w: 600, h: 800 }, paint: PAINT, mode: 'brush', perLane: 8 });
+  assert.equal(file.perLane, 8);
+  const runs = jobToMachine(file, straight().fit, { paintMMs: 80 }).blocks.filter(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
+  assert.equal(runs.length, 8);
+  const turnV = arcSpeed(80, 500 * 25.4 / 72 / 128);
+  assert.equal(turnV, 18);
+  for (const r of runs) {
+    assert.equal(r.cmds.filter(c => c[0] === 'A').length, 7);
+    assert.equal(r.cmds.filter(c => c === `F ${turnV}`).length, 7);
+  }
+});

@@ -33,6 +33,9 @@ through firmware yet (the firmware has no `M` and `U` commands yet).
 - **Path — straight lines (`L`) and arcs (`A`) only.** No Béziers. A hand
   shakes, so the gesture gets straightened.
 - **Scale 1:1.** The document is in pt, 1 pt = 25.4/72 mm. Stroke 1–500 pt.
+  **The Stroke panel shows whole mm of one lane** (1…22 mm, the field, the
+  slider, ±1 mm), with a mm | pt switch, mm by default; no pt and no
+  fractions in mm. Decided 2026-09-29 (the owner: "20 mm each lane, 25, 30").
 - **Eight brush passes, not one.** A line of width W is 8 passes of one
   brush, W/8 apart. Pass 1 is the left edge looking along the drawing
   direction. For a 12 mm brush with no gaps that gives 96 mm = 272 pt.
@@ -61,11 +64,13 @@ through firmware yet (the firmware has no `M` and `U` commands yet).
 - **Small kinks (under 0.5°) stay unrounded** — texture, not a defect.
   **Spots marked "!"** are shown on the Job tab but do not block the start;
   the machine slows to zero there. Decided 2026-09-27.
-- **Brush mode: every lane in 2 or 4 trips on the canvas** (Job tab), the
+- **Brush mode: every lane in 2, 4 or 8 trips on the canvas** (Job tab), the
   brush down within a lane, a lane / trips apart about its centre line. The
   first canvas (2026-09-28) had 2 trips, 11 mm apart, and the round No. 4
   left canvas between them; the owner: no thicker brush, **4 trips a lane**
-  (the default). Decided 2026-09-28.
+  (the default). Decided 2026-09-28. **8 trips** added 2026-09-29 after a
+  day of tests: the lane stays as wide, the trips go twice as dense (2.75 mm
+  on a 500 pt stroke); the owner chose that over wider lanes at 5.5 mm.
 - **Lines may cross and overlap** — it is painting (the owner, 2026-09-27,
   with an Illustrator example). Loops of the centre line cross by nature.
 - **Where the rounding does not fit ("!") the inner passes meet in a sharp

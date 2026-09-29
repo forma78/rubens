@@ -106,7 +106,8 @@ pendant.
 
 Straight lines (`L`) and circular arcs (`A`) only, no Béziers anywhere. The
 document is in pt at 1:1 scale with the canvas, 1 pt = 25.4/72 mm.
-Stroke 1–500 pt.
+Stroke 1–500 pt; the Create tab shows it in whole mm of one lane (1…22 mm)
+unless switched to pt.
 
 ### 4.2. Eight passes
 

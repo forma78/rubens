@@ -259,9 +259,11 @@ function syncSpeedX() {
     b.classList.toggle('on', SPEED_1X * +b.dataset.x === v);
     b.disabled = live;
   });
-  const turn = arcSpeed(v, 5.5);
+  // the tightest turn of the plan: in Brush a lane / trips / 2, r 1.4 mm with 8 trips on a 500 pt stroke
+  const r = S.steps.reduce((a, s) => s.kind === 'turn' ? Math.min(a, s.segs[0].r * PT_MM) : a, Infinity);
+  const turn = r < Infinity ? arcSpeed(v, r) : v;
   $('#speedNote').innerHTML = `Passes at <b>${fmt(Math.min(v, SPEED_MAX), 0)} mm/s</b>`
-    + (turn < v ? `; tight arcs slower — the 5.5 mm turns of Brush at ${turn} mm/s.` : '.')
+    + (turn < v ? `; tight arcs slower — the turns of r ${fmt(r, 1)} mm at ${turn} mm/s.` : '.')
     + (v > 100 ? ' <span class="warn">Faster than any run so far (travel is 100 mm/s): try it with a pencil first.</span>' : '');
 }
 $('#speedX').onclick = e => {
@@ -284,12 +286,12 @@ function syncMode() {
 $('#perLaneSeg').onclick = e => {
   const b = e.target.closest('button');
   if (!b || +b.dataset.n === S.perLane || runLive()) return;
-  S.perLane = +b.dataset.n; savePrefs(); syncMode(); build(); summary(); machine(); render();
+  S.perLane = +b.dataset.n; savePrefs(); syncMode(); build(); summary(); machine(); render(); syncSpeedX();
 };
 $('#modeSeg').onclick = e => {
   const b = e.target.closest('button');
   if (!b || b.dataset.m === S.mode || runLive()) return;   // the plan on screen must stay the running one
-  S.mode = b.dataset.m; savePrefs(); syncMode(); build(); summary(); machine(); render();
+  S.mode = b.dataset.m; savePrefs(); syncMode(); build(); summary(); machine(); render(); syncSpeedX();
 };
 
 for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#mSwing', 'swingS']]) {
@@ -303,7 +305,7 @@ for (const [id, key] of [['#mPaint', 'paintMMs'], ['#mTravel', 'travelMMs'], ['#
 }
 
 // The drawing changed on the Create tab (another tab of this browser).
-addEventListener('storage', e => { if (e.key === 'rubens.v01') { build(); syncMode(); summary(); machine(); render(); } });
+addEventListener('storage', e => { if (e.key === 'rubens.v01') { build(); syncMode(); summary(); machine(); render(); syncSpeedX(); } });
 // Back from the Calibration tab: the corners may have changed.
 addEventListener('focus', async () => { await loadCalibration(); machine(); });
 addEventListener('resize', () => render());

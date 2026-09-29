@@ -88,16 +88,17 @@
     <div class="target"><span class="k">Editing</span><span id="targetName">New stroke</span></div>
 
     <section class="sec stroke-sec">
-      <h3>Stroke</h3>
+      <h3><span>Stroke <span class="hint" id="wWhat">each lane</span></span>
+        <span class="seg unit-seg" id="unitSeg" title="Stroke width: mm of one lane, or pt of the whole trace"><button data-u="mm">mm</button><button data-u="pt">pt</button></span></h3>
       <div class="row weight">
         <button class="step" id="wMinus" aria-label="Thinner">−</button>
-        <input id="wNum" type="number" min="1" max="500" step="1">
-        <span class="unit">pt</span>
+        <input id="wNum" type="number" step="1">
+        <span class="unit" id="wUnit"></span>
         <button class="step" id="wPlus" aria-label="Thicker">+</button>
         <select id="wPreset" aria-label="Weight presets"></select>
       </div>
-      <input id="wSlider" type="range" min="0" max="1000" class="slider">
-      <div class="scale"><span>1</span><span>10</span><span>100</span><span>500 pt</span></div>
+      <input id="wSlider" type="range" class="slider">
+      <div class="scale" id="wScale"></div>
       <p class="read" id="wRead"></p>
     </section>
 

@@ -7,6 +7,18 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **8 trips a lane** on the Job tab, next to 2 and 4: the same lane, the
+  trips twice as dense — 64 trips, 2.75 mm apart on a 500 pt stroke. The
+  turns between them are semicircles of r 1.4 mm and run at 18 mm/s at most.
+- **Stroke in mm.** The Create tab's Stroke shows whole mm of one lane — 1 to
+  22 mm, the field, the slider and ± step a millimetre; below it, the trace
+  (eight lanes) in whole mm. A mm | pt switch brings the pt back; mm is the
+  default. The document stays in pt.
+- The pass-speed note on the Job tab names the plan's own tightest turn. It
+  said "the 5.5 mm turns of Brush" whatever the trips: that was the radius of
+  2 trips on a 500 pt stroke; 4 trips turn at 2.8 mm, 8 trips at 1.4 mm.
+- "Match brush" on the Create tab is offered only when the stroke it asks for
+  fits the 500 pt limit; before, it set 500 pt and said more.
 - **The percent moves through a Brush lane.** A lane in Brush mode is one
   block of some 80 pieces, and the runner counted what was painted only once
   it had sent them all: the Job tab stood at 0 % for most of the lane, then

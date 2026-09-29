@@ -20,7 +20,9 @@
 // lane ends at the bottom, where the next one starts, as far away as the
 // trips are from each other. 2 trips was the first canvas: 11 mm apart on a
 // 500 pt stroke, and the round No. 4 left canvas between them; 4 trips is
-// the owner's answer. Between lanes, paint.lift still decides: the brush
+// the owner's answer. 8 trips (the owner, 2026-09-29, after a day of tests):
+// the same lane, twice as dense — 2.75 mm apart on a 500 pt stroke, turns of
+// r 1.4 mm. Between lanes, paint.lift still decides: the brush
 // leaves the canvas, or turns into the next lane (one line for the whole
 // stroke). mode 'pencil' is one trip per lane, as before.
 
@@ -31,7 +33,7 @@ import { cncPlan, reverseSegs } from './cnc.js';
 import { offsetSegs } from './fillet.js';
 
 export const MODES = ['pencil', 'brush'];
-export const PER_LANE = [2, 4];
+export const PER_LANE = [2, 4, 8];
 
 export function jobSteps(paths, colorsOf, paint, mode = 'pencil', perLane = 2) {
   const lift = paint.lift ?? true, brush = mode === 'brush';

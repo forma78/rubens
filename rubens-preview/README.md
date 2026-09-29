@@ -70,7 +70,10 @@ The document is in pt, **1:1 scale with the canvas**: 1 pt = 25.4/72 =
 0.35278 mm. A 60 × 80 cm artboard is 1700.8 × 2267.7 pt. Stroke 1–500 pt;
 500 pt = 176.4 mm.
 
-Stroke sets the trace width in the preview and in the paint math.
+Stroke sets the trace width in the preview and in the paint math. The panel
+shows it in whole mm of one lane by default — 1…22 mm, the trace is eight
+times that — and in pt of the whole trace with the mm | pt switch. The
+document keeps pt either way.
 The brush (Flat 8 / Flat 12) only sets the texture for now: bristle density
 and small gaps between lanes. If the stroke is far from the real brush width,
 the panel says so and offers "Match brush".

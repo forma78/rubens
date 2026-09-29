@@ -20,7 +20,7 @@ import { makeLine, snapArc, fitSegment, pushSeg } from './gesture.js';
 import { traceMM, lengthMM, mlPerDrop, beadMM, blobMM } from './paint.js';
 import { getStrips, renderPaint } from './render.js';
 import { cncPlan, cncSvg } from './cnc.js';
-import { jobSteps } from './job.js';
+import { jobSteps, PER_LANE } from './job.js';
 import { drawingSvg, simplify } from './svg.js';
 import './ui.js';
 
@@ -37,7 +37,7 @@ const S = {
   angleSnap: 15,
   defaults: { weight: 200, brush: 'round10', mix: 35, palette: 'L1', load: 'auto', ml: 1 },
   paint: { film: 0.3, retention: 25, nozzle: 6, maxDrop: 1, cornerR: 10, lift: true },   // lift: brush off after each pass
-  view: { wires: false, drops: false, grid: false, snapGrid: false, cnc: false },
+  view: { wires: false, drops: false, grid: false, snapGrid: false, cnc: false, unit: 'mm' },   // unit: the Stroke panel's, mm or pt
   nextId: 1,
 };
 const docW = () => FORMATS[S.format].w / PT_MM;
@@ -390,11 +390,11 @@ $('#btnClear').onclick = () => { if (!S.paths.length) return; undoPush(); finish
 
 // ---------- panel ----------
 // Trips per lane as chosen on the Job tab (its settings in this browser):
-// 1 for Pencil, 2 or 4 for Brush.
+// 1 for Pencil, 2, 4 or 8 for Brush.
 function jobTrips() {
   try {
     const o = JSON.parse(localStorage.getItem('rubens.job.v01') || 'null');
-    return o?.mode === 'brush' ? (o.perLane === 2 ? 2 : 4) : 1;
+    return o?.mode === 'brush' ? (PER_LANE.includes(o.perLane) ? o.perLane : 4) : 1;
   } catch { return 1; }
 }
 addEventListener('storage', e => { if (e.key === 'rubens.job.v01') updatePanel(); });   // switched on the Job tab
@@ -405,16 +405,38 @@ function setStyle(key, val, soft) {
   const p = selPath(); if (p) p.style[key] = val;
   invalidate();
 }
-// logarithmic weight slider: 1…500 pt
+// Stroke width. The document keeps the whole trace in pt; the panel shows it
+// as whole mm of one lane (the owner, 2026-09-29: "20 mm each lane, 25, 30",
+// no fractions) — the default — or in pt, as before.
+const inMM = () => S.view.unit !== 'pt';
+const laneOf = w => w * PT_MM / 8;                                  // mm
+const LANE_MAX = Math.floor(laneOf(WEIGHT_MAX));                    // 22 mm: 176 mm of the 500 pt limit
+const LANE_PRESETS = [1, 2, 3, 5, 8, 10, 12, 15, 18, 20, 22].filter(v => v <= LANE_MAX);
+// whole mm for the panel; ≈ for a stroke not set in whole mm of a lane
+const mmWhole = v => v < 0.5 ? 'under 1' : (Math.abs(v - Math.round(v)) > 0.05 ? '≈ ' : '') + Math.round(v);
+// logarithmic slider in pt: 1…500 pt; in mm a lane: 1…22 mm, one step a mm
 const wToSlider = w => Math.round(Math.log(w / WEIGHT_MIN) / Math.log(WEIGHT_MAX / WEIGHT_MIN) * 1000);
 const sliderToW = v => { const w = WEIGHT_MIN * Math.pow(WEIGHT_MAX / WEIGHT_MIN, v / 1000); return w < 10 ? Math.round(w * 2) / 2 : Math.round(w); };
 function setWeight(w, soft) { w = clamp(+w || 1, WEIGHT_MIN, WEIGHT_MAX); setStyle('weight', w, soft); }
-$('#wSlider').oninput = e => setWeight(sliderToW(+e.target.value), true);
-$('#wNum').onchange = e => setWeight(+e.target.value);
-$('#wMinus').onclick = () => { const w = styleOf().weight; setWeight(w > 10 ? w - 5 : w - 1); };
-$('#wPlus').onclick = () => { const w = styleOf().weight; setWeight(w >= 10 ? w + 5 : w + 1); };
-$('#wPreset').innerHTML = '<option value="">…</option>' + WEIGHT_PRESETS.map(w => `<option value="${w}">${w} pt</option>`).join('');
-$('#wPreset').onchange = e => { if (e.target.value) setWeight(+e.target.value); e.target.value = ''; };
+function setLane(mm, soft) { setWeight(clamp(Math.round(+mm || 1), 1, LANE_MAX) * 8 / PT_MM, soft); }
+$('#wSlider').oninput = e => inMM() ? setLane(+e.target.value, true) : setWeight(sliderToW(+e.target.value), true);
+$('#wNum').onchange = e => inMM() ? setLane(+e.target.value) : setWeight(+e.target.value);
+$('#wMinus').onclick = () => { const w = styleOf().weight; inMM() ? setLane(Math.round(laneOf(w)) - 1) : setWeight(w > 10 ? w - 5 : w - 1); };
+$('#wPlus').onclick = () => { const w = styleOf().weight; inMM() ? setLane(Math.round(laneOf(w)) + 1) : setWeight(w >= 10 ? w + 5 : w + 1); };
+$('#wPreset').onchange = e => { if (e.target.value) inMM() ? setLane(+e.target.value) : setWeight(+e.target.value); e.target.value = ''; };
+function syncUnits() {
+  const mm = inMM(), sl = $('#wSlider'), n = $('#wNum');
+  document.querySelectorAll('#unitSeg button').forEach(b => b.classList.toggle('on', b.dataset.u === (mm ? 'mm' : 'pt')));
+  $('#wWhat').hidden = !mm;
+  $('#wUnit').textContent = mm ? 'mm' : 'pt';
+  Object.assign(sl, mm ? { min: 1, max: LANE_MAX, step: 1 } : { min: 0, max: 1000, step: 1 });
+  Object.assign(n, mm ? { min: 1, max: LANE_MAX } : { min: WEIGHT_MIN, max: WEIGHT_MAX });
+  const marks = mm ? [0, 1, 2, 3].map(i => Math.round(1 + (LANE_MAX - 1) * i / 3)) : [1, 10, 100, WEIGHT_MAX];
+  $('#wScale').innerHTML = marks.map((v, i) => `<span>${v}${i === 3 ? (mm ? ' mm' : ' pt') : ''}</span>`).join('');
+  $('#wPreset').innerHTML = '<option value="">…</option>' + (mm ? LANE_PRESETS : WEIGHT_PRESETS).map(v => `<option value="${v}">${v} ${mm ? 'mm' : 'pt'}</option>`).join('');
+  updatePanel();
+}
+document.querySelectorAll('#unitSeg button').forEach(b => b.onclick = () => { S.view.unit = b.dataset.u; syncUnits(); save(); });
 $('#mix').oninput = e => setStyle('mix', +e.target.value, true);
 
 $('#brushSeg').innerHTML = Object.entries(BRUSHES).map(([k, b]) => {
@@ -493,22 +515,27 @@ function drawXsec() {
 function updatePanel() {
   const p = selPath(), st = styleOf();
   const tn = $('#targetName'); tn.textContent = p ? `Stroke ${String(S.paths.indexOf(p) + 1).padStart(2, '0')}` : 'New stroke'; tn.classList.toggle('sel', !!p);
-  if (document.activeElement !== $('#wNum')) $('#wNum').value = st.weight;
-  $('#wSlider').value = wToSlider(st.weight);
-  $('#wRead').innerHTML = `Trace <b>${fmt(st.weight * PT_MM, 1)} mm</b> wide · each lane ${fmt(st.weight * PT_MM / 8, 1)} mm`;
+  const lane = laneOf(st.weight);
+  if (document.activeElement !== $('#wNum')) $('#wNum').value = inMM() ? Math.round(lane) : Math.round(st.weight * 10) / 10;   // set in mm, the pt are not whole
+  $('#wSlider').value = inMM() ? Math.round(lane) : wToSlider(st.weight);
+  $('#wRead').innerHTML = inMM()
+    ? `Each lane <b>${mmWhole(lane)} mm</b> · trace ${mmWhole(8 * lane)} mm wide`
+    : `Trace <b>${fmt(st.weight * PT_MM, 1)} mm</b> wide · each lane ${fmt(lane, 1)} mm`;
   document.querySelectorAll('#brushSeg button').forEach(b => b.classList.toggle('on', b.dataset.brush === st.brush));
   // CNC: eight lanes of this brush, lane = stroke / 8. In the Job tab's Brush
-  // mode every lane is two trips, so the trips lie stroke / 16 apart.
+  // mode every lane is perLane trips, so the trips lie stroke / (8 × perLane) apart.
   const B = BRUSHES[st.brush], perLane = jobTrips(), trips = 8 * perLane;
   const pitch = st.weight * PT_MM / trips, fullPt = B.mm * trips / PT_MM, gap = pitch - B.mm;
   let note = '';
   if (gap > 0.5) note = ` <span class="warn">Gaps of ${fmt(gap, 1)} mm between passes.</span>`;
   else if (gap < -0.5) note = ` <span class="warn">Passes overlap by ${fmt(-gap, 1)} mm.</span>`;
   const how = perLane > 1 ? `<b>8 lanes × ${perLane} trips</b> (Brush on the Job tab): ${trips} trips` : '<b>8 passes</b>';
+  // the stroke that closes the gaps, only if it is within the limit
+  const match = Math.abs(gap) > 0.5 && fullPt <= WEIGHT_MAX + 1e-9;
   $('#bRead').innerHTML = `CNC runs ${how} of the ${B.mm} mm brush, ${fmt(pitch, 1)} mm apart.${note}` +
-    (Math.abs(gap) > 0.5 ? ` <button class="link" id="matchBrush">Stroke = ${trips} × ${B.mm} mm (${fmt(fullPt, 0)} pt)</button>` : '') +
+    (match ? ` <button class="link" id="matchBrush">${inMM() ? `Each lane ${perLane * B.mm} mm` : `Stroke = ${trips} × ${B.mm} mm (${fmt(fullPt, 0)} pt)`}</button>` : '') +
     (B.guess ? ` <span class="hint">${B.mm} mm and the texture are a guess until the first paint photos.</span>` : '');
-  const mb = $('#matchBrush'); if (mb) mb.onclick = () => setWeight(Math.round(fullPt));
+  const mb = $('#matchBrush'); if (mb) mb.onclick = () => inMM() ? setLane(perLane * B.mm) : setWeight(Math.round(fullPt));
   $('#mix').value = st.mix; $('#mixVal').textContent = st.mix + '%';
   document.querySelectorAll('input[name=load]').forEach(r => r.checked = r.value === st.load);
   if (document.activeElement !== $('#ml')) $('#ml').value = st.ml;
@@ -771,7 +798,7 @@ const fresh = !load();
 if (fresh) demo();
 $('#format').value = S.format;
 $('#anglesnap').value = String(S.angleSnap);
-renderPalettes(); syncTools(); syncView();
+renderPalettes(); syncTools(); syncView(); syncUnits();
 new ResizeObserver(layout).observe(stage);
 layout();
 if (fresh) loadDefault();

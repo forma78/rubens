@@ -176,6 +176,28 @@ test('brush, 4 trips a lane: the lane centre is the middle of its four trips; no
     assert.equal(crossings(lines[i], lines[j]).length, 0, `trips ${i} and ${j}`);
 });
 
+test('brush, 8 trips a lane: the same lane, 64 trips an eighth lane apart, turns of a sixteenth; no trips cross', () => {
+  const p = shape([['L', 900], ['R', 250, 120], ['L', 500], ['T', 200, 70]], { start: P(200, 300), weight: 272 });
+  const W = p.style.weight, steps = jobSteps([p], () => EIGHT, LIFT, 'brush', 8), t = trips(steps);
+  assert.equal(t.length, 64);
+  assert.deepEqual(t.map(s => s.trip), Array.from({ length: 64 }, (_, i) => i % 8));
+  const bottom = s => s.back ? endOf(s.segs) : startOf(s.segs);
+  for (let i = 1; i < 64; i++) if (i % 8)
+    assert.ok(Math.abs(dist(bottom(t[i - 1]), bottom(t[i])) - W / 64) < 1e-6, `trips ${i - 1}, ${i} lie W / 64 apart`);
+  const turns = steps.filter(s => s.kind === 'turn');
+  assert.equal(turns.length, 56);                           // seven in every lane
+  for (const s of turns) assert.ok(Math.abs(s.segs[0].r - W / 128) < 1e-6);
+  // the lane is where it was: its centre is the middle of its eight trips
+  trips(jobSteps([p], () => EIGHT, LIFT)).forEach((ps, i) => {
+    const b = t.slice(8 * i, 8 * i + 8).map(bottom);
+    const mid = P(b.reduce((a, q) => a + q.x, 0) / 8, b.reduce((a, q) => a + q.y, 0) / 8);
+    assert.ok(dist(mid, startOf(ps.segs)) < 1e-6, `lane ${ps.lane}`);
+  });
+  const lines = t.map(s => polyline(s.segs));
+  for (let i = 0; i < lines.length; i++) for (let j = i + 1; j < lines.length; j++)
+    assert.equal(crossings(lines[i], lines[j]).length, 0, `trips ${i} and ${j}`);
+});
+
 test('between strokes the brush always leaves the canvas', () => {
   const a = shape([['L', 800]], { start: P(100, 300) }), b = shape([['L', 800]], { start: P(100, 1200) });
   for (const paint of [LIFT, SNAKE]) {
