@@ -265,6 +265,16 @@ into `job.json` as `machine.blocks`. `rubens.py` runs them on the pass
 firmware (flashed 2026-09-27, `../firmware/CNCDM-001/`), and the Job tab
 shows the brush from the ping.
 
+### 3.9. 3DOF + MOLOTOW — an idea, not decided (the owner, 2026-09-30)
+
+The arm turned to the sides reaches the whole 70 cm width of the canvas
+(the poses are in `../CALIBRATION.md`, 2026-09-29). Using that — one arm
+pose per stroke, the pose's shift measured with a pencil mark, the corners
+tagged by pose, a "pose" block in the runner — is too complex for painting,
+which is what RUBENS does now. The owner: it probably belongs to another
+kind of work with its own tab, **graphics with MOLOTOW markers**. He is
+still thinking. Do not build it without his go.
+
 ---
 
 ## 4. How it is built (short)
