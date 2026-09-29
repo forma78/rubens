@@ -23,13 +23,14 @@ board on USB from `../../rubens-preview/rubens.py`.
 | `test_host/path_test.cpp` | the planner's test, on the Mac, no board |
 
 This is the firmware on the board since 2026-09-27. Built from this folder
-on 2026-09-29, it gives the same image as the build in the old repository;
-only the ELF's hash in the header and the image checksum differ (they hold
-the build paths).
+on 2026-09-30, its comments translated into English, it gives the same image
+as the build in the old repository: only the ELF's hash in the header and
+the image checksum differ (they hold the build paths); the code with the
+comments taken out is the same, line for line.
 
-Its comments are in Russian, as it was written. Its replies are Russian too,
-and RUBENS reads them ("край", "очередь полна", "путь", "нет нуля осей"…):
-changing a reply means changing `rubens.py` and `src/machine.js` with it.
+Its replies stay Russian, as it was written, and RUBENS reads them ("край",
+"очередь полна", "путь", "нет нуля осей"…): changing a reply means a new
+flash and changing `rubens.py` and `src/machine.js` with it.
 
 **Rules the code keeps — break one and it shows on the canvas or burns:**
 

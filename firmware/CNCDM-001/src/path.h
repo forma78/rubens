@@ -1,15 +1,16 @@
-// path.h — путь, по которому идёт проход RUBENS, и скорость на нём.
+// path.h — the path the RUBENS pass follows, and the speed along it.
 //
-// Чистый C++ без Arduino: этот же файл собирается на маке для тестов
-// (test_host/). Координаты — миллиметры машины: x — ось X (плюс к верху
-// картины), y — ось Y (плюс вправо). Угол дуги считается от +X к +Y.
+// Plain C++ without Arduino: the same file builds on the Mac for the tests
+// (test_host/). Coordinates are machine millimetres: x is the X axis (plus
+// towards the top of the picture), y the Y axis (plus to the right). An
+// arc's angle turns from +X to +Y.
 //
-// Путь — очередь отрезков и дуг. Планировщик раз в такт (20 мс) двигает
-// точку по пути и отдаёт её координаты; шаги из них делает прошивка.
-// Скорость — трапеция: разгон, ход, торможение. Правило одно: в любой
-// момент можно остановиться в конце того, что уже лежит в очереди.
-// На гладком стыке скорость не падает; на изломе больше MAX_TURN_DEG
-// и на обоих концах переезда (M) — ноль.
+// The path is a queue of lines and arcs. Once a tick (20 ms) the planner
+// moves the point along the path and gives its coordinates; the firmware
+// makes the steps from them. The speed is a trapezoid: speed up, run, brake.
+// One rule: at any moment it can stop at the end of what is already queued.
+// At a smooth joint the speed does not drop; at a kink over MAX_TURN_DEG and
+// at both ends of a travel (M) it is zero.
 
 #pragma once
 #include <math.h>
@@ -17,15 +18,15 @@
 
 namespace path {
 
-static const float MAX_TURN_DEG = 10.0f;   // излом круче — стоп на стыке
+static const float MAX_TURN_DEG = 10.0f;   // a sharper kink — stop at the joint
 
 struct Seg {
-  char  kind;           // 'L' — отрезок, 'A' — дуга, 'M' — переезд (отрезок со стопом на концах)
-  float x0, y0, x1, y1; // начало и конец, мм
-  float cx, cy, r;      // дуга: центр и радиус
-  float a0, sweep;      // дуга: начальный угол и размах со знаком, рад
-  float len;            // длина, мм
-  float v;              // предел скорости на этом куске, мм/с
+  char  kind;           // 'L' a line, 'A' an arc, 'M' a travel (a line stopping at both ends)
+  float x0, y0, x1, y1; // start and end, mm
+  float cx, cy, r;      // arc: centre and radius
+  float a0, sweep;      // arc: start angle and signed sweep, rad
+  float len;            // length, mm
+  float v;              // the speed limit on this piece, mm/s
 };
 
 inline Seg line(float x0, float y0, float x1, float y1, float v, char kind = 'L') {
@@ -35,9 +36,10 @@ inline Seg line(float x0, float y0, float x1, float y1, float v, char kind = 'L'
   return g;
 }
 
-// Дуга от (x0, y0) вокруг (cx, cy) до угла точки (x1, y1). dir > 0 —
-// от +X к +Y, dir < 0 — обратно. Радиус берётся по началу, конец
-// пересчитывается по углу: мелкое расхождение округления не ломает путь.
+// An arc from (x0, y0) round (cx, cy) to the angle of the point (x1, y1).
+// dir > 0 turns from +X to +Y, dir < 0 back. The radius is taken from the
+// start and the end is worked out again from the angle: a small rounding
+// mismatch does not break the path.
 inline Seg arc(float x0, float y0, float cx, float cy, float x1, float y1, int dir, float v) {
   Seg g = {};
   g.kind = 'A'; g.x0 = x0; g.y0 = y0; g.cx = cx; g.cy = cy; g.v = v;
@@ -54,7 +56,7 @@ inline Seg arc(float x0, float y0, float cx, float cy, float x1, float y1, int d
   return g;
 }
 
-// Точка на куске на расстоянии d от его начала.
+// The point on a piece at a distance d from its start.
 inline void pointAt(const Seg &g, float d, float *x, float *y) {
   if (g.len <= 0) { *x = g.x1; *y = g.y1; return; }
   float t = d / g.len;
@@ -68,7 +70,7 @@ inline void pointAt(const Seg &g, float d, float *x, float *y) {
   }
 }
 
-// Направление движения в начале и в конце куска, единичный вектор.
+// The direction of motion at the start and the end of a piece, a unit vector.
 inline void dirAt(const Seg &g, bool end, float *dx, float *dy) {
   if (g.kind == 'A') {
     float a = g.a0 + (end ? g.sweep : 0), k = g.sweep > 0 ? 1.0f : -1.0f;
@@ -79,7 +81,7 @@ inline void dirAt(const Seg &g, bool end, float *dx, float *dy) {
   }
 }
 
-// Скорость на стыке кусков a → b.
+// The speed at the joint of pieces a → b.
 inline float junction(const Seg &a, const Seg &b) {
   if (a.kind == 'M' || b.kind == 'M') return 0;
   float ax, ay, bx, by;
@@ -91,12 +93,12 @@ inline float junction(const Seg &a, const Seg &b) {
 
 class Planner {
  public:
-  static const int N = 16;          // кусков в очереди
+  static const int N = 16;          // pieces in the queue
 
   explicit Planner(float accel) : accel_(accel) {}
 
-  // Где кончается путь: конец последнего куска в очереди, а пустая очередь —
-  // там, где стоит каретка. Новый кусок начинается отсюда.
+  // Where the path ends: the end of the last piece queued, and with the
+  // queue empty, where the carriage stands. A new piece starts here.
   void setHere(float x, float y) { if (!count_) { endX_ = x; endY_ = y; } }
   float endX() const { return endX_; }
   float endY() const { return endY_; }
@@ -114,31 +116,31 @@ class Planner {
     return true;
   }
 
-  // Остановиться как можно скорее, не сходя с пути: через тормозной путь
-  // от того места, где точка сейчас, — хоть посреди куска. Куски дальше
-  // выбрасываются. (Сначала обрезались только целые куски за текущим, и на
-  // длинной линии S не тормозил — 27.09.2026.)
+  // Stop as soon as possible without leaving the path: a braking distance
+  // from where the point is now, in the middle of a piece if need be. The
+  // pieces beyond are dropped. (At first only whole pieces after the current
+  // one were cut, and on a long line S did not brake — 2026-09-27.)
   void stopSoon() {
     if (!count_) return;
     float need = v_ * v_ / (2 * accel_), d = q_[head_].len - s_;
     int k = 0;
     while (d < need && k + 1 < count_) { k++; d += q_[(head_ + k) % N].len; }
     count_ = k + 1;
-    const Seg &last = q_[(head_ + k) % N];   // конец пути — конец последнего оставшегося куска
+    const Seg &last = q_[(head_ + k) % N];   // the path's end is the end of the last piece left
     endX_ = last.x1; endY_ = last.y1;
     limit_ = need;
   }
 
-  // Бросить всё: каретка стоит (резкий стоп), путь пуст.
+  // Drop everything: the carriage stands (a hard stop), the path is empty.
   void clear(float x, float y) { count_ = 0; s_ = 0; v_ = 0; limit_ = -1; endX_ = x; endY_ = y; }
 
-  // Один такт длиной dt: новая точка пути в (*x, *y). Ложь — путь кончился,
-  // скорость ноль, точка — конец пути.
+  // One tick of length dt: the path's new point into (*x, *y). False — the
+  // path has ended, the speed is zero, the point is the path's end.
   bool step(float dt, float *x, float *y) {
     if (!count_) { v_ = 0; limit_ = -1; *x = endX_; *y = endY_; return false; }
 
-    // Сколько можно сейчас: предел куска и каждый стык впереди, до конца
-    // очереди включительно, — с которого ещё успеваем затормозить.
+    // How fast it may go now: the piece's limit and every joint ahead, up to
+    // the end of the queue — each one it can still brake for.
     float vmax = q_[head_].v, d = q_[head_].len - s_;
     for (int k = 0; k < count_; k++) {
       const Seg &a = q_[(head_ + k) % N];
@@ -147,7 +149,7 @@ class Planner {
       if (lim < vmax) vmax = lim;
       if (k + 1 < count_) d += q_[(head_ + k + 1) % N].len;
     }
-    if (limit_ >= 0) {                       // стоп по S: предел внутри пути
+    if (limit_ >= 0) {                       // a stop by S: a limit inside the path
       float lim = sqrtf(2 * accel_ * (limit_ > 0 ? limit_ : 0));
       if (lim < vmax) vmax = lim;
     }
@@ -162,13 +164,13 @@ class Planner {
     }
     v_ = vn;
     s_ += ds;
-    // через стыки
+    // across the joints
     while (count_ && s_ >= q_[head_].len) {
       s_ -= q_[head_].len;
       head_ = (head_ + 1) % N;
       count_--;
     }
-    // конец пути: ближе 0,01 мм — приехали
+    // the path's end: nearer than 0.01 mm — arrived
     float left = 0;
     for (int k = 0; k < count_; k++) left += q_[(head_ + k) % N].len;
     left -= s_;
@@ -178,7 +180,7 @@ class Planner {
       return false;
     }
     pointAt(q_[head_], s_, x, y);
-    if (limit_ >= 0 && limit_ < 0.01f) {      // встали по S посреди пути
+    if (limit_ >= 0 && limit_ < 0.01f) {      // stopped by S in the middle of the path
       count_ = 0; s_ = 0; v_ = 0; limit_ = -1;
       endX_ = *x; endY_ = *y;
       return false;
@@ -189,10 +191,10 @@ class Planner {
  private:
   Seg   q_[N];
   int   head_ = 0, count_ = 0;
-  float s_ = 0;         // пройдено по первому куску, мм
-  float v_ = 0;         // скорость, мм/с
-  float accel_;         // разгон и торможение, мм/с²
-  float limit_ = -1;    // стоп по S: сколько ещё проехать, мм; -1 — нет
+  float s_ = 0;         // gone along the first piece, mm
+  float v_ = 0;         // speed, mm/s
+  float accel_;         // acceleration and braking, mm/s²
+  float limit_ = -1;    // a stop by S: how far still to go, mm; -1 — none
   float endX_ = 0, endY_ = 0;
 };
 

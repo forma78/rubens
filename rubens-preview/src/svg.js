@@ -14,7 +14,7 @@ export function drawingSvg({ formatKey, format, paths, palettes, paint, paletteO
   const state = { rubens: '0.1', format: formatKey, paint, palettes, paths: drawn };
   let s = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${format.w}mm" height="${format.h}mm" viewBox="0 0 ${r3(W)} ${r3(H)}">
-<!-- RUBENS Brush Preview v0.1.2 · ${format.label}
+<!-- RUBENS Brush Preview v0.1.3 · ${format.label}
      1 user unit = 1 pt = ${PT_MM.toFixed(5)} mm. Strokes in drawing order, one <g> per stroke.
      Geometry: M, L and A only (straight lines and circular arcs, no Béziers).
      ${LANE_ORDER_NOTE} -->

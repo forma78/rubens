@@ -1,9 +1,9 @@
-// Тест path.h на маке, без платы:
+// The test of path.h on the Mac, no board:
 //   c++ -std=c++17 -O1 -o /tmp/path_test path_test.cpp && /tmp/path_test
-// Гоняем планировщик тактами по 20 мс и проверяем: точка всегда на пути,
-// скорость не выше предела и меняется не быстрее разгона, путь кончается
-// ровно в своей конечной точке, на гладком стыке скорость не падает,
-// на изломе и у переезда — ноль.
+// Runs the planner in 20 ms ticks and checks: the point is always on the
+// path, the speed never above the limit and changing no faster than the
+// acceleration, the path ends exactly at its end point, the speed does not
+// drop at a smooth joint, and is zero at a kink and at a travel.
 
 #include <cstdio>
 #include <cmath>
@@ -20,7 +20,7 @@ static const float DT = 0.02f, ACC = 250.0f;
 
 struct Tick { float x, y, v; };
 
-// Прогон до конца пути; before(i) — можно досылать куски на ходу.
+// Runs to the end of the path; before(i) may send more pieces on the way.
 static std::vector<Tick> run(Planner &p, std::function<void(int)> before = nullptr, int limit = 100000) {
   std::vector<Tick> out;
   for (int i = 0; i < limit; i++) {
@@ -35,7 +35,7 @@ static std::vector<Tick> run(Planner &p, std::function<void(int)> before = nullp
 
 static float distToSeg(const Seg &g, float x, float y) {
   if (g.kind == 'A') {
-    return fabsf(hypotf(x - g.cx, y - g.cy) - g.r);   // до окружности; дугу по углу не режем
+    return fabsf(hypotf(x - g.cx, y - g.cy) - g.r);   // to the circle; the arc is not cut by angle
   }
   float dx = g.x1 - g.x0, dy = g.y1 - g.y0, L2 = dx * dx + dy * dy;
   float t = L2 > 0 ? ((x - g.x0) * dx + (y - g.y0) * dy) / L2 : 0;
@@ -65,7 +65,7 @@ static void checkRun(const char *name, const std::vector<Seg> &segs, const std::
 }
 
 int main() {
-  // 1. Отрезок 100 мм на 20 мм/с: 5 с хода плюс v/a на разгон и торможение.
+  // 1. A 100 mm line at 20 mm/s: 5 s of run plus v/a to speed up and brake.
   {
     Planner p(ACC); p.setHere(0, 0);
     std::vector<Seg> segs = { line(0, 0, 100, 0, 20) };
@@ -75,11 +75,11 @@ int main() {
     float T = t.size() * DT;
     CHECK(fabsf(T - (100.0f / 20 + 20.0f / ACC)) < 0.1f, "took %.3f s", T);
   }
-  // 2. Отрезок, полукруг по касательной, отрезок — гладко: скорость не падает.
+  // 2. A line, a tangent semicircle, a line — smooth: the speed does not drop.
   {
     Planner p(ACC); p.setHere(0, 0);
     Seg a = line(0, 0, 200, 0, 20);
-    Seg b = arc(200, 0, 200, 12, 200, 24, +1, 20);         // от +X к +Y: полукруг радиусом 12
+    Seg b = arc(200, 0, 200, 12, 200, 24, +1, 20);         // from +X to +Y: a semicircle of radius 12
     Seg c = line(b.x1, b.y1, 0, 24, 20);
     std::vector<Seg> segs = { a, b, c };
     for (auto &g : segs) p.push(g);
@@ -91,7 +91,7 @@ int main() {
     for (size_t i = t.size() / 5; i < t.size() * 4 / 5; i++) vmin = fminf(vmin, t[i].v);
     CHECK(vmin > 19.9f, "slows down at a smooth joint to %.2f", vmin);
   }
-  // 3. Излом 90°: на углу стоп.
+  // 3. A 90° kink: a stop at the corner.
   {
     Planner p(ACC); p.setHere(0, 0);
     std::vector<Seg> segs = { line(0, 0, 50, 0, 20), line(50, 0, 50, 50, 20) };
@@ -102,7 +102,7 @@ int main() {
     for (auto &k : t) if (hypotf(k.x - 50, k.y) < 0.5f) vcorner = fminf(vcorner, k.v);
     CHECK(vcorner < ACC * DT * 2, "passes the corner at %.2f mm/s", vcorner);
   }
-  // 4. Переезд M: стоп на обоих концах, даже по прямой.
+  // 4. A travel M: a stop at both ends, even on a straight line.
   {
     Planner p(ACC); p.setHere(0, 0);
     std::vector<Seg> segs = { line(0, 0, 50, 0, 20), line(50, 0, 150, 0, 100, 'M'), line(150, 0, 200, 0, 20) };
@@ -115,7 +115,7 @@ int main() {
       CHECK(v < ACC * DT * 2, "does not stop at x = %.0f (%.2f mm/s)", xs, v);
     }
   }
-  // 5. Досылаем на ходу: пока очередь не пустеет, проход не тормозит.
+  // 5. Sending on the way: while the queue does not run empty, the pass does not brake.
   {
     Planner p(ACC); p.setHere(0, 0);
     std::vector<Seg> segs;
@@ -127,7 +127,7 @@ int main() {
     for (size_t i = t.size() / 10; i < t.size() * 9 / 10; i++) vmin = fminf(vmin, t[i].v);
     CHECK(vmin > 19.9f, "slows down while streaming to %.2f", vmin);
   }
-  // 6. Стоп на ходу: тормозит, не сходя с пути, за v/a.
+  // 6. A stop on the move: brakes without leaving the path, in v/a.
   {
     Planner p(ACC); p.setHere(0, 0);
     std::vector<Seg> segs;
@@ -141,7 +141,7 @@ int main() {
     CHECK(t.back().v == 0, "does not stop");
     for (auto &k : t) CHECK(fabsf(k.y) < 1e-4f, "leaves the path while stopping");
   }
-  // 6б. Стоп на одном длинном куске: тормозит внутри куска, за v²/2a.
+  // 6b. A stop on one long piece: brakes inside the piece, in v²/2a.
   {
     Planner p(ACC); p.setHere(0, 0);
     p.push(line(0, 0, 400, 0, 30));
@@ -155,10 +155,10 @@ int main() {
     Planner q(ACC); q.setHere(0, 0); q.push(line(0, 0, 10, 0, 10)); float x, y; q.step(DT, &x, &y);
     CHECK(q.running(), "a stopped planner must take new pieces again");
   }
-  // 7. Шаги: X 80 на мм, Y 26,667 на мм; за такт не больше, чем влезает в очередь.
+  // 7. Steps: X 80 a mm, Y 26.667 a mm; no more in a tick than fits the queue.
   {
     Planner p(ACC); p.setHere(0, 0);
-    Seg g = line(0, 0, 300, 200, 200);    // быстро и наискосок
+    Seg g = line(0, 0, 300, 200, 200);    // fast and on the diagonal
     p.push(g);
     const float KX = 80, KY = 3200.0f / 120;
     long cx = 0, cy = 0, worst = 0;

@@ -263,8 +263,8 @@ JOINTS = {"shoulder": (1, -1, 45), "elbow": (2, +1, 45), "wrist": (3, +1, 90)}
 # RUBENS's degrees against the firmware's. Plus is the brush to the right
 # for the shoulder as for the elbow (the owner, 2026-09-29: the shoulder
 # stands face down, and the pose that reaches the right edge read −15.5°).
-# The firmware's −1 for the shoulder was meant to give just that ("вправо
-# везде плюс"), yet on the machine its minus goes right, as on the MELNICOMM
+# The firmware's −1 for the shoulder was meant to give just that ("right
+# plus everywhere"), yet on the machine its minus goes right, as on the MELNICOMM
 # pendant (images_CNC_drawing_machine/servo direction.png). RUBENS turns it
 # round; once the firmware is flashed with its sign put right, this is +1.
 # The wrist: minus left, plus right, as on the pendant.

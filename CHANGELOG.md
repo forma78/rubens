@@ -5,82 +5,96 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ---
 
-## Unreleased
+## Update 30-09-2026 · v0.1.3
 
-- **The wrist never goes past +10°.** A USB camera now sits on the brush
+The first paintings, and what they taught: the brush now stays on the
+canvas from the first trip of a stroke to the last, the arm reaches the
+edges of the 70 cm canvas, and everything for the machine lives in this one
+repository. A USB camera on the brush holder sets a new limit to the wrist.
+
+### Painting (Job tab)
+
+- **The brush no longer leaves the canvas in the middle of a stroke.** The
+  first paintings showed every lift: the wrist swings the wet brush off and
+  on like a broom and leaves a sideways mark. In Brush mode all trips of a
+  stroke are one line, whatever "Brush off after each pass" says (that
+  toggle is Pencil's and greys out in Brush); the brush leaves the canvas
+  only between strokes, at the start and the end of a job, and on Pause.
+- **2, 4 or 8 trips a lane**, 4 by default: up, down, up, down, spread
+  evenly across the lane — 16, 32 or 64 trips a stroke; on a 500 pt stroke
+  11, 5.5 or 2.75 mm apart.
+- **A straight step, no semicircle.** A trip ends, the brush steps straight
+  across to the next one and comes straight back: a round brush with long
+  enough bristles needs no turn. Pencil's snake keeps its semicircles.
+- **At a wall the brush runs along it.** Where a stroke goes past the
+  machine's reach, the brush stays down and runs along the wall until the
+  stroke comes back. Before, the pass was cut there and the brush went off
+  and on — the marks on the painting of 2026-09-29.
+- **The plan shows the canvas and the walls**: the 60 × 80 cm edge dashed,
+  its corners named TL, TR, BR, BL as on the Calibration tab; the walls
+  dotted once the canvas is placed.
+- **Pass speed ×1 / ×2 / ×4 / ×10** (20, 40, 80, 200 mm/s), so the paint
+  does not dry before the brush is back. Tight arcs are slowed to
+  √(250 mm/s² · r): the board limits the acceleration along the path, not
+  across it.
+- **The percent moves through a stroke.** A Brush stroke is one block of
+  hundreds of pieces; the runner used to count what was painted only once it
+  had sent them all. It now counts from the board's queue all along.
+- **A job ends at home**, like a 3D printer: the brush off, the carriage in
+  the bottom left corner inside the walls.
+
+### Create tab
+
+- **Stroke in mm, up to 800 pt.** Stroke shows whole mm of one lane — 1 to
+  35 mm; the field, the slider and ± step a millimetre; below, the trace of
+  eight lanes in whole mm. A mm | pt switch brings the pt back. The limit is
+  800 pt (282 mm), up from 500.
+- **Round 10 mm**, the brush on the machine (a Raphael No. 4), is the
+  default for new strokes. Its 10 mm and texture are a guess until paint
+  photos are measured.
+- "Match brush" is offered only when the stroke it asks for fits the limit.
+
+### Machine and safety
+
+- **The wrist never goes past +10°.** A USB camera sits on the brush
   holder, on the wrist's plus side. The brush leaves the canvas at −45°
   instead of +90°; RUBENS refuses any wrist move past +10° — from the
   Calibration tab, Brush off, Pause or a job — and a job.json saved before
-  (with +90°) does not start: save it again. The Calibration tab's wrist
-  handle runs −90…+10°.
+  does not start: save it again.
+- **Arm jog** on the Calibration tab: shoulder, elbow, wrist. The arm moves
+  in RUBENS's degrees from its working pose, from where the servos really
+  are, whatever zero the board took at power-on; a restart can no longer
+  swing the brush to 180°. **Plus is the brush to the right** for the
+  shoulder too, as for the elbow.
 - **One program, one address.** `rubens.py` talks to the board on USB
-  itself; the bridge on port 8765 and its MELNICOMM pendant are gone. The
-  Calibration tab says NO BOARD when the USB or the 12 V is missing.
-- **The firmware is in this repository**, `firmware/CNCDM-001/`, with the
-  board, pins, drivers, power and serial commands in its README. The
-  machine's first repository is archived.
-- **Arm: plus is the brush to the right** for the shoulder too, as for the
-  elbow. The pose that reaches the right edge reads shoulder +15.5°, elbow
-  +14.9°; the left one −14.7°, −14.9°.
-- **The brush no longer leaves the canvas in the middle of a painting.**
-  The first paintings showed every lift: J3 swings the wet brush off and on
-  like a broom and leaves a sideways mark. In Brush mode all trips of a
-  stroke are now one line, whatever "Brush off after each pass" says (that
-  toggle is Pencil's and greys out in Brush); the brush leaves the canvas
-  only between strokes, at the start and the end of a job, and on Pause.
-- **Brush: a straight step, no semicircle.** A trip ends, the brush steps
-  straight across to the next one and comes straight back. A round brush
-  with long enough bristles needs no turn; the semicircles were designed
-  before any paint. Pencil's snake keeps its semicircles.
-- **At a wall the brush runs along it.** Where a stroke goes past the reach
-  of the machine, the brush stays down and runs along the wall until the
-  stroke comes back. Before, the pass was cut at the wall and the brush went
-  off and on there — the marks on the 2026-09-29 painting.
-- **Job tab: the canvas edge and the walls on the plan.** The 60 × 80 cm
-  edge dashed, its corners named TL, TR, BR, BL as on the Calibration tab;
-  the walls dotted once the canvas is placed.
-- **8 trips a lane** on the Job tab, next to 2 and 4: the same lane, the
-  trips twice as dense — 64 trips, 2.75 mm apart on a 500 pt stroke.
-- **Stroke in mm, up to 800 pt.** The Create tab's Stroke shows whole mm of
-  one lane — 1 to 35 mm, the field, the slider and ± step a millimetre; below
-  it, the trace (eight lanes) in whole mm. A mm | pt switch brings the pt
-  back; mm is the default. The limit is 800 pt (282 mm, 35 mm a lane), up
-  from 500. The document stays in pt.
-- The pass-speed note on the Job tab names the plan's own tightest turn
-  (the Pencil snake's). It said "the 5.5 mm turns of Brush" whatever the
-  trips — the radius of 2 trips only.
-- "Match brush" on the Create tab is offered only when the stroke it asks for
-  fits the limit; before, it set the limit and said more.
-- **The percent moves through a Brush lane.** A lane in Brush mode is one
-  block of some 80 pieces, and the runner counted what was painted only once
-  it had sent them all: the Job tab stood at 0 % for most of the lane, then
-  jumped. It now counts from the board's queue all along.
-- **Rams look.** Neutral grey keys; the chosen one is pressed and marked with
+  itself; the bridge on port 8765 and its MELNICOMM pendant are gone.
+- **Rams look.** Neutral grey keys; the chosen one pressed and marked with
   an orange dot; "• STOP", "•• HARD STOP". The Job tab's progress is a grey
-  LCD in a niche: the percent in two seven-segment cells (the tens faint
-  below 10 %, a third cell only at 100), the time left and the total, a bar
-  of sticks. The Create tab's Stroke section keeps its look.
-- **Arm jog** on the Calibration tab: shoulder, elbow, wrist, as on the
-  MELNICOMM pendant. The arm always moves in RUBENS's degrees from its
-  working pose (calibration.json), from where the servos really are —
-  whatever zero the board took at power-on — and the whole arm holds from
-  a job's start. The brush can no longer be swung to 180° by a restart.
-- **Brush: 2 or 4 trips a lane** on the Job tab, 4 by default: up, down, up,
-  down, a quarter lane apart — 32 trips, 5.5 mm apart on a 500 pt stroke.
-  The first canvas had 2 trips 11 mm apart and the round No. 4 left canvas
-  between them. The 2.8 mm turns run at 26 mm/s whatever the pass speed.
-- **Pass speed ×1 / ×2 / ×4 / ×10** on the Job tab (20, 40, 80, 200 mm/s),
-  so the paint does not dry before the brush is back. Tight arcs are slowed
-  to √(250 mm/s² · r) — the 5.5 mm turns of Brush run at 37 mm/s — because
-  the board limits the acceleration along the path, not across it. After a
-  pause a pass keeps its slow turns.
-- **Round 10 mm** on the Create tab, the brush on the machine (a Raphael
-  No. 4), and the default for new strokes. Its 10 mm and its texture are a
-  guess until the first paint photos. The brush note counts 16 trips when
-  the Job tab is on Brush.
-- **A job ends at home**, like a 3D printer: after the last pass the brush
-  swings off and the carriage travels to the bottom left corner inside the
-  walls (X 0.1, Y 0.1 mm), not left over the middle of the canvas.
+  LCD: the percent in seven segments, the time left and the total, a bar of
+  sticks.
+
+### Repository
+
+- **The firmware is here**, `firmware/CNCDM-001/`, with a README on the
+  board, pins, drivers, power and serial commands. Its comments are in
+  English now; built here it gives the same image as the one on the board.
+- Photos: the boards and motors, the paintings of 2026-09-29, the camera.
+- The machine's first repository, `forma78/CNCDM-001`, is archived.
+
+### Calibration log
+
+- The paintings of 2026-09-29: the brush's marks at the walls and between
+  lanes, where it went off and on.
+- The arm turned brings the tip to the canvas edges: shoulder +15.5°, elbow
+  +14.9° to the right, −14.7° and −14.9° to the left.
+- The camera, and the wrist's new brush-off pose, −45°.
+
+### Next
+
+- The arm's side poses in a job: one pose a stroke, their shift measured
+  with a pencil mark — so the whole 70 cm is painted.
+- The arm zero in the firmware, Turn on / Turn off, and the wrist's +10° in
+  the firmware too — one flash, together with the owner.
 
 ---
 

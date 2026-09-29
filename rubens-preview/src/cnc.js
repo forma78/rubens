@@ -107,7 +107,7 @@ export function cncSvg({ format, paths, colorsOf, paletteNameOf, paint }) {
   });
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${format.w}mm" height="${format.h}mm" viewBox="0 0 ${r3(W)} ${r3(H)}">
-<!-- RUBENS CNC Trace v0.1.2 · ${format.label}
+<!-- RUBENS CNC Trace v0.1.3 · ${format.label}
      1 user unit = 1 pt = ${PT_MM.toFixed(5)} mm.
      group "passes": ${nPass} brush passes, ${fmt(total / 1000, 2)} m in total. Each stroke = up to 8 passes,
        lane 1 → 8, each path in its painting direction (data-dir: with / against the drawing).
