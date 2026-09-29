@@ -8,7 +8,7 @@ import { fmt, clamp } from './util.js';
 import { luminance } from './color.js';
 import { segLen } from './geometry.js';
 import { jobSteps, jobLengths, jobTimeline, jobAt, jobFile, timeAtPercent, MODES, PER_LANE, TIME_MODEL } from './job.js';
-import { canvasReport, jobToMachine, arcSpeed, SPEED_MAX, CORNERS } from './machine.js';
+import { canvasReport, jobToMachine, arcSpeed, reach, SPEED_MAX, CORNERS } from './machine.js';
 import './ui.js';
 import { segments, sticks } from './lcd.js';
 
@@ -66,7 +66,7 @@ function summary() {
   const d = S.doc, F = FORMATS[d.format], L = jobLengths(S.steps);
   const count = k => S.steps.filter(s => s.kind === k).length;
   const strokes = new Set(S.steps.map(s => s.stroke)).size;
-  const lift = d.paint.lift ?? true;
+  const lift = S.mode === 'pencil' && (d.paint.lift ?? true);   // Brush never leaves the canvas within a stroke
   el.innerHTML = `<table>
     <tr><td>Format</td><td class="r">${F.label}</td></tr>
     <tr><td>Strokes</td><td class="r">${strokes}</td></tr>
@@ -110,14 +110,14 @@ function machine() {
   const file = jobFile(S.steps, { formatKey: S.doc.format, format: F, paint: S.doc.paint, mode: S.mode, perLane: S.perLane });
   S.fit = rep.fit;
   S.onMachine = { ...jobToMachine(file, rep.fit, { paintMMs: S.model.paintMMs, travelMMs: S.model.travelMMs }), corners: n };
-  const b = S.onMachine.blocks, cut = S.onMachine.skipped;
+  const b = S.onMachine.blocks, wall = S.onMachine.pastWall;
   const pieces = b.reduce((a, x) => a + (x.cmds ? x.cmds.length : 1), 0);
   el.innerHTML = `<table>
     <tr><td>Canvas from</td><td class="r">${n} corners</td></tr>
     <tr><td>Blocks</td><td class="r">${b.length} · ${pieces} commands</td></tr>
     <tr><td>Brush off / on</td><td class="r">${b.filter(x => x.kind === 'arm').length}×</td></tr>
-  </table>` + (cut.length
-    ? `<p>Past the walls the machine does not paint: ${fmt(S.onMachine.skippedMM / 1000, 2)} m of passes are left out (strokes ${strokeList(cut)}). The rest is painted.</p>`
+  </table>` + (wall.length
+    ? `<p>Past the walls the machine cannot go: ${fmt(S.onMachine.pastWallMM / 1000, 2)} m of the path lie past them (strokes ${strokeList(wall)}). There the brush stays down and runs along the wall until the stroke comes back. The dotted line on the plan is the wall.</p>`
     : '<p>Everything is inside the walls.</p>');
 }
 
@@ -193,7 +193,7 @@ function draw(at) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, W, H);
   if (!S.doc) return;
-  const F = FORMATS[S.doc.format], dw = F.w / PT_MM, dh = F.h / PT_MM, pad = 36;
+  const F = FORMATS[S.doc.format], dw = F.w / PT_MM, dh = F.h / PT_MM, pad = 48;   // room for the corner names and the walls
   const k = Math.min((W - 2 * pad) / dw, (H - 2 * pad) / dh);
   const ox = (W - dw * k) / 2, oy = (H - dh * k) / 2;
   ctx.save();
@@ -217,12 +217,37 @@ function draw(at) {
   });
   ctx.setLineDash([]); ctx.globalAlpha = 1;
 
+  // The edge of the canvas, dashed, its corners named as on the Calibration
+  // tab (the owner, 2026-09-29: to see where 60 × 80 ends).
+  ctx.font = '10px "SF Mono", ui-monospace, Menlo, monospace';
+  ctx.strokeStyle = INK; ctx.globalAlpha = 0.6; ctx.lineWidth = 1; ctx.setLineDash([6, 4]);
+  ctx.strokeRect(0, 0, dw * k, dh * k);
+  ctx.fillStyle = INK;
+  for (const [t, x, y, ax, ay] of [['TL', 0, 0, 'right', 'bottom'], ['TR', dw * k, 0, 'left', 'bottom'], ['BR', dw * k, dh * k, 'left', 'top'], ['BL', 0, dh * k, 'right', 'top']]) {
+    ctx.textAlign = ax; ctx.textBaseline = ay;
+    ctx.fillText(t, x + (ax === 'left' ? 4 : -4), y + (ay === 'top' ? 4 : -4));
+  }
+  // The walls: where the carriage can go. Past them the brush runs along
+  // the wall (machine.js, jobToMachine). Only once the canvas is placed.
+  const toBoard = S.fit && ((X, Y) => {                     // machine mm → artboard mm
+    const f = S.fit, det = f.a * f.e - f.b * f.d, x = X - f.c, y = Y - f.f;
+    return { u: (f.e * x - f.b * y) / det, v: (-f.d * x + f.a * y) / det };
+  });
+  if (toBoard) {
+    const R = reach(), box = [[R.x.min, R.y.min], [R.x.max, R.y.min], [R.x.max, R.y.max], [R.x.min, R.y.max]].map(([x, y]) => toBoard(x, y));
+    ctx.setLineDash([1, 3]); ctx.lineWidth = 1.4; ctx.globalAlpha = 0.75;
+    ctx.beginPath(); box.forEach((q, i) => ctx[i ? 'lineTo' : 'moveTo'](q.u / PT_MM * k, q.v / PT_MM * k)); ctx.closePath(); ctx.stroke();
+    const top = box.reduce((a, q) => q.v < a.v || (q.v === a.v && q.u < a.u) ? q : a);   // the label at the corner nearest the top left
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('walls', top.u / PT_MM * k + 4, top.v / PT_MM * k + 4);
+  }
+  ctx.setLineDash([]); ctx.globalAlpha = 1; ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
+
   // The brush on the machine, from the runner's ping: machine mm back onto
   // the artboard through the canvas fit.
   const live = S.run && S.fit && S.run.x_mm != null && S.run.y_mm != null && S.run.state !== 'idle';
   if (live) {
-    const f = S.fit, det = f.a * f.e - f.b * f.d, x = S.run.x_mm - f.c, y = S.run.y_mm - f.f;
-    const u = (f.e * x - f.b * y) / det, v = (-f.d * x + f.a * y) / det;   // mm on the artboard
+    const { u, v } = toBoard(S.run.x_mm, S.run.y_mm);   // mm on the artboard
     const X = u / PT_MM * k, Y = v / PT_MM * k;
     ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(X, Y, 9, 0, Math.PI * 2); ctx.stroke();
     ctx.fillStyle = S.run.brush_on ? INK : 'rgba(36,34,31,.25)'; ctx.beginPath(); ctx.arc(X, Y, 4, 0, Math.PI * 2); ctx.fill();
@@ -259,11 +284,12 @@ function syncSpeedX() {
     b.classList.toggle('on', SPEED_1X * +b.dataset.x === v);
     b.disabled = live;
   });
-  // the tightest turn of the plan: in Brush a lane / trips / 2, r 1.4 mm with 8 trips on a 500 pt stroke
-  const r = S.steps.reduce((a, s) => s.kind === 'turn' ? Math.min(a, s.segs[0].r * PT_MM) : a, Infinity);
+  // the tightest semicircle turn of the plan (the Pencil snake; Brush steps straight across)
+  const r = S.steps.reduce((a, s) => s.kind === 'turn' && s.segs[0].t === 'A' ? Math.min(a, s.segs[0].r * PT_MM) : a, Infinity);
   const turn = r < Infinity ? arcSpeed(v, r) : v;
   $('#speedNote').innerHTML = `Passes at <b>${fmt(Math.min(v, SPEED_MAX), 0)} mm/s</b>`
     + (turn < v ? `; tight arcs slower — the turns of r ${fmt(r, 1)} mm at ${turn} mm/s.` : '.')
+    + (S.mode === 'brush' ? ' At the end of a trip the machine stops, steps across and comes straight back.' : '')
     + (v > 100 ? ' <span class="warn">Faster than any run so far (travel is 100 mm/s): try it with a pencil first.</span>' : '');
 }
 $('#speedX').onclick = e => {
@@ -280,7 +306,7 @@ function syncMode() {
   const W = S.doc ? Math.max(...S.doc.paths.filter(p => p.segs.length).map(p => p.style.weight), 0) * PT_MM : 0;
   const apart = W ? ` — ${fmt(W / 8 / S.perLane, 1)} mm apart on the widest stroke` : '';
   $('#modeNote').textContent = S.mode === 'brush'
-    ? `Every lane in ${S.perLane} trips on the canvas: up, a semicircle, down${S.perLane > 2 ? ', and again' : ''}, a lane / ${S.perLane} apart${apart}. The brush stays down in the lane.`
+    ? `Every lane in ${S.perLane} trips: up, a step across, down${S.perLane > 2 ? ', and again' : ''}, a lane / ${S.perLane} apart${apart}. A stroke is one line: the brush leaves the canvas only between strokes.`
     : 'One trip per lane, bottom to top.';
 }
 $('#perLaneSeg').onclick = e => {
@@ -333,8 +359,8 @@ $('#btnDoJob').onclick = async e => {
   if (!S.doc) return;
   if (runLive()) { alert('The machine is already running this job.'); return; }
   if (!S.onMachine) { alert('The canvas is not placed on the machine: see the Machine section.'); return; }
-  const cut = S.onMachine.skipped;
-  const note = cut.length ? `Past the walls nothing is painted: ${fmt(S.onMachine.skippedMM / 1000, 2)} m of passes left out (strokes ${strokeList(cut)}).\n\n` : '';
+  const wall = S.onMachine.pastWall;
+  const note = wall.length ? `${fmt(S.onMachine.pastWallMM / 1000, 2)} m of the path lie past the walls (strokes ${strokeList(wall)}): there the brush runs along the wall, brush down.\n\n` : '';
   if (!confirm('The machine will move now: the brush swings off and on, the carriage travels and paints the whole job.\n\n' + note
     + 'Is the canvas clamped? Is the pencil or brush in the holder? Is home set?\n\n'
     + 'STOP or Esc brakes along the path; HARD STOP stops at once.')) return;

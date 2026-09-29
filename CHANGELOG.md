@@ -7,18 +7,35 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **The brush no longer leaves the canvas in the middle of a painting.**
+  The first paintings showed every lift: J3 swings the wet brush off and on
+  like a broom and leaves a sideways mark. In Brush mode all trips of a
+  stroke are now one line, whatever "Brush off after each pass" says (that
+  toggle is Pencil's and greys out in Brush); the brush leaves the canvas
+  only between strokes, at the start and the end of a job, and on Pause.
+- **Brush: a straight step, no semicircle.** A trip ends, the brush steps
+  straight across to the next one and comes straight back. A round brush
+  with long enough bristles needs no turn; the semicircles were designed
+  before any paint. Pencil's snake keeps its semicircles.
+- **At a wall the brush runs along it.** Where a stroke goes past the reach
+  of the machine, the brush stays down and runs along the wall until the
+  stroke comes back. Before, the pass was cut at the wall and the brush went
+  off and on there — the marks on the 2026-09-29 painting.
+- **Job tab: the canvas edge and the walls on the plan.** The 60 × 80 cm
+  edge dashed, its corners named TL, TR, BR, BL as on the Calibration tab;
+  the walls dotted once the canvas is placed.
 - **8 trips a lane** on the Job tab, next to 2 and 4: the same lane, the
-  trips twice as dense — 64 trips, 2.75 mm apart on a 500 pt stroke. The
-  turns between them are semicircles of r 1.4 mm and run at 18 mm/s at most.
-- **Stroke in mm.** The Create tab's Stroke shows whole mm of one lane — 1 to
-  22 mm, the field, the slider and ± step a millimetre; below it, the trace
-  (eight lanes) in whole mm. A mm | pt switch brings the pt back; mm is the
-  default. The document stays in pt.
-- The pass-speed note on the Job tab names the plan's own tightest turn. It
-  said "the 5.5 mm turns of Brush" whatever the trips: that was the radius of
-  2 trips on a 500 pt stroke; 4 trips turn at 2.8 mm, 8 trips at 1.4 mm.
+  trips twice as dense — 64 trips, 2.75 mm apart on a 500 pt stroke.
+- **Stroke in mm, up to 800 pt.** The Create tab's Stroke shows whole mm of
+  one lane — 1 to 35 mm, the field, the slider and ± step a millimetre; below
+  it, the trace (eight lanes) in whole mm. A mm | pt switch brings the pt
+  back; mm is the default. The limit is 800 pt (282 mm, 35 mm a lane), up
+  from 500. The document stays in pt.
+- The pass-speed note on the Job tab names the plan's own tightest turn
+  (the Pencil snake's). It said "the 5.5 mm turns of Brush" whatever the
+  trips — the radius of 2 trips only.
 - "Match brush" on the Create tab is offered only when the stroke it asks for
-  fits the 500 pt limit; before, it set 500 pt and said more.
+  fits the limit; before, it set the limit and said more.
 - **The percent moves through a Brush lane.** A lane in Brush mode is one
   block of some 80 pieces, and the runner counted what was painted only once
   it had sent them all: the Job tab stood at 0 % for most of the lane, then

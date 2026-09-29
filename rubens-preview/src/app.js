@@ -410,11 +410,11 @@ function setStyle(key, val, soft) {
 // no fractions) — the default — or in pt, as before.
 const inMM = () => S.view.unit !== 'pt';
 const laneOf = w => w * PT_MM / 8;                                  // mm
-const LANE_MAX = Math.floor(laneOf(WEIGHT_MAX));                    // 22 mm: 176 mm of the 500 pt limit
-const LANE_PRESETS = [1, 2, 3, 5, 8, 10, 12, 15, 18, 20, 22].filter(v => v <= LANE_MAX);
+const LANE_MAX = Math.floor(laneOf(WEIGHT_MAX));                    // 35 mm: 280 mm of the 800 pt limit
+const LANE_PRESETS = [1, 2, 3, 5, 8, 10, 12, 15, 20, 22, 25, 30, 35].filter(v => v <= LANE_MAX);
 // whole mm for the panel; ≈ for a stroke not set in whole mm of a lane
 const mmWhole = v => v < 0.5 ? 'under 1' : (Math.abs(v - Math.round(v)) > 0.05 ? '≈ ' : '') + Math.round(v);
-// logarithmic slider in pt: 1…500 pt; in mm a lane: 1…22 mm, one step a mm
+// logarithmic slider in pt: 1…800 pt; in mm a lane: 1…35 mm, one step a mm
 const wToSlider = w => Math.round(Math.log(w / WEIGHT_MIN) / Math.log(WEIGHT_MAX / WEIGHT_MIN) * 1000);
 const sliderToW = v => { const w = WEIGHT_MIN * Math.pow(WEIGHT_MAX / WEIGHT_MIN, v / 1000); return w < 10 ? Math.round(w * 2) / 2 : Math.round(w); };
 function setWeight(w, soft) { w = clamp(+w || 1, WEIGHT_MIN, WEIGHT_MAX); setStyle('weight', w, soft); }
@@ -539,7 +539,9 @@ function updatePanel() {
   $('#mix').value = st.mix; $('#mixVal').textContent = st.mix + '%';
   document.querySelectorAll('input[name=load]').forEach(r => r.checked = r.value === st.load);
   if (document.activeElement !== $('#ml')) $('#ml').value = st.ml;
-  $('#lift').checked = S.paint.lift ?? true;
+  // Brush on the Job tab never leaves the canvas within a stroke; the option is Pencil's
+  $('#lift').checked = S.paint.lift ?? true; $('#lift').disabled = perLane > 1;
+  $('#lift').parentElement.classList.toggle('off', perLane > 1);
   for (const [id, v] of [['film', S.paint.film], ['ret', S.paint.retention], ['nozzle', S.paint.nozzle], ['maxdrop', S.paint.maxDrop ?? 1], ['cornerR', S.paint.cornerR ?? 10]]) if (document.activeElement !== $('#' + id)) $('#' + id).value = v;
   document.querySelectorAll('.pal').forEach(el => el.classList.toggle('on', el.dataset.pal === st.palette));
   drawXsec();

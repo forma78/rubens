@@ -32,8 +32,9 @@ through firmware yet (the firmware has no `M` and `U` commands yet).
   `#EDEAE4` / `#EB7A25`, as on the MELNICOMM pendant.
 - **Path — straight lines (`L`) and arcs (`A`) only.** No Béziers. A hand
   shakes, so the gesture gets straightened.
-- **Scale 1:1.** The document is in pt, 1 pt = 25.4/72 mm. Stroke 1–500 pt.
-  **The Stroke panel shows whole mm of one lane** (1…22 mm, the field, the
+- **Scale 1:1.** The document is in pt, 1 pt = 25.4/72 mm. Stroke 1–800 pt
+  (500 until 2026-09-29; the owner: "art has no limits").
+  **The Stroke panel shows whole mm of one lane** (1…35 mm, the field, the
   slider, ±1 mm), with a mm | pt switch, mm by default; no pt and no
   fractions in mm. Decided 2026-09-29 (the owner: "20 mm each lane, 25, 30").
 - **Eight brush passes, not one.** A line of width W is 8 passes of one
@@ -60,7 +61,8 @@ through firmware yet (the firmware has no `M` and `U` commands yet).
 - **The path is smooth, a pass runs without stops.** Cutting curves into
   short straight lines with a stop at every joint was tried and disliked.
 - **The snake turns with a semicircle** of radius half the pass pitch: 6 mm
-  at a 12 mm pitch. The brush stays down. Decided 2026-09-27.
+  at a 12 mm pitch. The brush stays down. Decided 2026-09-27. Pencil only
+  since 2026-09-29: Brush steps straight across (below).
 - **Small kinks (under 0.5°) stay unrounded** — texture, not a defect.
   **Spots marked "!"** are shown on the Job tab but do not block the start;
   the machine slows to zero there. Decided 2026-09-27.
@@ -71,6 +73,18 @@ through firmware yet (the firmware has no `M` and `U` commands yet).
   (the default). Decided 2026-09-28. **8 trips** added 2026-09-29 after a
   day of tests: the lane stays as wide, the trips go twice as dense (2.75 mm
   on a 500 pt stroke); the owner chose that over wider lanes at 5.5 mm.
+- **In Brush the brush never leaves the canvas within a stroke**, and not at
+  a wall either. Every lift of the wet brush left J3's broom marks on the
+  canvas (photo `images_CNC_drawing_machine/IMAGE 2026-09-29 20:43:36.jpg`),
+  and 16 or 32 trips in one line looked better. All trips of a stroke are one
+  run, whatever "Brush off after each pass" says (the toggle is Pencil's and
+  greys out in Brush). Between trips and lanes: **a straight step across, no
+  semicircle** — a round brush with long enough bristles needs none; the
+  semicircle was designed before any paint. **At a wall** the path is
+  pressed into the reach: the brush runs along the wall until the path comes
+  back (`jobToMachine`); before, the pass was cut there and the brush went
+  off and on. Off the canvas only between strokes, at the start and the end
+  of a job, and on Pause. Decided 2026-09-29.
 - **Lines may cross and overlap** — it is painting (the owner, 2026-09-27,
   with an Illustrator example). Loops of the centre line cross by nature.
 - **Where the rounding does not fit ("!") the inner passes meet in a sharp
@@ -230,7 +244,7 @@ minutes left, ×1…×300) with an editable time model (estimates), and writes
 `job.json` through `rubens.py`. With three canvas corners recorded on the
 Calibration tab, the Machine section turns the job into what the board runs
 (`jobToMachine` in `machine.js`: brush off / travel / brush on / pass blocks,
-`L`, `A`, `M`, `G` in machine mm), cut at the walls — past them nothing is painted, the owner's decision — and reports what is left out; they go
+`L`, `A`, `M`, `G` in machine mm), pressed into the walls — past them the brush runs along the wall, brush down (section 2) — and reports how much lies past them; they go
 into `job.json` as `machine.blocks`. **Left:** the view of the job on the
 machine, the brush from the ping, `rubens.py` running the blocks — after the
 firmware draft (`RAIL-drawing_machine/drafts/rubens-pass/`) is tested.

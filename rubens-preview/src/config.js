@@ -25,8 +25,10 @@ export const BRUSHES = {
   round10: { label: 'Round 10 mm', mm: 10, round: true, guess: true, streaks: 40, streakAmp: 0.12, gap: 0.16, gapDepth: 0.30, hiChance: 0.04 },
 };
 
-export const WEIGHT_MIN = 1, WEIGHT_MAX = 500;
-export const WEIGHT_PRESETS = [1, 2, 3, 5, 8, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200, 250, 300, 400, 500];
+// 800 pt = 282 mm, 35 mm a lane (the owner, 2026-09-29: "25 mm and 30 mm,
+// easily — like 600 or 800 pt; art has no limits"; it was 500 pt)
+export const WEIGHT_MIN = 1, WEIGHT_MAX = 800;
+export const WEIGHT_PRESETS = [1, 2, 3, 5, 8, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800];
 export const PAPER = '#EEEAE2';
 export const K_LEV = 32, N_VAR = 3, P_MAX = 1.35;   // paint-level steps in the stamp strips
 export const HOLD_MS = 350;                          // how long to hold the mouse still before a segment snaps

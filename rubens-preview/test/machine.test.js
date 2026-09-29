@@ -83,8 +83,8 @@ const MM = v => v / PT_MM;   // mm → document units
 
 test('job on the machine: brush off, travel, brush on, pass… brush off and home at the end', () => {
   const p = poly([[MM(100), MM(700)], [MM(100), MM(100)]]);   // drawn upwards, 600 mm
-  const { blocks, skipped } = jobToMachine(fileOf([p], { ...PAINT, lift: true }), straight().fit);
-  assert.deepEqual(skipped, []);
+  const { blocks, pastWall } = jobToMachine(fileOf([p], { ...PAINT, lift: true }), straight().fit);
+  assert.deepEqual(pastWall, []);
   const kinds = blocks.map(b => b.kind === 'arm' ? (b.off ? 'off' : 'on') : b.cmds.some(c => c[0] === 'M') ? 'travel' : 'pass');
   assert.deepEqual(kinds.slice(0, 5), ['off', 'travel', 'on', 'pass', 'off']);
   assert.deepEqual(kinds.slice(-2), ['off', 'travel']);
@@ -124,99 +124,120 @@ test('job on the machine: the snake paints a whole stroke in one run', () => {
   assert.equal(runs[0].cmds.filter(c => c[0] === 'A').length, 7);   // seven semicircle turns
 });
 
-test('job on the machine: brush mode paints each lane there and back in one run, brush down', () => {
+test('job on the machine: brush mode paints the whole stroke in one run, brush down, straight steps', () => {
   const p = shape([['L', MM(400)]], { start: P(MM(100), MM(300)), weight: 272 });
   const file = jobFile(jobSteps([p], () => EIGHT, { ...PAINT, lift: true }, 'brush'),
     { formatKey: 'p60x80', format: { w: 600, h: 800 }, paint: PAINT, mode: 'brush' });
   assert.equal(file.mode, 'brush');
   const { blocks } = jobToMachine(file, straight().fit);
   const runs = blocks.filter(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
-  assert.equal(runs.length, 8);                                        // one run per lane
-  for (const r of runs) assert.deepEqual(r.cmds.map(c => c[0]), ['F', 'L', 'A', 'L', 'G']);
-  assert.equal(blocks.filter(b => b.kind === 'arm').length, 17);       // off, then on / off around every lane
+  assert.equal(runs.length, 1);                                        // 16 trips, one line
+  assert.deepEqual(runs[0].cmds.map(c => c[0]), ['F', ...Array(31).fill('L'), 'G']);
+  assert.equal(blocks.filter(b => b.kind === 'arm').length, 3);        // off, on at the start; off at the end
 });
 
 // Every coordinate the board gets, from L, A (end and centre excluded) and M.
 const pointsOf = blocks => blocks.filter(b => b.kind === 'move').flatMap(b => b.cmds)
   .filter(c => /^[LAM] /.test(c)).map(c => { const n = c.split(' ').slice(1).map(Number); return c[0] === 'A' ? { x: n[2], y: n[3] } : { x: n[0], y: n[1] }; });
 
-test('job on the machine: past the walls nothing is painted, the rest is', () => {
+test('job on the machine: a pass that starts past a wall starts at the wall', () => {
   // the canvas 50 mm lower: its bottom edge below the X wall at 0
   const low = canvasReport({ tl: { x: 750, y: 0 }, tr: { x: 750, y: 600 }, br: { x: -50, y: 600 }, bl: { x: -50, y: 0 } }, 600, 800);
   const p = poly([[MM(100), MM(790)], [MM(100), MM(500)]]);   // from 40 mm below the wall up to 250 mm above it
-  const { blocks, skipped, skippedMM } = jobToMachine(fileOf([p], { ...PAINT, lift: true }), low.fit);
-  assert.equal(skipped.length, 8);                              // every lane loses its bottom
-  assert.ok(Math.abs(skippedMM - 8 * 40.1) < 1, `skipped ${skippedMM}`);
+  const { blocks, pastWall, pastWallMM } = jobToMachine(fileOf([p], { ...PAINT, lift: true }), low.fit);
+  assert.equal(pastWall.length, 8);                             // every lane starts past the wall
+  assert.ok(Math.abs(pastWallMM - 8 * 40.1) < 1, `past the wall ${pastWallMM}`);
   for (const q of pointsOf(blocks)) assert.ok(q.x >= 0 && q.y >= 0, `past a wall: ${q.x} ${q.y}`);
   const runs = blocks.filter(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
   assert.equal(runs.length, 8);
   for (const r of runs) assert.ok(Math.abs(r.paintMM - 249.9) < 1, `painted ${r.paintMM}`);
 });
 
-test('job on the machine: a pass that leaves the reach and comes back is two runs', () => {
-  // a line across the right Y wall and back: out at 568.5, in again
+test('job on the machine: a pass that leaves the reach and comes back runs along the wall, brush down', () => {
+  // a line across the right Y wall and back: out at 568.5, in again (the owner, 2026-09-29: no lifting at a wall)
   const job = { steps: [{ kind: 'paint', stroke: 1, lane: 1, length: 0, segs: [
     { t: 'L', a: { x: 500, y: 400 }, b: { x: 620, y: 400 } },     // artboard u 500 → 620: Y 500 → 620, past the wall
     { t: 'L', a: { x: 620, y: 400 }, b: { x: 520, y: 300 } },     // back inside
   ] }] };
-  const { blocks, skipped } = jobToMachine(job, straight().fit);
+  const { blocks, pastWall, pastWallMM } = jobToMachine(job, straight().fit);
   const kinds = blocks.map(b => b.kind === 'arm' ? (b.off ? 'off' : 'on') : b.cmds.some(c => c[0] === 'M') ? 'travel' : 'run');
-  assert.deepEqual(kinds, ['off', 'travel', 'on', 'run', 'off', 'travel', 'on', 'run', 'off', 'travel']);   // … and home
-  assert.equal(skipped.length, 1);
+  assert.deepEqual(kinds, ['off', 'travel', 'on', 'run', 'off', 'travel']);   // one run … and home
+  // to the wall (Y 568.4, 0.1 inside it), along it to where the line comes back, on inside
+  assert.deepEqual(blocks[3].cmds, ['F 20', 'L 400.00 568.40', 'L 451.60 568.40', 'L 500.00 520.00', 'G']);
+  assert.equal(pastWall.length, 1);
+  assert.ok(Math.abs(pastWallMM - 51.6 * (1 + Math.SQRT2)) < 0.01, `past the wall ${pastWallMM}`);
   for (const q of pointsOf(blocks)) assert.ok(q.y <= WALLS.y.max, `past the right wall: ${q.y}`);
 });
 
-test('job on the machine: an arc across a wall is cut at the wall', () => {
+test('job on the machine: an arc across a wall runs along the wall between its two parts', () => {
   // a half circle, radius 30 mm, bulging past the bottom wall (X 0)
   const job = { steps: [{ kind: 'paint', stroke: 1, lane: 1, length: 0, segs: [
     { t: 'A', c: { x: 300, y: 790 }, r: 30, a0: Math.PI, s: -Math.PI },   // centre at X 10: its lowest point at X −20
   ] }] };
-  const { blocks, skippedMM } = jobToMachine(job, straight().fit);
-  const arcs = blocks.filter(b => b.kind === 'move').flatMap(b => b.cmds).filter(c => c[0] === 'A');
-  assert.equal(arcs.length, 2);                                  // before the wall and after it
+  const { blocks, pastWallMM } = jobToMachine(job, straight().fit);
+  const runs = blocks.filter(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
+  assert.equal(runs.length, 1);
+  // before the wall, along it (split where the arc is lowest, one straight line), after it
+  assert.deepEqual(runs[0].cmds.map(c => c[0]).filter(c => c !== 'F'), ['A', 'L', 'L', 'A', 'G']);
+  for (const c of runs[0].cmds.filter(c => c[0] === 'L')) assert.equal(Number(c.split(' ')[1]), 0.1);   // on the wall, 0.1 inside it
   for (const q of pointsOf(blocks)) assert.ok(q.x >= 0, `past the bottom wall: ${q.x}`);
-  const lost = 2 * Math.acos(10 / 30) * 30;                     // the part below X 0
-  assert.ok(Math.abs(skippedMM - lost) < 0.5, `skipped ${skippedMM}, expected ${lost}`);
+  const lost = 2 * Math.acos(9.9 / 30) * 30;                    // the part below X 0.1
+  assert.ok(Math.abs(pastWallMM - lost) < 0.01, `past the wall ${pastWallMM}, expected ${lost}`);
+});
+
+test('job on the machine: an arc pressed into a corner goes round the corner, not across it', () => {
+  // a half circle past the bottom wall (X 0) and the right one (Y 568.5): centre (u 570, v 790) → X 10, Y 570
+  const job = { steps: [{ kind: 'paint', stroke: 1, lane: 1, length: 0, segs: [
+    { t: 'A', c: { x: 570, y: 790 }, r: 30, a0: Math.PI, s: -Math.PI },
+  ] }] };
+  const { blocks } = jobToMachine(job, straight().fit);
+  const run = blocks.find(b => b.kind === 'move' && b.cmds[0].startsWith('F')).cmds;
+  const end = c => { const n = c.split(' ').slice(1).map(Number); return c[0] === 'A' ? [n[2], n[3]] : [n[0], n[1]]; };
+  let at = blocks[1].cmds.find(c => c[0] === 'M').split(' ').slice(1).map(Number);   // where the run starts
+  const along = [];
+  for (const c of run.filter(c => c[0] === 'L' || c[0] === 'A')) {
+    const q = end(c);
+    if (c[0] === 'L') {
+      assert.ok((at[0] === 0.1 && q[0] === 0.1) || (at[1] === 568.4 && q[1] === 568.4), `across: ${at} → ${q}`);
+      along.push(q.join(' '));
+    }
+    at = q;
+  }
+  assert.deepEqual(along, ['0.1 568.4', '10 568.4']);   // along the bottom wall to the corner, then along the right one
+  for (const q of pointsOf(blocks)) assert.ok(q.x >= 0 && q.y <= WALLS.y.max, `past a wall: ${q.x} ${q.y}`);
 });
 
 test('pass speed: lines at the pass speed, tight arcs no faster than √(250 · r)', () => {
-  assert.equal(arcSpeed(80, 5.5), 37);          // the Brush turns at ×4
+  assert.equal(arcSpeed(80, 5.5), 37);
   assert.equal(arcSpeed(20, 5.5), 20);          // at ×1 nothing changes
   assert.equal(arcSpeed(80, 300), 80);          // a wide arc keeps the pass speed
   const p = shape([['L', MM(400)]], { start: P(MM(100), MM(300)), weight: 272 });
-  const file = jobFile(jobSteps([p], () => EIGHT, { ...PAINT, lift: true }, 'brush'),
-    { formatKey: 'p60x80', format: { w: 600, h: 800 }, paint: PAINT, mode: 'brush' });
-  const runs = jobToMachine(file, straight().fit, { paintMMs: 80 }).blocks.filter(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
-  const turnR = 272 * 25.4 / 72 / 32;           // a quarter of the lane, mm
-  for (const r of runs) assert.deepEqual(r.cmds, [r.cmds[0], r.cmds[1], `F ${arcSpeed(80, turnR)}`, r.cmds[3], 'F 80', r.cmds[5], 'G']);
-  assert.equal(runs[0].cmds[0], 'F 80');
+  const file = fileOf([p], { ...PAINT, lift: false });   // the Pencil snake: semicircles of half a lane
+  const run = jobToMachine(file, straight().fit, { paintMMs: 80 }).blocks.find(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
+  const turnV = arcSpeed(80, 272 * 25.4 / 72 / 16);
+  assert.equal(turnV, 38);
+  assert.deepEqual(run.cmds.map(c => c[0] === 'F' ? c : c[0]), ['F 80', 'L', ...Array(7).fill([`F ${turnV}`, 'A', 'F 80', 'L']).flat(), 'G']);
   assert.equal(jobToMachine(file, straight().fit, { paintMMs: 900 }).blocks.find(b => b.cmds?.[0]?.startsWith('F')).cmds[0], 'F 200');
 });
 
-test('job on the machine: brush with 4 trips a lane is one run per lane, three slow turns in it', () => {
+// Brush with n trips a lane on a 500 pt stroke: one run, 8n trips of 400 mm at
+// the pass speed, each followed by a straight step of a lane / n across.
+const brushRun = n => {
   const p = shape([['L', MM(400)]], { start: P(MM(100), MM(300)), weight: 500 });
-  const file = jobFile(jobSteps([p], () => EIGHT, { ...PAINT, lift: true }, 'brush', 4),
-    { formatKey: 'p60x80', format: { w: 600, h: 800 }, paint: PAINT, mode: 'brush', perLane: 4 });
-  assert.equal(file.perLane, 4);
+  const file = jobFile(jobSteps([p], () => EIGHT, { ...PAINT, lift: true }, 'brush', n),
+    { formatKey: 'p60x80', format: { w: 600, h: 800 }, paint: PAINT, mode: 'brush', perLane: n });
+  assert.equal(file.perLane, n);
   const runs = jobToMachine(file, straight().fit, { paintMMs: 80 }).blocks.filter(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
-  assert.equal(runs.length, 8);
-  const turnV = arcSpeed(80, 500 * 25.4 / 72 / 64);
-  assert.equal(turnV, 26);
-  for (const r of runs) assert.deepEqual(r.cmds.map(c => c.split(' ')[0] === 'F' ? c : c[0]),
-    ['F 80', 'L', `F ${turnV}`, 'A', 'F 80', 'L', `F ${turnV}`, 'A', 'F 80', 'L', `F ${turnV}`, 'A', 'F 80', 'L', 'G']);
-});
-
-test('job on the machine: brush with 8 trips a lane is one run per lane, seven slow turns of r 1.4 mm in it', () => {
-  const p = shape([['L', MM(400)]], { start: P(MM(100), MM(300)), weight: 500 });
-  const file = jobFile(jobSteps([p], () => EIGHT, { ...PAINT, lift: true }, 'brush', 8),
-    { formatKey: 'p60x80', format: { w: 600, h: 800 }, paint: PAINT, mode: 'brush', perLane: 8 });
-  assert.equal(file.perLane, 8);
-  const runs = jobToMachine(file, straight().fit, { paintMMs: 80 }).blocks.filter(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
-  assert.equal(runs.length, 8);
-  const turnV = arcSpeed(80, 500 * 25.4 / 72 / 128);
-  assert.equal(turnV, 18);
-  for (const r of runs) {
-    assert.equal(r.cmds.filter(c => c[0] === 'A').length, 7);
-    assert.equal(r.cmds.filter(c => c === `F ${turnV}`).length, 7);
+  assert.equal(runs.length, 1);
+  const cmds = runs[0].cmds;
+  assert.deepEqual(cmds.filter(c => c[0] !== 'L'), ['F 80', 'G']);   // no arcs, no slow turns
+  const pts = cmds.filter(c => c[0] === 'L').map(c => c.split(' ').slice(1).map(Number));
+  assert.equal(pts.length, 16 * n - 1);
+  const step = 500 * 25.4 / 72 / 8 / n;
+  for (let i = 1; i < pts.length; i++) {
+    const d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    assert.ok(Math.abs(d - (i % 2 ? step : 400)) < 0.02, `piece ${i}: ${d} mm`);
   }
-});
+};
+test('job on the machine: brush with 4 trips a lane is one run, steps of 5.5 mm straight across', () => brushRun(4));
+test('job on the machine: brush with 8 trips a lane is one run, steps of 2.8 mm straight across', () => brushRun(8));

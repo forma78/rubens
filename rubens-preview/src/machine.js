@@ -146,13 +146,15 @@ export function reach() {
 // passes and turns of a stroke. Before every run: brush off, travel to its
 // start, brush on.
 //
-// Past the walls the machine cannot go, so there it does not paint (the
-// owner's decision, 2026-09-27: a brush running off is fine, the machine does
-// not stumble on it). Every piece is cut at the walls; a run that leaves the
-// reach ends at the wall, and where the stroke comes back a new run starts.
-// What was cut is reported in `skipped`, for the record — it does not stop a
-// job. The edge of the canvas is not a limit: inside the walls the brush
-// paints past it.
+// Past the walls the machine cannot go, and at a wall the brush does not
+// leave the canvas either (the owner, 2026-09-29: lifting there, J3 swept the
+// wet brush sideways like a broom and left its marks on the canvas; before,
+// 2026-09-27, a run ended at the wall and a new one started where the stroke
+// came back). The path is pressed into the reach: where it goes past a wall
+// the brush runs along the wall, brush down, until the path comes back. How
+// much of the path lies past the walls is reported in `pastWall`, for the
+// record — it does not stop a job. The edge of the canvas is not a limit:
+// inside the walls the brush paints past it.
 //
 // Arcs keep their centre and end point; the sweep turns the same way on the
 // machine when the map keeps orientation, the other way when it mirrors. The
@@ -175,46 +177,43 @@ const EDGE_IN = 0.1;   // mm inside the walls: rounding to 0.01 mm must not land
 const f2 = v => (Math.round(v * 100) / 100).toFixed(2);
 const TAU = Math.PI * 2;
 
-// The part of a line inside the box, as fractions [t0, t1] of it, or null.
-function clipLine(p, q, B) {
-  let t0 = 0, t1 = 1;
-  const d = { x: q.x - p.x, y: q.y - p.y };
-  for (const [k, lo, hi] of [['x', B.x0, B.x1], ['y', B.y0, B.y1]]) {
-    if (Math.abs(d[k]) < 1e-12) { if (p[k] < lo || p[k] > hi) return null; continue; }
-    let a = (lo - p[k]) / d[k], b = (hi - p[k]) / d[k];
-    if (a > b) [a, b] = [b, a];
-    t0 = Math.max(t0, a); t1 = Math.min(t1, b);
-    if (t0 > t1) return null;
-  }
-  return t1 - t0 > 1e-9 ? [t0, t1] : null;
-}
-// The parts of an arc (centre c, radius r, from angle a0 through sweep s)
-// inside the box, as fraction intervals of the sweep.
-function clipArc(c, r, a0, s, B) {
+const inBox = (q, B) => q.x >= B.x0 && q.x <= B.x1 && q.y >= B.y0 && q.y <= B.y1;
+const clampBox = (q, B) => ({ x: Math.min(B.x1, Math.max(B.x0, q.x)), y: Math.min(B.y1, Math.max(B.y0, q.y)) });
+const sorted = cuts => [...new Set(cuts)].sort((a, b) => a - b);
+
+// Where a line crosses the lines of the walls, as fractions of it, 0 and 1
+// included. Between two cuts each coordinate stays inside or past one wall,
+// so the line pressed into the box is a straight line there too.
+function lineCuts(p, q, B) {
   const cuts = [0, 1];
+  for (const [k, v] of [['x', B.x0], ['x', B.x1], ['y', B.y0], ['y', B.y1]]) {
+    const d = q[k] - p[k];
+    if (Math.abs(d) < 1e-12) continue;
+    const t = (v - p[k]) / d;
+    if (t > 0 && t < 1) cuts.push(t);
+  }
+  return sorted(cuts);
+}
+// The same for an arc (centre c, radius r, from angle a0 through sweep s), as
+// fractions of the sweep: where it crosses the lines of the walls, and where
+// it turns back along x or y (0°, 90°, 180°, 270°). Between two cuts the arc
+// is inside the box, or past a wall and pressed into it a straight line.
+function arcCuts(c, r, a0, s, B) {
+  const cuts = [0, 1];
+  const at = th => {                              // the fraction of the sweep at angle th
+    let t = ((th - a0) % TAU + TAU) % TAU;
+    if (s < 0) t = (TAU - t) % TAU;
+    t /= Math.abs(s);
+    if (t > 0 && t < 1) cuts.push(t);
+  };
   for (const [k, v] of [['x', B.x0], ['x', B.x1], ['y', B.y0], ['y', B.y1]]) {
     const d = (v - c[k]) / r;
     if (Math.abs(d) > 1) continue;
     const base = k === 'x' ? Math.acos(d) : Math.asin(d);
-    for (const th of k === 'x' ? [base, -base] : [base, Math.PI - base]) {
-      let t = ((th - a0) % TAU + TAU) % TAU;         // angle from the start, 0…2π, in +s terms
-      if (s < 0) t = (TAU - t) % TAU;
-      t /= Math.abs(s);
-      if (t > 0 && t < 1) cuts.push(t);
-    }
+    for (const th of k === 'x' ? [base, -base] : [base, Math.PI - base]) at(th);
   }
-  cuts.sort((a, b) => a - b);
-  const out = [];
-  for (let i = 0; i + 1 < cuts.length; i++) {
-    const t0 = cuts[i], t1 = cuts[i + 1];
-    if (t1 - t0 < 1e-9) continue;
-    const m = a0 + s * (t0 + t1) / 2, x = c.x + r * Math.cos(m), y = c.y + r * Math.sin(m);
-    if (x >= B.x0 && x <= B.x1 && y >= B.y0 && y <= B.y1) {
-      if (out.length && Math.abs(out[out.length - 1][1] - t0) < 1e-9) out[out.length - 1][1] = t1;
-      else out.push([t0, t1]);
-    }
-  }
-  return out;
+  for (let i = 0; i < 4; i++) at(i * Math.PI / 2);
+  return sorted(cuts);
 }
 
 export function jobToMachine(job, fit, { paintMMs = 20, travelMMs = 100 } = {}) {
@@ -226,7 +225,7 @@ export function jobToMachine(job, fit, { paintMMs = 20, travelMMs = 100 } = {}) 
     x0: (R.x.min ?? -Infinity) + EDGE_IN, x1: (R.x.max ?? Infinity) - EDGE_IN,
     y0: (R.y.min ?? -Infinity) + EDGE_IN, y1: (R.y.max ?? Infinity) - EDGE_IN,
   };
-  const blocks = [], skipped = [];
+  const blocks = [], pastWall = [];
   let run = null, off = null, end = null;          // off: null — unknown at the start; end: where the run has got to
   const arm = o => { if (o !== off) { blocks.push({ kind: 'arm', cmd: `J 3 ${o ? SWING_DEG : 0}`, off: o }); off = o; } };
   const close = () => { if (run) { run.cmds.push('G'); delete run.v; blocks.push(run); run = null; } };
@@ -245,36 +244,51 @@ export function jobToMachine(job, fit, { paintMMs = 20, travelMMs = 100 } = {}) 
     end = to;
   };
 
+  // A piece of the path past a wall (`past` mm long) pressed into the reach:
+  // a straight line along the wall, brush down; nothing where it presses into
+  // a point (a pass straight into the wall waits there for its way back).
+  let past = 0;
+  const pressed = (from, to, painted, len) => {
+    past += len;
+    const a = clampBox(from, B), b = clampBox(to, B), L = Math.hypot(b.x - a.x, b.y - a.y);
+    if (L >= 1e-6) piece(a, b, `L ${f2(b.x)} ${f2(b.y)}`, L, painted);
+  };
   job.steps.forEach((st, i) => {
     if (st.kind === 'travel') { close(); return; }
     const painted = st.kind === 'paint';
-    let cut = 0;
+    past = 0;
     for (const g of st.segs) {
       if (g.t === 'L') {
-        const p = at(g.a), q = at(g.b), L = Math.hypot(q.x - p.x, q.y - p.y);
-        const t = clipLine(p, q, B);
-        if (!t) { cut += L; continue; }
-        const a = { x: p.x + (q.x - p.x) * t[0], y: p.y + (q.y - p.y) * t[0] };
-        const b = { x: p.x + (q.x - p.x) * t[1], y: p.y + (q.y - p.y) * t[1] };
-        cut += L * (1 - (t[1] - t[0]));
-        piece(a, b, `L ${f2(b.x)} ${f2(b.y)}`, L * (t[1] - t[0]), painted);
+        const p = at(g.a), q = at(g.b), pt = t => ({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
+        const cuts = lineCuts(p, q, B);
+        for (let k = 1; k < cuts.length; k++) {
+          const a = pt(cuts[k - 1]), b = k === cuts.length - 1 ? q : pt(cuts[k]);
+          if (inBox(pt((cuts[k - 1] + cuts[k]) / 2), B)) {
+            const L = Math.hypot(b.x - a.x, b.y - a.y);
+            if (L >= 1e-6) piece(a, b, `L ${f2(b.x)} ${f2(b.y)}`, L, painted);
+          } else pressed(a, b, painted, Math.hypot(b.x - a.x, b.y - a.y));
+        }
       } else {
         const c = at(g.c);
         const p = at({ x: g.c.x + g.r * Math.cos(g.a0), y: g.c.y + g.r * Math.sin(g.a0) });
         const q = at({ x: g.c.x + g.r * Math.cos(g.a0 + g.s), y: g.c.y + g.r * Math.sin(g.a0 + g.s) });
         const r = Math.hypot(p.x - c.x, p.y - c.y), a0 = Math.atan2(p.y - c.y, p.x - c.x);
-        const s = Math.sign(g.s) * sign * Math.abs(g.s), L = Math.abs(s) * r;
-        let kept = 0;
-        for (const [t0, t1] of clipArc(c, r, a0, s, B)) {
-          const u = { x: c.x + r * Math.cos(a0 + s * t0), y: c.y + r * Math.sin(a0 + s * t0) };
-          const w = t1 >= 1 - 1e-9 ? q : { x: c.x + r * Math.cos(a0 + s * t1), y: c.y + r * Math.sin(a0 + s * t1) };
-          piece(u, w, `A ${f2(c.x)} ${f2(c.y)} ${f2(w.x)} ${f2(w.y)} ${s > 0 ? 1 : -1}`, L * (t1 - t0), painted, arcSpeed(paintMMs, r));
-          kept += t1 - t0;
+        const s = Math.sign(g.s) * sign * Math.abs(g.s);
+        const pt = t => t >= 1 - 1e-9 ? q : { x: c.x + r * Math.cos(a0 + s * t), y: c.y + r * Math.sin(a0 + s * t) };
+        const cuts = arcCuts(c, r, a0, s, B);
+        // neighbouring parts inside the box are one arc
+        for (let k = 1, t0 = 0; k < cuts.length; k++) {
+          const inside = inBox(pt((cuts[k - 1] + cuts[k]) / 2), B);
+          if (!inside) { pressed(pt(cuts[k - 1]), pt(cuts[k]), painted, Math.abs(s) * r * (cuts[k] - cuts[k - 1])); t0 = cuts[k]; continue; }
+          const next = k + 1 < cuts.length && inBox(pt((cuts[k] + cuts[k + 1]) / 2), B);
+          if (next) continue;
+          const u = pt(t0), w = pt(cuts[k]), L = Math.abs(s) * r * (cuts[k] - t0);
+          if (L >= 1e-6) piece(u, w, `A ${f2(c.x)} ${f2(c.y)} ${f2(w.x)} ${f2(w.y)} ${s > 0 ? 1 : -1}`, L, painted, arcSpeed(paintMMs, r));
+          t0 = cuts[k];
         }
-        cut += L * (1 - kept);
       }
     }
-    if (cut > 0.05) skipped.push({ step: i, stroke: st.stroke, lane: st.lane, mm: cut });
+    if (past > 0.05) pastWall.push({ step: i, stroke: st.stroke, lane: st.lane, mm: past });
   });
   close(); arm(true);
   // Like a 3D printer, the job ends at home (the owner, 2026-09-28), not over
@@ -282,5 +296,5 @@ export function jobToMachine(job, fit, { paintMMs = 20, travelMMs = 100 } = {}) 
   // brush off. Home itself lies past the walls, at the stops, where no path goes.
   if (Number.isFinite(B.x0) && Number.isFinite(B.y0))
     blocks.push({ kind: 'move', cmds: [`T ${travelMMs}`, `M ${f2(B.x0)} ${f2(B.y0)}`, 'G'], lengthMM: null, paintMM: 0, home: true });
-  return { blocks, skipped, skippedMM: skipped.reduce((a, x) => a + x.mm, 0) };
+  return { blocks, pastWall, pastWallMM: pastWall.reduce((a, x) => a + x.mm, 0) };
 }

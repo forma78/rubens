@@ -106,7 +106,7 @@ pendant.
 
 Straight lines (`L`) and circular arcs (`A`) only, no Béziers anywhere. The
 document is in pt at 1:1 scale with the canvas, 1 pt = 25.4/72 mm.
-Stroke 1–500 pt; the Create tab shows it in whole mm of one lane (1…22 mm)
+Stroke 1–800 pt; the Create tab shows it in whole mm of one lane (1…35 mm)
 unless switched to pt.
 
 ### 4.2. Eight passes
@@ -183,6 +183,17 @@ start of the next is a semicircle with a diameter equal to the pass pitch:
 radius 6 mm at a 12 mm pitch. The brush stays down and leaves a rounded end.
 Decided 2026-09-27.
 
+**Brush mode never leaves the canvas within a stroke** (the owner,
+2026-09-29, after the first paintings; photo
+`images_CNC_drawing_machine/IMAGE 2026-09-29 20:43:36.jpg`). The marks above
+are real: the wet brush swept sideways every time J3 swung it off or on. And
+16 or 32 trips in one line, there and back, looked better. So in Brush the
+option above does not apply: all trips of a stroke are one line, and the
+brush leaves the canvas only between strokes, at the start and at the end of
+the job, and on Pause. A trip ends, the brush steps straight across to the
+next trip and comes straight back — no semicircle: a round brush with long
+enough bristles needs none (the semicircle was designed before any paint).
+
 Strokes go in drawing order; within a stroke, passes 1 → 8.
 
 ### 4.6. Checks before start
@@ -193,10 +204,16 @@ the board cannot run a path yet; nothing moves, not even the brush.
 **Past the walls the machine does not paint** — the owner's decision,
 2026-09-27, replacing Claude's earlier "lock the start while the tip would
 leave the work area": "it is not a laser printer; I built a machine that
-does not stumble on this". Every pass is cut at the walls; where a stroke
-comes back inside, a new pass starts (brush off, travel, brush on). What is
-left out is shown on the Job tab, for the record. The edge of the canvas is
-not a limit: inside the walls the brush paints past it.
+does not stumble on this". **At a wall the brush does not leave the canvas**
+(the owner, 2026-09-29): the path is pressed into the reach, and where it
+goes past a wall the brush runs along the wall, brush down, until the path
+comes back. Until then a pass was cut at the wall and a new one started
+where the stroke came back, and the brush off and on there left the broom
+marks of section 4.5 in the middle of the canvas. How much of the path lies
+past the walls is shown on the Job tab, for the record, and the plan there
+shows the walls dotted and the canvas edge dashed with its corners TL, TR,
+BR, BL. The edge of the canvas is not a limit: inside the walls the brush
+paints past it.
 
 Spots marked "!" are only shown (section 4.4).
 

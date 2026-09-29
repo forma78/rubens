@@ -180,6 +180,8 @@ main{display:grid;grid-template-columns:60px 1fr 340px;min-height:0}
 .inline.check input[type=checkbox]:checked{background:#CFCDC8}
 .inline.check input[type=checkbox]:checked::before{background:var(--dot) center/6px 6px no-repeat,linear-gradient(#fff,#ECEBE8)}
 .inline.check input[type=checkbox]:checked::before{left:18px}
+.inline.check.off{opacity:.45}
+.inline.check.off input[type=checkbox]{cursor:default}
 .inline input{width:56px;border:1px solid var(--line);background:#fff;border-radius:4px;padding:4px 6px;font:12px var(--mono)}
 
 /* ---------- pages ---------- */

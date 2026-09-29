@@ -4,7 +4,8 @@
 // Steps:
 //   { kind: 'paint',  stroke, lane, dir, color, segs, pass } — a pass, brush on the canvas
 //   { kind: 'travel', stroke, segs } — brush off the canvas, a straight move to the next start
-//   { kind: 'turn',   stroke, segs } — snake only: a semicircle to the next lane, brush down
+//   { kind: 'turn',   stroke, segs } — brush down to the next trip or lane: a semicircle in
+//                                      the Pencil snake, a straight step across in Brush
 //
 // Strokes go in drawing order, passes 1 → 8 within a stroke. With paint.lift
 // on, every pass is followed by the brush leaving the canvas and a travel
@@ -15,16 +16,22 @@
 //
 // mode 'brush' (the owner, 2026-09-28): the brush trace is narrower than a
 // lane, so every lane is painted in `perLane` trips without leaving the
-// canvas — up, a semicircle, down, a semicircle, up… — a lane / perLane
-// apart, spread evenly about the lane's centre line. perLane is even, so a
-// lane ends at the bottom, where the next one starts, as far away as the
-// trips are from each other. 2 trips was the first canvas: 11 mm apart on a
-// 500 pt stroke, and the round No. 4 left canvas between them; 4 trips is
-// the owner's answer. 8 trips (the owner, 2026-09-29, after a day of tests):
-// the same lane, twice as dense — 2.75 mm apart on a 500 pt stroke, turns of
-// r 1.4 mm. Between lanes, paint.lift still decides: the brush
-// leaves the canvas, or turns into the next lane (one line for the whole
-// stroke). mode 'pencil' is one trip per lane, as before.
+// canvas — up, down, up… — a lane / perLane apart, spread evenly about the
+// lane's centre line. perLane is even, so a lane ends at the bottom, where
+// the next one starts, as far away as the trips are from each other. 2 trips
+// was the first canvas: 11 mm apart on a 500 pt stroke, and the round No. 4
+// left canvas between them; 4 trips is the owner's answer. 8 trips (the
+// owner, 2026-09-29, after a day of tests): the same lane, twice as dense —
+// 2.75 mm apart on a 500 pt stroke.
+//
+// In Brush the brush never leaves the canvas within a stroke: all its trips,
+// 16, 32 or 64, are one line, whatever paint.lift says (the owner,
+// 2026-09-29: continuous trips look better, and every lift swept the wet
+// brush across the canvas). A trip ends, a straight step across to the next
+// one, and straight back — no semicircle: the tests showed that a round brush
+// with long enough bristles needs none (the owner, 2026-09-29; the
+// semicircles were designed before any paint). mode 'pencil' is one trip per
+// lane, as before, and paint.lift decides between its passes.
 
 import { PT_MM } from './config.js';
 import { dist, clamp } from './util.js';
@@ -39,14 +46,17 @@ export function jobSteps(paths, colorsOf, paint, mode = 'pencil', perLane = 2) {
   const lift = paint.lift ?? true, brush = mode === 'brush';
   const n = Math.max(2, 2 * Math.round(perLane / 2));   // trips per lane, even
   const steps = [];
-  let at = null, heading = null;
-  // From where the last step ended to `start`: a semicircle with the brush
-  // down when `turn` allows it, otherwise the brush off and a travel move.
+  let at = null, heading = null, painting = null;   // painting: the stroke of the last paint step
+  // From where the last step ended to `start`, with the brush down when `turn`
+  // allows it — a straight step in Brush, a semicircle in Pencil — otherwise
+  // the brush off and a travel move.
   const to = (stroke, start, turn) => {
     if (!at || dist(at, start) <= 1e-6) return;
+    const line = [{ t: 'L', a: { ...at }, b: { ...start } }];
+    if (turn && brush) { steps.push({ kind: 'turn', stroke, segs: line }); return; }
     const arc = turn ? tangentArc(at, heading, start) : null;
     if (arc) { delete arc.tangent; steps.push({ kind: 'turn', stroke, segs: [arc] }); }
-    else steps.push({ kind: 'travel', stroke, segs: [{ t: 'L', a: { ...at }, b: { ...start } }] });
+    else steps.push({ kind: 'travel', stroke, segs: line });
   };
   // trip t of a lane: even trips go up the picture, odd ones come back down;
   // the drops are where a lane starts, at its first trip
@@ -55,17 +65,17 @@ export function jobSteps(paths, colorsOf, paint, mode = 'pencil', perLane = 2) {
     steps.push({ kind: 'paint', stroke: p.id, lane: ps.lane, dir: back ? -ps.dir : ps.dir, color: ps.color, segs,
       pass: t > 0 ? { ...ps, drops: [] } : ps, trip: t, ...(back ? { back: true } : {}) });
     const last = segs[segs.length - 1];
-    at = segEnd(last); heading = segDirEnd(last);
+    at = segEnd(last); heading = segDirEnd(last); painting = p.id;
   };
   for (const p of paths) {
     if (!p.segs.length) continue;
     // Brush: every lane goes up first, as with the brush off after each pass.
     const plan = cncPlan(p, colorsOf(p), brush ? { ...paint, lift: true } : paint);
     const W = p.style.weight, pitch = W / 8 / n;   // between trips (the lane is W / 8)
-    plan.passes.forEach((ps, k) => {
+    plan.passes.forEach(ps => {
       if (!ps.segs.length) return;
       if (!brush) {
-        to(p.id, segStart(ps.segs[0]), !lift && k > 0);
+        to(p.id, segStart(ps.segs[0]), !lift && painting === p.id);
         paintStep(p, ps, ps.segs, 0);
         return;
       }
@@ -76,7 +86,7 @@ export function jobSteps(paths, colorsOf, paint, mode = 'pencil', perLane = 2) {
       });
       if (trips.some(s => !s.length)) return;
       trips.forEach((segs, t) => {
-        to(p.id, segStart(segs[0]), t > 0 || (!lift && k > 0));
+        to(p.id, segStart(segs[0]), painting === p.id);   // off the canvas only between strokes
         paintStep(p, ps, segs, t);
       });
     });

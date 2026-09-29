@@ -93,7 +93,7 @@ test('an empty lane: the snake turn spans two pitches', () => {
 // ---------- brush: every lane there and back (the owner, 2026-09-28) ----------
 const trips = steps => steps.filter(s => s.kind === 'paint');
 
-test('brush: every lane is two trips, up then down, joined at the top by a semicircle of a quarter lane', () => {
+test('brush: every lane is two trips, up then down, joined at the top by a straight step of a half lane', () => {
   const p = drawnDown(), W = p.style.weight, steps = jobSteps([p], () => EIGHT, LIFT, 'brush');
   const t = trips(steps);
   assert.equal(t.length, 16);
@@ -105,8 +105,8 @@ test('brush: every lane is two trips, up then down, joined at the top by a semic
     assert.ok(Math.abs(dist(startOf(there), endOf(back)) - W / 16) < 1e-6, 'the trips lie W / 16 apart');
     const turn = steps[steps.indexOf(t[k]) + 1];
     assert.equal(turn.kind, 'turn');                          // the brush stays on the canvas
-    assert.ok(Math.abs(turn.segs[0].r - W / 32) < 1e-6, `radius ${turn.segs[0].r}`);
-    assert.ok(Math.abs(Math.abs(turn.segs[0].s) - Math.PI) < 1e-6, 'a half circle');
+    assert.equal(turn.segs.length, 1); assert.equal(turn.segs[0].t, 'L');   // no semicircle (2026-09-29)
+    assert.ok(Math.abs(dist(turn.segs[0].a, turn.segs[0].b) - W / 16) < 1e-6, 'straight across to the next trip');
   }
   assert.deepEqual(t.map(s => s.back ?? false), Array.from({ length: 16 }, (_, i) => i % 2 === 1));
   assert.ok(t.filter(s => s.back).every(s => s.pass.drops.length === 0), 'drops only where a lane starts');
@@ -122,20 +122,25 @@ test('brush: the two trips split the lane — its centre line lies halfway betwe
   });
 });
 
-test('brush with the brush off after each pass: a travel of W / 16 between lanes', () => {
-  const p = drawnDown(), W = p.style.weight, steps = jobSteps([p], () => EIGHT, LIFT, 'brush');
-  const travels = steps.filter(s => s.kind === 'travel');
-  assert.equal(travels.length, 7);
-  for (const tr of travels) assert.ok(Math.abs(dist(tr.segs[0].a, tr.segs[0].b) - W / 16) < 1e-6);
+test('brush: the whole stroke is one line, straight steps only, whatever "brush off after each pass" says', () => {
+  const p = shape([['L', 1200], ['R', 300, 90], ['L', 600]], { start: P(100, 300), weight: 272 });
+  for (const paint of [LIFT, SNAKE]) {
+    const steps = jobSteps([p], () => EIGHT, paint, 'brush');
+    assert.equal(steps.filter(s => s.kind === 'travel').length, 0);
+    assert.equal(steps.filter(s => s.kind === 'turn').length, 15);   // between trips and between lanes
+    for (let k = 1; k < steps.length; k++) assert.ok(dist(endOf(steps[k - 1].segs), startOf(steps[k].segs)) < 1e-6);
+    for (const s of steps.filter(s => s.kind === 'turn'))
+      assert.ok(s.segs[0].t === 'L' && Math.abs(dist(s.segs[0].a, s.segs[0].b) - p.style.weight / 16) < 1e-6);
+  }
 });
 
-test('brush without it: the whole stroke is one line, turns only', () => {
-  const p = shape([['L', 1200], ['R', 300, 90], ['L', 600]], { start: P(100, 300), weight: 272 });
-  const steps = jobSteps([p], () => EIGHT, SNAKE, 'brush');
-  assert.equal(steps.filter(s => s.kind === 'travel').length, 0);
-  assert.equal(steps.filter(s => s.kind === 'turn').length, 15);
-  for (let k = 1; k < steps.length; k++) assert.ok(dist(endOf(steps[k - 1].segs), startOf(steps[k].segs)) < 1e-6);
-  for (const s of steps.filter(s => s.kind === 'turn')) assert.ok(Math.abs(s.segs[0].r - p.style.weight / 32) < 1e-6);
+test('brush: a stroke whose first lane is empty still starts off the canvas', () => {
+  const a = shape([['L', 800]], { start: P(100, 300) }), b = shape([['L', 800]], { start: P(100, 1200) });
+  const cols = [...EIGHT]; cols[0] = null;
+  const steps = jobSteps([a, b], p => p === b ? cols : EIGHT, LIFT, 'brush');
+  const i = steps.findIndex(s => s.stroke === b.id);
+  assert.equal(steps[i].kind, 'travel');
+  assert.equal(steps.filter(s => s.kind === 'travel').length, 1);
 });
 
 test('brush: no two trips of a stroke cross', () => {
@@ -145,7 +150,7 @@ test('brush: no two trips of a stroke cross', () => {
     assert.equal(crossings(t[i], t[j]).length, 0, `trips ${i} and ${j}`);
 });
 
-test('brush, 4 trips a lane: 32 trips a quarter lane apart, up-down-up-down, turns of an eighth lane', () => {
+test('brush, 4 trips a lane: 32 trips a quarter lane apart, up-down-up-down, one line with straight steps', () => {
   const p = drawnDown(), W = p.style.weight, steps = jobSteps([p], () => EIGHT, LIFT, 'brush', 4);
   const t = trips(steps);
   assert.equal(t.length, 32);
@@ -157,9 +162,9 @@ test('brush, 4 trips a lane: 32 trips a quarter lane apart, up-down-up-down, tur
     if (i) assert.ok(Math.abs(dist(bottom(t[i - 1]), bottom(t[i])) - W / 32) < 1e-6, `trips ${i - 1}, ${i} lie W / 32 apart`);
   }
   const turns = steps.filter(s => s.kind === 'turn');
-  assert.equal(turns.length, 24);                           // three in every lane
-  for (const s of turns) assert.ok(Math.abs(s.segs[0].r - W / 64) < 1e-6);
-  assert.equal(steps.filter(s => s.kind === 'travel').length, 7);
+  assert.equal(turns.length, 31);                           // three in every lane, seven between lanes
+  for (const s of turns) assert.ok(s.segs[0].t === 'L' && Math.abs(dist(s.segs[0].a, s.segs[0].b) - W / 32) < 1e-6);
+  assert.equal(steps.filter(s => s.kind === 'travel').length, 0);
   assert.ok(t.filter(s => s.trip > 0).every(s => s.pass.drops.length === 0));
 });
 
@@ -176,17 +181,18 @@ test('brush, 4 trips a lane: the lane centre is the middle of its four trips; no
     assert.equal(crossings(lines[i], lines[j]).length, 0, `trips ${i} and ${j}`);
 });
 
-test('brush, 8 trips a lane: the same lane, 64 trips an eighth lane apart, turns of a sixteenth; no trips cross', () => {
+test('brush, 8 trips a lane: the same lane, 64 trips an eighth lane apart, one line; no trips cross', () => {
   const p = shape([['L', 900], ['R', 250, 120], ['L', 500], ['T', 200, 70]], { start: P(200, 300), weight: 272 });
   const W = p.style.weight, steps = jobSteps([p], () => EIGHT, LIFT, 'brush', 8), t = trips(steps);
   assert.equal(t.length, 64);
   assert.deepEqual(t.map(s => s.trip), Array.from({ length: 64 }, (_, i) => i % 8));
   const bottom = s => s.back ? endOf(s.segs) : startOf(s.segs);
-  for (let i = 1; i < 64; i++) if (i % 8)
+  for (let i = 1; i < 64; i++)
     assert.ok(Math.abs(dist(bottom(t[i - 1]), bottom(t[i])) - W / 64) < 1e-6, `trips ${i - 1}, ${i} lie W / 64 apart`);
   const turns = steps.filter(s => s.kind === 'turn');
-  assert.equal(turns.length, 56);                           // seven in every lane
-  for (const s of turns) assert.ok(Math.abs(s.segs[0].r - W / 128) < 1e-6);
+  assert.equal(turns.length, 63);                           // seven in every lane, seven between lanes
+  for (const s of turns) assert.ok(s.segs[0].t === 'L' && Math.abs(dist(s.segs[0].a, s.segs[0].b) - W / 64) < 1e-6);
+  assert.equal(steps.filter(s => s.kind === 'travel').length, 0);
   // the lane is where it was: its centre is the middle of its eight trips
   trips(jobSteps([p], () => EIGHT, LIFT)).forEach((ps, i) => {
     const b = t.slice(8 * i, 8 * i + 8).map(bottom);
@@ -200,8 +206,8 @@ test('brush, 8 trips a lane: the same lane, 64 trips an eighth lane apart, turns
 
 test('between strokes the brush always leaves the canvas', () => {
   const a = shape([['L', 800]], { start: P(100, 300) }), b = shape([['L', 800]], { start: P(100, 1200) });
-  for (const paint of [LIFT, SNAKE]) {
-    const steps = jobSteps([a, b], () => EIGHT, paint);
+  for (const [paint, mode] of [[LIFT], [SNAKE], [LIFT, 'brush'], [SNAKE, 'brush']]) {
+    const steps = jobSteps([a, b], () => EIGHT, paint, mode);
     const i = steps.findIndex(s => s.stroke === b.id);
     assert.equal(steps[i].kind, 'travel');
   }
