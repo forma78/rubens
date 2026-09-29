@@ -6,7 +6,7 @@
 <title>RUBENS · Create</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="create">
 <!-- RUBENS · Brush Preview v0.1.3 — prototype. English UI (shown on Instagram). -->
 <header class="top">
   <div class="brand">
@@ -19,38 +19,44 @@
     </nav>
     <span class="ver">v0.1.3</span>
   </div>
-  <div class="top-mid">
-    <label class="field">
-      <span>Format</span>
-      <select id="format"></select>
-    </label>
-    <label class="field">
-      <span>Angle snap</span>
-      <select id="anglesnap">
-        <option value="15">15°</option>
-        <option value="45">45°</option>
-        <option value="5">5°</option>
-        <option value="0">Off</option>
-      </select>
-    </label>
-    <div class="toggles">
-      <button class="tog" data-view="wires" title="Paths (H)">Paths</button>
-      <button class="tog" data-view="drops" title="Drop plan (D)">Drops</button>
-      <button class="tog" data-view="grid" title="Grid 10 mm">Grid</button>
-      <button class="tog" data-view="reach" title="Where the machine reaches on this canvas: the walls from the Calibration tab, when its canvas is this format">Reach</button>
-      <button class="tog" data-view="snapGrid" title="Snap start points to grid">Snap</button>
-      <button class="tog cnc" data-view="cnc" title="CNC Trace — the 8 brush passes and where to add paint (C)">CNC Trace</button>
-    </div>
-  </div>
+  <div class="top-mid"></div>
   <div class="top-right">
+    <button class="btn job" id="btnJob" title="Open the Job tab: the drawing as the machine will run it">🖨 Open Job</button>
+  </div>
+</header>
+<!-- The second row (the owner, 2026-09-30: in one row it all piled up):
+     the drawing's format and snap, the view toggles, import and export. -->
+<div class="bar2">
+  <label class="field">
+    <span>Format</span>
+    <select id="format"></select>
+  </label>
+  <label class="field">
+    <span>Angle snap</span>
+    <select id="anglesnap">
+      <option value="15">15°</option>
+      <option value="45">45°</option>
+      <option value="5">5°</option>
+      <option value="0">Off</option>
+    </select>
+  </label>
+  <div class="toggles">
+    <button class="tog" data-view="wires" title="Paths (H)">Paths</button>
+    <button class="tog" data-view="drops" title="Drop plan (D)">Drops</button>
+    <button class="tog" data-view="grid" title="Grid 10 mm">Grid</button>
+    <button class="tog" data-view="reach" title="Where the machine reaches on this canvas: the walls from the Calibration tab, when its canvas is this format">Reach</button>
+    <button class="tog" data-view="snapGrid" title="Snap start points to grid">Snap</button>
+    <button class="tog cnc" data-view="cnc" title="CNC Trace — the 8 brush passes and where to add paint (C)">CNC Trace</button>
+  </div>
+  <span class="spacer"></span>
+  <div class="io">
     <button class="btn" id="btnImport">Import SVG</button>
     <button class="btn" id="btnPng">Export PNG</button>
     <button class="btn" id="btnCnc" title="8 passes per stroke + pencil marks for the drops">Export CNC</button>
     <button class="btn primary" id="btnSvg">Export SVG</button>
-    <button class="btn job" id="btnJob" title="Open the Job tab: the drawing as the machine will run it">🖨 Open Job</button>
     <input type="file" id="fileIn" accept=".svg,image/svg+xml" hidden>
   </div>
-</header>
+</div>
 
 <main>
   <nav class="tools" aria-label="Tools">

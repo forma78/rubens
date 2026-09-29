@@ -303,3 +303,12 @@ main.lib{display:block;overflow-y:auto;background:var(--stage)}
 .card .del{position:absolute;top:8px;right:8px;width:28px;height:28px;border:0;border-radius:50%;background:var(--key);box-shadow:var(--raise);color:#D9481C;font-size:18px;line-height:1;font-weight:600}
 .card .del:hover{color:#B3260C}
 .card .del:active{box-shadow:var(--press)}
+
+/* ---------- Create: the second row (2026-09-30) ---------- */
+/* The drawing's format and snap, the view toggles, import and export — in
+   the top row they piled up and hid under each other. Wraps rather than
+   overlaps on a narrow window. */
+body.create{grid-template-rows:56px auto 1fr 30px}
+.bar2{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:7px 18px;border-bottom:1px solid var(--line);background:var(--bg);min-width:0}
+.bar2 .spacer{flex:1}
+.bar2 .io{display:flex;flex-wrap:wrap;gap:8px}

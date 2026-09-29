@@ -5,6 +5,10 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **Create: a second row.** The top row keeps the tabs and 🖨 Open Job;
+  the format, the angle snap, the view toggles and import / export moved
+  to a row of their own, which wraps on a narrow window instead of piling
+  up.
 - **Reach on the Create tab.** The machine's walls are drawn over the
   canvas as on the Calibration tab — dashed, and hatched where the machine
   does not reach — from the canvas recorded there, when it is the drawing's
