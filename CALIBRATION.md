@@ -22,8 +22,18 @@ was measured, how, and what it changed. Numbers here are the source for
   Screenshot: `images_CNC_drawing_machine/Screenshot 2026-09-29 3DOF.png`.
   Raw servo poses, worked out from the degrees and the working pose (2498,
   2039), not read: shoulder ≈ 2674, elbow ≈ 2208 — read them next time.
+- **Mirrored, to the left:** shoulder **−14.7°**, elbow **−14.9°** brings
+  the tip to the left edge — the owner's guess, then checked on a real test
+  the same evening. Read from the servos (`/arm`): shoulder **2331**, elbow
+  **1870** raw (wrist 1555, +5.5°); the carriage at X 431.4, Y −1.6 mm
+  (34511 and −42 steps), at the left Y wall. The raw poses match the ones
+  worked out from the degrees, so the shoulder's new sign reads right.
 - **The owner:** turned both ways, the arm gives about 80 cm across — the
   70 cm canvas plus 5 cm past each side.
+- **What the two tests say, if the tip stood right on the edge both times:**
+  the carriage 571.7 mm apart (Y −1.6 and 570.1), the canvas 700 mm, so the
+  tip moves some 128 mm across from the left pose to the right one. A first
+  figure only: the mark test below measures it.
 - **Not measured yet:** how far the tip moves between the poses, in mm.
   That shift is what the job needs, not the degrees.
 - **The shoulder's sign was wrong in RUBENS.** This pose read −15.5°: the
