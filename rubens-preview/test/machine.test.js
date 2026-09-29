@@ -2,7 +2,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { STEPS_PER_MM, HOME_STEPS, STOPS, WALLS, toMm, parsePing, cornerAt, fitAffine, canvasReport, artboardCorner, jobToMachine, arcSpeed } from '../src/machine.js';
+import { STEPS_PER_MM, HOME_STEPS, STOPS, WALLS, toMm, parsePing, cornerAt, fitAffine, canvasReport, artboardCorner, jobToMachine, arcSpeed, canvasFromEdges } from '../src/machine.js';
 import { jobSteps, jobFile } from '../src/job.js';
 import { PT_MM } from '../src/config.js';
 import { P } from '../src/util.js';
@@ -66,6 +66,25 @@ test('two corners: edges are measured, no fit yet', () => {
   assert.equal(left.name, 'left');
   assert.ok(near(left.length, Math.hypot(800, 2)));
   assert.ok(near(left.drift, 2));
+});
+
+test('the canvas from four edges: the tip at each edge plus the ruler past it (2026-09-30)', () => {
+  // the owner's 70 × 100 canvas: the tip at the machine's limits, the canvas edges past them
+  const edges = { left: { at: -8.32, past: 12 }, right: { at: 569.36, past: 108 },
+                  top: { at: 867.36, past: 50 }, bottom: { at: -5.69, past: 78 } };
+  const c = canvasFromEdges(edges);
+  assert.deepEqual(c.tl, { x: 917.36, y: -20.32, up: 0, right: 0 });
+  assert.deepEqual(c.br, { x: -83.69, y: 677.36, up: 0, right: 0 });
+  const rep = canvasReport(c, 700, 1000);
+  for (const e of rep.edges) {
+    assert.ok(Math.abs(e.length / e.nominal - 1) < 0.015, `${e.name} ${e.length}`);   // the Job tab takes it
+    assert.ok(near(e.drift, 0), `${e.name} drift ${e.drift}`);                        // parallel to the rails
+  }
+  assert.ok(near(rep.fit.at(0, 0).x, 917.36, 1e-6) && near(rep.fit.at(0, 0).y, -20.32, 1e-6));   // artboard top left
+  // a ruler number forgotten: the canvas comes out too small, and the Job tab refuses it
+  const short = canvasReport(canvasFromEdges({ ...edges, top: { at: 867.36 } }), 700, 1000);
+  assert.ok(short.edges.some(e => Math.abs(e.length / e.nominal - 1) > 0.015));
+  assert.equal(canvasFromEdges({ left: edges.left, right: edges.right, top: edges.top }), null);   // all four, or none
 });
 
 test('fit needs three points off one line', () => {

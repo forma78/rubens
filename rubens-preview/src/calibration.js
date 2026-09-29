@@ -6,11 +6,10 @@
 
 import { FORMATS } from './config.js';
 import { fmt } from './util.js';
-import { HOME_STEPS, STOPS, WALLS, CORNERS, toMm, parsePing, cornerAt, artboardCorner, canvasReport, reach } from './machine.js';
+import { HOME_STEPS, STOPS, WALLS, CORNERS, EDGE_SIDES, toMm, parsePing, cornerAt, artboardCorner, canvasReport, canvasFromEdges, reach } from './machine.js';
 import './ui.js';
 
 const $ = s => document.querySelector(s);
-const NAMES = { tl: 'Top left', tr: 'Top right', br: 'Bottom right', bl: 'Bottom left' };
 const INK = '#24221F', MUTE = '#7D776D', ORANGE = '#EB7A25', PAPER = '#EEEAE2';
 
 const S = {
@@ -18,7 +17,7 @@ const S = {
   pos: { x: null, y: null },    // carriage, mm; null — that axis has no zero
   edge: { x: false, y: false },
   trail: [],
-  cal: { format: 'p60x80', corners: {} },
+  cal: { format: 'p60x80', edges: {}, corners: {} },
 };
 
 // ---------- the machine ----------
@@ -201,36 +200,47 @@ $('#btnHomeYes').onclick = async () => {
   ping();
 };
 
-// ---------- canvas corners ----------
+// ---------- the canvas: four edges ----------
+// The canvas always lies parallel to the rails (the owner, 2026-09-30), so
+// it is four edges, one number each: where the tip stood at the edge, and
+// how far the canvas edge is past it (machine.js, canvasFromEdges). The
+// corners the Job tab uses are made from them and saved along.
 const fmtOf = () => FORMATS[S.cal.format] || FORMATS.p60x80;
-function renderCorners() {
-  $('#corners').innerHTML = CORNERS.map(n => {
-    const r = S.cal.corners[n];
-    const xy = r ? `X ${fmt(r.x)} · Y ${fmt(r.y)}` : 'not recorded';
-    return `<div class="corner" data-n="${n}">
-      <span class="nm">${NAMES[n]}</span>
-      <span class="xy${r ? ' set' : ''}">${xy}</span>
-      <span class="acts"><button class="btn" data-act="rec">Record</button>${r ? '<button class="link" data-act="clr" title="Forget this corner">clear</button>' : ''}</span>
-      ${r ? `<span class="off">corner from the tip: <label>↑ <input type="number" step="0.5" data-k="up" value="${r.up || 0}"></label><label>→ <input type="number" step="0.5" data-k="right" value="${r.right || 0}"></label> mm</span>` : ''}
+const EDGES = {
+  left:   { name: 'Left',   axis: 'y', past: 'further left' },
+  right:  { name: 'Right',  axis: 'y', past: 'further right' },
+  top:    { name: 'Top',    axis: 'x', past: 'further up' },
+  bottom: { name: 'Bottom', axis: 'x', past: 'further down' },
+};
+function renderEdges() {
+  $('#edges').innerHTML = EDGE_SIDES.map(k => {
+    const E = EDGES[k], r = S.cal.edges[k];
+    const at = r ? `${E.axis.toUpperCase()} ${fmt(r.at)}` : 'not recorded';
+    return `<div class="corner" data-k="${k}">
+      <span class="nm">${E.name}</span>
+      <span class="xy${r ? ' set' : ''}">${at}</span>
+      <span class="acts"><button class="btn" data-act="rec">Record</button>${r ? '<button class="link" data-act="clr" title="Forget this edge">clear</button>' : ''}</span>
+      ${r ? `<span class="off">canvas edge <label><input type="number" step="0.5" min="0" data-past value="${r.past || 0}"></label> mm ${E.past}</span>` : ''}
     </div>`;
   }).join('');
   showPos();
 }
-$('#corners').addEventListener('click', e => {
+// the corners from the edges, for the Job tab (calibration.json "corners")
+function applyEdges() { S.cal.corners = canvasFromEdges(S.cal.edges) || {}; }
+$('#edges').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
-  const n = b.closest('.corner').dataset.n;
+  const k = b.closest('.corner').dataset.k;
   if (b.dataset.act === 'rec') {
-    if (S.pos.x == null || S.pos.y == null) return;
-    const old = S.cal.corners[n] || {};
-    S.cal.corners[n] = { x: +S.pos.x.toFixed(2), y: +S.pos.y.toFixed(2), up: old.up || 0, right: old.right || 0, at: new Date().toISOString() };
-  } else delete S.cal.corners[n];
-  renderCorners(); report(); draw(); save();
+    const v = S.pos[EDGES[k].axis]; if (v == null) return;
+    S.cal.edges[k] = { at: +v.toFixed(2), past: S.cal.edges[k]?.past || 0, when: new Date().toISOString() };
+  } else delete S.cal.edges[k];
+  applyEdges(); renderEdges(); report(); draw(); save();
 });
-$('#corners').addEventListener('change', e => {
-  const k = e.target.dataset.k; if (!k) return;
-  const n = e.target.closest('.corner').dataset.n;
-  S.cal.corners[n][k] = +e.target.value || 0;
-  report(); draw(); save();
+$('#edges').addEventListener('change', e => {
+  if (!e.target.matches('[data-past]')) return;
+  const k = e.target.closest('.corner').dataset.k;
+  S.cal.edges[k].past = Math.max(0, +e.target.value || 0);
+  applyEdges(); report(); draw(); save();
 });
 const sel = $('#calFormat');
 sel.innerHTML = Object.entries(FORMATS).map(([k, f]) => `<option value="${k}">${f.label}</option>`).join('');
@@ -247,7 +257,9 @@ async function load() {
     const r = await fetch('/calibration', { cache: 'no-store' });
     if (r.ok) Object.assign(S.cal, await r.json());
   } catch { /* no server: start empty */ }
+  S.cal.edges ||= {};
   S.cal.corners ||= {};
+  if (Object.keys(S.cal.edges).length) applyEdges();
   sel.value = S.cal.format;
 }
 
@@ -259,22 +271,20 @@ function canvasCorners(rep, F) {
   return rep.corners;
 }
 function report() {
-  const F = fmtOf(), rep = canvasReport(S.cal.corners, F.w, F.h), el = $('#report');
-  if (!Object.keys(S.cal.corners).length) { el.innerHTML = '<p class="none">Record at least two corners.</p>'; return; }
-  let h = '';
-  if (rep.edges.length) {
-    h += '<table><tr><td class="mono">edge</td><td class="r mono">measured</td><td class="r mono">nominal</td><td class="r mono">drift</td></tr>';
-    for (const e of rep.edges) h += `<tr><td>${e.name}</td><td class="r">${fmt(e.length)}</td><td class="r">${fmt(e.nominal)}</td><td class="r">${fmt(e.drift)} mm · ${fmt(e.deg, 2)}°</td></tr>`;
-    h += '</table><p class="mono">drift: how far the far corner is off the axis — the canvas is turned, or the axes are not square.</p>';
-    // An edge far off its nominal length: most likely the tip went to the
-    // walls, not to the canvas — a job placed from these corners would be
-    // stretched or squeezed.
-    const off = rep.edges.filter(e => Math.abs(e.length / e.nominal - 1) > 0.015);
-    if (off.length) h += `<p class="warn">${off.map(e => e.name).join(', ')}: ${off.map(e => fmt(e.length)).join(', ')} mm against ${off.map(e => fmt(e.nominal)).join(', ')}. More than 1.5 % off the format: the tip went to the walls instead of the canvas, a ruler offset is off, or the canvas is not the size of the format. Check before placing a job.</p>`;
-  } else h += '<p class="none">Two neighbouring corners give an edge.</p>';
-  if (rep.diag) h += `<p>Diagonals ${fmt(rep.diag.tlbr)} and ${fmt(rep.diag.trbl)} mm (nominal ${fmt(rep.diag.nominal)}).</p>`;
-  if (rep.residual != null) h += `<p>The four corners fit one straight grid within ${fmt(rep.residual, 2)} mm.</p>`;
-  const C = canvasCorners(rep, F), R = reach(), out = [];
+  const F = fmtOf(), el = $('#report');
+  const n = EDGE_SIDES.filter(k => S.cal.edges[k]).length;
+  if (n < 4) { el.innerHTML = `<p class="none">Record all four edges (${n} so far).</p>`; return; }
+  const C = S.cal.corners, W = C.tr.y - C.tl.y, H = C.tl.x - C.bl.x;
+  let h = `<table><tr><td></td><td class="r mono">measured</td><td class="r mono">format</td></tr>
+    <tr><td>width</td><td class="r">${fmt(W)}</td><td class="r">${fmt(F.w)}</td></tr>
+    <tr><td>height</td><td class="r">${fmt(H)}</td><td class="r">${fmt(F.h)}</td></tr></table>`;
+  // Far off the format: most likely a ruler number is missing (the tip at a
+  // wall taken for the canvas edge, 2026-09-30) — a job placed from it would
+  // be stretched or squeezed, and the Job tab refuses it.
+  const off = [['width', W, F.w], ['height', H, F.h]].filter(([, m, nom]) => Math.abs(m / nom - 1) > 0.015);
+  if (off.length) h += `<p class="warn">${off.map(([k, m, nom]) => `${k} ${fmt(m)} mm against ${fmt(nom)}`).join(', ')}: more than 1.5 % off the format. A ruler number is missing or off, or the canvas is another format. The Job tab will not place a job.</p>`;
+  else h += `<p>The canvas matches the format within ${fmt(Math.max(Math.abs(W / F.w - 1), Math.abs(H / F.h - 1)) * 100, 1)} %.</p>`;
+  const R = reach(), out = [];
   const xs = n => C[n]?.x, ys = n => C[n]?.y;
   const top = Math.max(...['tl', 'tr'].map(xs).filter(v => v != null));
   const bottom = Math.min(...['bl', 'br'].map(xs).filter(v => v != null));
@@ -399,6 +409,6 @@ addEventListener('resize', draw);
 
 // ---------- start ----------
 await load();
-renderCorners(); report(); draw();
+renderEdges(); report(); draw();
 ping();
 setInterval(ping, 200);

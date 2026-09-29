@@ -52,6 +52,24 @@ export function cornerAt(rec) {
   return { x: rec.x + (+rec.up || 0), y: rec.y + (+rec.right || 0) };
 }
 
+// The canvas from its four edges (the owner, 2026-09-30: the canvas always
+// lies parallel to the rails, so each edge is one number, not two per
+// corner). An edge: `at` — where the tip stood at it, machine mm (Y for left
+// and right, X for top and bottom) — and `past` — how far the canvas edge is
+// beyond the tip, measured with a ruler, 0 when the tip is on it. Returns the
+// four corners, as records canvasReport takes, or null until all four edges
+// are recorded. The rectangle is the measured one: canvasReport compares it
+// with the format, so a missing ruler number shows as a wrong size.
+export const EDGE_SIDES = ['left', 'right', 'top', 'bottom'];
+export function canvasFromEdges(edges) {
+  if (!edges || !EDGE_SIDES.every(k => Number.isFinite(edges[k]?.at))) return null;
+  const past = k => +edges[k].past || 0;
+  const top = edges.top.at + past('top'), bottom = edges.bottom.at - past('bottom');
+  const left = edges.left.at - past('left'), right = edges.right.at + past('right');
+  const c = (x, y) => ({ x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100, up: 0, right: 0 });
+  return { tl: c(top, left), tr: c(top, right), br: c(bottom, right), bl: c(bottom, left) };
+}
+
 // Where each corner sits on the artboard, in mm: u to the right, v down
 // from the top left corner — the same way the Create tab draws.
 export function artboardCorner(name, w, h) {

@@ -87,6 +87,12 @@ through firmware yet (the firmware has no `M` and `U` commands yet).
   back (`jobToMachine`); before, the pass was cut there and the brush went
   off and on. Off the canvas only between strokes, at the start and the end
   of a job, and on Pause. Decided 2026-09-29.
+- **The canvas is four edges** (the owner, 2026-09-30): it always lies
+  parallel to the rails, so the Calibration tab records, for each edge,
+  where the tip stood and how far the canvas edge is past it (a ruler, 0 if
+  the tip is on it) — no corners with two offsets each. `canvasFromEdges`
+  (machine.js) makes the four corners the Job tab uses, saved along in
+  calibration.json; a wrong size still shows against the format.
 - **Library** (the owner, 2026-09-30): a fourth tab. 💾 SAVE on the Create
   tab, where "Editing · New stroke" was, saves **a new drawing every time**,
   named by the date and time ("2026-09-30 01:15", "(2)" in the same

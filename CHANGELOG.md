@@ -5,6 +5,11 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **The canvas by its four edges.** The canvas lies parallel to the rails,
+  so the Calibration tab asks, for each edge, where the tip stood and how
+  far the canvas edge is past it — one ruler number an edge instead of two
+  arrows a corner. The Result shows width and height against the format.
+  The Job tab says what to do when the corners are another format's.
 - **The wrist's zero is the brush upright.** It was 9.4° off since
   2026-09-28. The camera's limit, +10°, is counted from upright; brush off
   is the same pose as before, and now reads −54°. The Calibration tab no

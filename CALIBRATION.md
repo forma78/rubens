@@ -13,6 +13,26 @@ own name, its own firmware folder and its own log.
 
 ---
 
+## 2026-09-30, night — the 70 × 100 canvas, by its four edges
+
+- **The canvas lies parallel to the rails**, by the machine's construction
+  (the owner): so it is four edges, one ruler number each, not two per
+  corner. The Calibration tab now records it so.
+- **Where the tip stood** (the machine's limits, recorded 01:19–01:24 with
+  the brush upright and the arm at shoulder −8.3°, elbow −14.9°): left Y
+  −8.32 (both left dots), right Y 569.36 (both right dots), top X 866.17 and
+  868.54, bottom X −9.45 and −1.93 (the bottom left one at the stops, after
+  Set home). Top and bottom are taken at the middle of their two dots,
+  867.36 and −5.69: the dots are 2.4 and 7.5 mm apart in height.
+- **The canvas edge past the tip, with a ruler** (the owner): **left 12 mm,
+  top 50 mm, right 108 mm, bottom 78 mm.**
+- **The canvas on the machine:** X −83.69 … 917.36, Y −20.32 … 677.36 —
+  **697.7 × 1001.0 mm** against 700 × 1000: 0.3 % and 0.1 %.
+- **Out of reach:** top 52.4 mm, bottom 83.7 mm, left 20.3 mm, right
+  108.9 mm. There the brush runs along the wall.
+
+---
+
 ## 2026-09-30, later — the wrist's zero is the brush upright
 
 - **The wrist's zero was 9.4° off.** Recording the corners of the 70 × 100
