@@ -139,7 +139,7 @@ export function reach() {
 // what the board runs, through the canvas fit (canvasReport(...).fit, which
 // maps the artboard (u, v) to the machine (x, y)). The result is a list of
 // blocks in order; the runner sends one block, waits for it, sends the next:
-//   { kind: 'arm',  cmd: 'J 3 -45', off: true }  the brush swings off (J3)
+//   { kind: 'arm',  cmd: 'J 3 -54', off: true }  the brush swings off (J3)
 //   { kind: 'move', cmds: [...], lengthMM, paintMM }   pieces + G
 // A move block is one travel (T, M, G), or a run: what is painted without
 // the brush leaving the canvas (F, L/A…, G) — a pass, or in a snake the
@@ -161,10 +161,12 @@ export function reach() {
 // firmware draws circles, so a skewed map (axes not square) bends arcs
 // slightly; lines are exact. Which side J3 swings to is not decided yet
 // (Rubens_v2.md, section 4.5).
-// The brush off the canvas: the wrist (J3) to −45°. It was +90° until
-// 2026-09-30, when a USB camera on the holder took the plus side: past +10°
-// the arm would break it (rubens.py, REACH, refuses any such move).
-export const SWING_DEG = -45;
+// The brush off the canvas: the wrist (J3) to −54°, degrees from the brush
+// upright. It was +90° until 2026-09-30, when a USB camera on the holder took
+// the plus side: past +10° the arm would break it (rubens.py, REACH, refuses
+// any such move). −54° is the pose the owner found safe (−45° on the wrist's
+// old zero, 9.4° off upright).
+export const SWING_DEG = -54;
 // Pass speed. The board takes 1…200 mm/s. Its planner limits the
 // acceleration along the path (PATH_ACCEL, 250 mm/s²), not across it, so a
 // tight arc at a high speed would jerk the carriage: the 5.5 mm turns of

@@ -164,9 +164,10 @@ does not block the start. *Claude's decision.*
 **How the brush leaves the canvas.** Not straight up as on a pen plotter.
 The wrist J3 swings the brush sideways like a clock hand, up to 90°, like a
 broom (confirmed 2026-09-27). Turned 90°, the stick lies flat and the tip is in
-the air. **Since 2026-09-30 it swings to −45° only:** a USB camera on the
+the air. **Since 2026-09-30 it swings to −54° only:** a USB camera on the
 holder takes the plus side, and the wrist never goes past +10° (RUBENS
-refuses it; `CALIBRATION.md`). −45° is the safest pose the owner found with
+refuses it; `CALIBRATION.md`). Degrees from the brush upright; −54° is the
+safest pose the owner found with
 the brush off the canvas.
 
 While the spring holds the tip on the canvas, the swing drags the tip

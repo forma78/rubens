@@ -424,13 +424,13 @@ addEventListener('keydown', e => {
   e.preventDefault();
   if (S.run?.state === 'running') pauseOrContinue();
 });
-// The brush by hand: the wrist to −45° (off the canvas) or 0° (on it).
+// The brush by hand: the wrist to −54° (off the canvas) or 0° (on it, upright).
 // Never the plus side: the camera (rubens.py, REACH).
 async function brush(where) {
   const r = await fetch('/brush/' + where, { method: 'POST' }).catch(() => null);
   const msg = r ? await r.text() : 'start rubens.py';
   $('#brushState').innerHTML = r && r.ok && msg.startsWith('ok J')
-    ? `Brush ${where === 'off' ? 'off the canvas · −45°' : 'on the canvas · 0°'}`
+    ? `Brush ${where === 'off' ? 'off the canvas · −54°' : 'on the canvas · 0°'}`
     : `<span class="warn">${msg}</span>`;
 }
 $('#btnBrushOff').onclick = e => { e.currentTarget.blur(); brush('off'); };

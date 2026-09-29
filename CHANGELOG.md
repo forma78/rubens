@@ -5,6 +5,10 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **The wrist's zero is the brush upright.** It was 9.4° off since
+  2026-09-28. The camera's limit, +10°, is counted from upright; brush off
+  is the same pose as before, and now reads −54°. The Calibration tab no
+  longer saves the arm zero it loaded along with the canvas corners.
 - **Library**, a fourth tab after Job: every drawing saved with **💾 SAVE**
   on the Create tab, newest first, with its painted preview, format and
   strokes. SAVE (where "Editing · New stroke" was) makes a new drawing each

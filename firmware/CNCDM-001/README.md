@@ -175,7 +175,8 @@ board's terminal.
 | 3 | wrist (J3) | ST3235, aluminium | ±90° (RUBENS: −90…+10°) | 0 | +1 |
 
 - **The wrist: never past +10°.** A USB camera on the holder is in the way
-  on the plus side (2026-09-30); the brush leaves the canvas at −45°. The
+  on the plus side (2026-09-30); the brush leaves the canvas at −54°
+  (degrees from the brush upright, RUBENS's zero since 2026-09-30). The
   firmware's limit is still ±90°: RUBENS refuses the rest (`rubens.py`,
   `REACH`). When the firmware is flashed next, its wrist limit goes to
   −90…+10° too.

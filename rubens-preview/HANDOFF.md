@@ -95,7 +95,10 @@ through firmware yet (the firmware has no `M` and `U` commands yet).
   tab; the red × moves it to `library/.deleted/` after asking.
 - **The wrist never goes past +10°: a USB camera on the holder** (the owner,
   2026-09-30: "otherwise the arm breaks the camera"). The brush leaves the
-  canvas at −45° (`SWING_DEG` in `rubens.py` and `machine.js`). Every joint
+  canvas at −54° (`SWING_DEG` in `rubens.py` and `machine.js`; degrees from
+  the brush upright — the wrist's zero was set there 2026-09-30, it had been
+  9.4° off; +10° from upright is the owner's canon). The Calibration tab never
+  writes the arm zero: `rubens.py` keeps the file's. Every joint
   move goes through `Arm.move_to`, which refuses anything outside `REACH`;
   a job with a wrist past +10° does not start. The firmware's limit is still
   ±90°: nothing but `rubens.py` may talk to the board.
@@ -131,12 +134,12 @@ morning +90° becomes 0. The owner: no hand-fixed numbers in the firmware
   `rubens.py` goes to +1). In `../firmware/CNCDM-001/`, host test, flash
   together, test in the air.
 - **Turn off** (replaces the single "Shut down" of the morning; `rubens.py`
-  class `Park` is its X/Y part, tested): HARD STOP → J3 to −45° (not +90°:
+  class `Park` is its X/Y part, tested): HARD STOP → J3 to −54° (not +90°:
   the camera, 2026-09-30) → the
   carriage stands → X/Y saved → "switch off the 12 V".
 - **Turn on** (after the 12 V is on): the arm zero from `calibration.json`
   goes to the board → shoulder and elbow hold; if the arm was moved, the
-  servos show it and RUBENS brings it back to the working pose → J3 −45° →
+  servos show it and RUBENS brings it back to the working pose → J3 −54° →
   X/Y restored (the place is good for one zero only) → walls on. No drive to
   the stops.
 - **Measure tomorrow morning:** the stepper click at power-on (up to two full

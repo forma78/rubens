@@ -13,6 +13,28 @@ own name, its own firmware folder and its own log.
 
 ---
 
+## 2026-09-30, later — the wrist's zero is the brush upright
+
+- **The wrist's zero was 9.4° off.** Recording the corners of the 70 × 100
+  canvas, the brush stood upright on the canvas with the wrist reading
+  +9.4°; the owner: "that is the zero". The arm zero of 2026-09-28 had the
+  wrist at raw 1492; upright is **raw 1599**, read from the servo. Set in
+  `calibration.json` (`arm.wrist` 1599); shoulder and elbow unchanged (2498,
+  2039). Nothing moved.
+- **+10° from upright is the limit, the owner's canon.** The camera limit
+  of the entry below meant +10° from the brush upright: now it reads so
+  (raw ≤ 1713). The +14.7° of that night, on the old zero, was 5.3° past
+  upright.
+- **Brush off stays where the owner found it safe**, raw ≈ 980: on the new
+  zero it reads **−54°** (it read −45°). `SWING_DEG` is −54.
+- The arm pose at this recording: shoulder −8.3°, elbow −14.9° (raw 2403,
+  1870). A job keeps the arm as it stands; the corners hold for this pose.
+- The Calibration tab used to save the arm zero it had loaded along with
+  the corners; a tab opened before this change would have put 1492 back.
+  `rubens.py` now keeps the file's arm zero whatever the page sends.
+
+---
+
 ## 2026-09-30 — a USB camera on the holder; the wrist's plus side is taken
 
 - **A USB camera is mounted on the brush holder**, on a bracket beside the

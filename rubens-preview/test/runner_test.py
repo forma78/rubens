@@ -127,8 +127,11 @@ def run(board, blocks, **kw):
     return r
 
 
+OFF = f"J 3 {SWING_DEG}"   # the brush off the canvas
+
+
 def arm(off):
-    return {"kind": "arm", "cmd": f"J 3 {SWING_DEG if off else 0}", "off": off}
+    return {"kind": "arm", "cmd": OFF if off else "J 3 0", "off": off}
 
 
 def travel(x, y):
@@ -144,8 +147,8 @@ class RunnerTest(unittest.TestCase):
         b = FakeBoard()
         r = run(b, [arm(True), travel(10, 20), arm(False), paint(5), arm(True)])
         self.assertEqual(r.state, "done", r.message)
-        self.assertEqual(b.log, ["T 100", "J 3 -45", "T 100", "M 10 20", "G", "J 3 0", "F 20"]
-                         + [f"L {i}.00 50.00" for i in range(1, 6)] + ["G", "J 3 -45"])
+        self.assertEqual(b.log, ["T 100", OFF, "T 100", "M 10 20", "G", "J 3 0", "F 20"]
+                         + [f"L {i}.00 50.00" for i in range(1, 6)] + ["G", OFF])
         self.assertEqual(r.status()["percent"], 100.0)
         self.assertFalse(r.brush_on)
 
@@ -193,7 +196,7 @@ class RunnerTest(unittest.TestCase):
         r.thread.join(10)
         self.assertEqual(r.state, "stopped")
         self.assertIn("S", b.log)
-        self.assertNotIn("J 3 -45", b.log)          # the next blocks never ran
+        self.assertNotIn(OFF, b.log)          # the next blocks never ran
         self.assertIn("brush on the canvas", r.message)
 
     def test_hard_stop_after_stop_still_reaches_the_board(self):
@@ -235,7 +238,7 @@ class RunnerTest(unittest.TestCase):
         r.thread.join(10)
         self.assertEqual(r.state, "stopped")
         self.assertNotIn("M 10 20", b.log)
-        self.assertNotIn("J 3 -45", b.log)
+        self.assertNotIn(OFF, b.log)
 
     def test_a_hard_stop_from_a_page_is_not_softened(self):
         b = FakeBoard(rate=1)
@@ -346,7 +349,7 @@ class PauseTest(unittest.TestCase):
         r, b = self.paused_run([arm(False), paint(12)], when=4)
         self.assertEqual(r.state, "done", r.message)
         i = b.log.index("S")
-        self.assertEqual(b.log[i + 1:i + 3], ["J 3 -45", "J 3 0"])     # off the canvas, and back
+        self.assertEqual(b.log[i + 1:i + 3], [OFF, "J 3 0"])           # off the canvas, and back
         after = [c for c in b.log[i:] if c.startswith("L")]
         before = [c for c in b.log[:i] if c.startswith("L")]
         self.assertEqual(after[-1], "L 12.00 50.00")                    # the pass is finished
@@ -417,7 +420,7 @@ class ArmTest(unittest.TestCase):
         b.zt[3], b.tdeg[3] = 2511, 90                  # the zero the board took at +90°
         self.assertEqual(self.arm(b).angles()[0], {"shoulder": -66.7, "elbow": -7.1, "wrist": 179.8})
         self.arm(b).move_to("wrist", SWING_DEG)
-        self.near(b.raw[3], 1489 - round(45 * TICKS_PER_DEG))
+        self.near(b.raw[3], 1489 + round(SWING_DEG * TICKS_PER_DEG))
         self.assertEqual((b.raw[1], b.raw[2]), (1742, 1678))   # the others only hold
 
     def test_the_shoulder_comes_back_from_67_degrees_in_steps(self):
@@ -445,13 +448,13 @@ class ArmTest(unittest.TestCase):
 
     def test_the_runner_swings_the_brush_in_rubens_degrees(self):
         b = FakeBoard()
-        off = 1489 - round(45 * TICKS_PER_DEG)
-        b.raw[3] = off                                            # left off the canvas over the night, −45°
+        off = 1489 + round(SWING_DEG * TICKS_PER_DEG)
+        b.raw[3] = off                                            # left off the canvas over the night
         r = Runner(b.send, sleep=b.sleep, swing_s=0.2, arm=self.arm(b))
         r.start([arm(True), travel(100, 20), arm(False), paint(3), arm(True)])
         r.thread.join(10)
         self.assertEqual(r.state, "done", r.message)
-        self.near(b.raw[3], off)                                  # −45°, not −90°
+        self.near(b.raw[3], off)                                  # where it was, not twice as far
         self.assertFalse(r.brush_on)
 
     # ---- the camera on the holder, 2026-09-30: the wrist never past +10° ----
@@ -459,7 +462,7 @@ class ArmTest(unittest.TestCase):
         return (b.raw[3] - self.ZERO["wrist"]) / TICKS_PER_DEG
 
     def test_the_brush_leaves_the_canvas_the_other_way_now(self):
-        self.assertEqual(SWING_DEG, -45)
+        self.assertEqual(SWING_DEG, -54)
         self.assertEqual(REACH["wrist"], (-90, 10))
 
     def test_the_wrist_past_plus_10_is_refused_and_nothing_moves(self):

@@ -1,40 +1,40 @@
 {
-  "format": "p60x80",
+  "format": "c70x100",
   "corners": {
-    "br": {
-      "x": 26.32,
-      "y": 569.1,
-      "up": 0,
-      "right": 15,
-      "at": "2026-09-27T19:15:18.161Z"
-    },
     "bl": {
-      "x": 26.32,
-      "y": -1.01,
+      "x": -9.45,
+      "y": -8.32,
       "up": 0,
-      "right": -15,
-      "at": "2026-09-27T19:15:41.232Z"
+      "right": 0,
+      "at": "2026-09-29T23:19:37.391Z"
     },
     "tl": {
-      "x": 817.88,
-      "y": -1.01,
-      "up": 10,
-      "right": -15,
-      "at": "2026-09-27T19:16:38.915Z"
+      "x": 866.17,
+      "y": -8.32,
+      "up": 0,
+      "right": 0,
+      "at": "2026-09-29T23:20:11.264Z"
+    },
+    "br": {
+      "x": -1.93,
+      "y": 569.36,
+      "up": 0,
+      "right": 0,
+      "at": "2026-09-29T23:23:29.182Z"
     },
     "tr": {
-      "x": 817.88,
-      "y": 569.63,
-      "up": 10,
-      "right": 15,
-      "at": "2026-09-27T19:16:54.392Z"
+      "x": 868.54,
+      "y": 569.36,
+      "up": 0,
+      "right": 0,
+      "at": "2026-09-29T23:24:15.712Z"
     }
   },
   "arm": {
     "shoulder": 2498,
     "elbow": 2039,
-    "wrist": 1492,
-    "at": "2026-09-28T23:05:19+02:00",
-    "note": "the owner set the arm to the middle of the field with the handles"
+    "wrist": 1599,
+    "at": "2026-09-30T01:45:00+02:00",
+    "note": "the owner set the arm to the middle of the field with the handles (2026-09-28); the wrist zero set 2026-09-30 to the brush standing upright, raw 1599 read from the servo (it was 1492, 9.4 degrees off)"
   }
 }

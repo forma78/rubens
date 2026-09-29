@@ -22,7 +22,7 @@ bridge.py of the old machine repo held it on port 8765.
   stood when the motors were shut down, put back after power-on (class Park).
 - /run: the runner (class Runner) — GET is its state; POST starts the machine
   blocks of job.json, or the blocks in its body (a calibration run); POST /run/stop brakes along the path, /run/kill stops at
-  once; /run/pause and /run/continue pause a run and go on from the same point. POST /brush/off and /brush/on swing the wrist to −45° or back to 0° (never past +10°: REACH)
+  once; /run/pause and /run/continue pause a run and go on from the same point. POST /brush/off and /brush/on swing the wrist to −54° or back to 0° (never past +10°: REACH)
   (only the wrist, only these two, not while a job runs — the owner asked for
   them on the Job tab, 2026-09-27). A board without the pass firmware
   (../firmware/CNCDM-001) fails a start on the first path command, and
@@ -280,14 +280,17 @@ TURN = {"shoulder": -1, "elbow": +1, "wrist": +1}
 # The wrist: a USB camera on the holder (2026-09-30, photos
 # images_CNC_drawing_machine/photo_2026-09-30 00.42.*) is in the way past
 # +10°, clockwise — the owner: "the arm would break the camera". The brush
-# now leaves the canvas at −45°, the other way (SWING_DEG; it was +90°).
+# now leaves the canvas at −54°, the other way (SWING_DEG; it was +90°).
+# Degrees from the brush upright: the wrist's zero was set there the same
+# night (it had been 9.4° off), and +10° from upright is the owner's canon;
+# −54° is the brush-off pose he found safe (it read −45° on the old zero).
 REACH = {"shoulder": (-45, 45), "elbow": (-45, 45), "wrist": (-90, 10)}
 TICKS_PER_DEG = 4096 / 360
 # The working pose, raw servo poses (4096 a turn). calibration.json "arm" is
 # the one in use; this is its copy for when the file has none. 2026-09-28,
 # late: the owner set the arm to the middle of the field with the handles —
 # the elbow 24.6° from the pose of the evening before (2501 · 1759 · 1489).
-ARM_ZERO = {"shoulder": 2498, "elbow": 2039, "wrist": 1492}
+ARM_ZERO = {"shoulder": 2498, "elbow": 2039, "wrist": 1599}   # the wrist: the brush upright, 2026-09-30
 
 
 def parse_look(text):
@@ -394,7 +397,7 @@ class Abort(Exception):
 
 
 LIVE = ("running", "stopping", "pausing", "paused")   # a run the page must not start over
-SWING_DEG = -45                                         # brush off: the wrist to −45° (src/machine.js; +90° until the camera, 2026-09-30)
+SWING_DEG = -54                                         # brush off: the wrist to −54° (src/machine.js; +90° until the camera, 2026-09-30)
 ON_PATH_MM = 0.5                                        # a braked carriage stands on its path
 
 
@@ -1108,17 +1111,21 @@ class Handler(SimpleHTTPRequestHandler):
         except ValueError:
             return self.reply(400, "not JSON")
         if path == FILES["/calibration"]:
-            # The Calibration tab saves the corners it loaded; one opened
-            # before the arm zero was written would drop it. Keep it.
+            # The Calibration tab saves the corners with whatever arm zero it
+            # loaded; a tab opened before the arm zero changed would put the
+            # old one back (2026-09-30: the wrist's zero was set right while
+            # the tab was open). The arm zero is never the page's: keep the file's.
             new = json.loads(body)
             try:
                 with open(path, encoding="utf-8") as f:
                     old = json.load(f)
             except (OSError, ValueError):
                 old = {}
-            if "arm" not in new and "arm" in old:
+            if "arm" in old:
                 new["arm"] = old["arm"]
-                body = json.dumps(new, indent=2).encode("utf-8")
+            else:
+                new.pop("arm", None)
+            body = json.dumps(new, indent=2).encode("utf-8")
         tmp = path + ".tmp"
         with open(tmp, "wb") as f:
             f.write(body)
