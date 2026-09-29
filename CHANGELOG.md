@@ -3,6 +3,17 @@
 RUBENS, the software for CNCDM-001, the Motor Brush drawing machine.
 Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
+## Unreleased
+
+- **Library**, a fourth tab after Job: every drawing saved with **💾 SAVE**
+  on the Create tab, newest first, with its painted preview, format and
+  strokes. SAVE (where "Editing · New stroke" was) makes a new drawing each
+  time, named by the date and time — "2026-09-30 01:15", "(2)" for a second
+  one in the same minute — and never writes over an older one. A click opens
+  a drawing on the Create tab, ready for the Job tab; the red × moves it to
+  `library/.deleted/` after asking. The drawings stay on this Mac, not in
+  git.
+
 ---
 
 ## Update 30-09-2026 · v0.1.3

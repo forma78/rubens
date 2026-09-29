@@ -15,3 +15,6 @@ park.json
 
 # PlatformIO build output and downloaded libraries (rebuilt from platformio.ini)
 .pio/
+
+# The Library: the owner's drawings, on this Mac only (2026-09-30)
+rubens-preview/library/

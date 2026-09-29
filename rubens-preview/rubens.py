@@ -11,6 +11,10 @@ bridge.py of the old machine repo held it on port 8765.
   look, the axes, and the axis zero. The arm is not among them.
 - /calibration and /job: GET returns calibration.json / job.json, PUT saves
   it. The Job tab writes job.json — the job in mm, in the order it runs.
+- /library: the Library tab's drawings (library/, on this Mac only). GET is
+  the list, newest first; POST {svg, png} saves a new drawing named by the
+  time (💾 SAVE on the Create tab); GET /library/<name>.svg|.png gives one;
+  DELETE /library/<name> moves it to library/.deleted/.
 - /arm: GET the arm in RUBENS's degrees (0° = the working pose); POST
   /arm?j=<joint>&d=<deg> moves one joint there (class Arm). /brush/off and
   /brush/on go through it too.
@@ -29,6 +33,7 @@ Listens on this Mac only: the machine is driven from here, not from the
 network.
 """
 
+import base64
 import glob
 import json
 import math
@@ -37,7 +42,7 @@ import re
 import threading
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, quote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = 8766
@@ -787,6 +792,88 @@ def write_json(path, obj):
     os.replace(tmp, path)
 
 
+# ---------- the Library: the drawings saved from the Create tab ----------
+# The owner, 2026-09-30: every 💾 SAVE is a new drawing, named by the date and
+# time ("2026-09-30 01:15"); an older one stays as it was. The drawings are
+# the owner's own work: they live on this Mac only, not in git (library/ is
+# ignored). A drawing is two files: <name>.svg — the drawing with its whole
+# state, as Export SVG writes it — and <name>.png, its preview. The file name
+# has "01-15" for "01:15" (a colon is no good in a file name on a Mac).
+# Deleting moves both into library/.deleted/, so nothing is lost by a slip.
+LIBRARY_DIR = os.path.join(HERE, "library")
+LIBRARY_NAME = re.compile(r"^\d{4}-\d\d-\d\d \d\d-\d\d(?: \((\d+)\))?$")
+PNG_DATA = "data:image/png;base64,"
+
+
+def library_display(base):
+    """'2026-09-30 01-15 (2)' → '2026-09-30 01:15 (2)'."""
+    return base[:13] + ":" + base[14:]
+
+
+def library_list(folder):
+    """The saved drawings, newest first: name, file name, format, strokes."""
+    out = []
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return out
+    for f in names:
+        base, ext = os.path.splitext(f)
+        if ext != ".svg" or not LIBRARY_NAME.match(base):
+            continue
+        info = {"file": base, "name": library_display(base), "format": None, "strokes": None,
+                "png": os.path.exists(os.path.join(folder, base + ".png"))}
+        try:
+            with open(os.path.join(folder, f), encoding="utf-8") as fh:
+                m = re.search(r'<metadata id="rubens-state">(.*?)</metadata>', fh.read(), re.S)
+            if m:
+                st = json.loads(m.group(1).replace("- -", "--"))
+                info["format"], info["strokes"] = st.get("format"), len(st.get("paths") or [])
+        except (OSError, ValueError):
+            pass
+        out.append(info)
+    # newest first: the name is the time; "(2)" is later than none, "(10)" than "(9)"
+    key = lambda i: (i["file"][:16], int((LIBRARY_NAME.match(i["file"]).group(1)) or 1))
+    return sorted(out, key=key, reverse=True)
+
+
+def library_save(folder, svg, png, now=None):
+    """Save a drawing under a new name from the time; returns the file name.
+    ValueError when it is not a RUBENS drawing."""
+    if not isinstance(svg, str) or "<svg" not in svg or 'id="rubens-state"' not in svg:
+        raise ValueError("not a RUBENS drawing")
+    if not isinstance(png, str) or not png.startswith(PNG_DATA):
+        raise ValueError("no preview")
+    image = base64.b64decode(png[len(PNG_DATA):], validate=True)
+    os.makedirs(folder, exist_ok=True)
+    stem = time.strftime("%Y-%m-%d %H-%M", time.localtime(now))
+    base, n = stem, 1
+    while os.path.exists(os.path.join(folder, base + ".svg")):
+        n += 1
+        base = f"{stem} ({n})"
+    with open(os.path.join(folder, base + ".png"), "wb") as f:
+        f.write(image)
+    tmp = os.path.join(folder, base + ".svg.tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        f.write(svg)
+    os.replace(tmp, os.path.join(folder, base + ".svg"))   # the .svg last: it is what makes it a drawing
+    return base
+
+
+def library_delete(folder, base):
+    """Move a drawing into .deleted/. False if there is no such drawing."""
+    if not LIBRARY_NAME.match(base or "") or not os.path.exists(os.path.join(folder, base + ".svg")):
+        return False
+    bin_ = os.path.join(folder, ".deleted")
+    os.makedirs(bin_, exist_ok=True)
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    for ext in (".svg", ".png"):
+        src = os.path.join(folder, base + ext)
+        if os.path.exists(src):
+            os.replace(src, os.path.join(bin_, f"{base} · deleted {stamp}{ext}"))
+    return True
+
+
 class Park:
     """Where the carriage stood when the motors were shut down, so the zero
     lives through the 12 V going off. The owner, 2026-09-28: the carriage and
@@ -903,6 +990,16 @@ class Handler(SimpleHTTPRequestHandler):
             return self.reply(200, json.dumps(RUNNER.status()), "application/json")
         if u.path == "/park":
             return self.reply(200, json.dumps(PARK.read() or {}), "application/json")
+        if u.path == "/library":
+            return self.reply(200, json.dumps(library_list(LIBRARY_DIR)), "application/json")
+        if u.path.startswith("/library/"):
+            # a drawing or its preview, by its library name only
+            base, ext = os.path.splitext(unquote(u.path[len("/library/"):]))
+            f = os.path.join(LIBRARY_DIR, base + ext)
+            if ext not in (".svg", ".png") or not LIBRARY_NAME.match(base) or not os.path.exists(f):
+                return self.reply(404, "no such drawing")
+            with open(f, "rb") as fh:
+                return self.reply(200, fh.read(), "image/svg+xml" if ext == ".svg" else "image/png")
         if u.path == "/arm":
             ang, raw = ARM.angles()
             return self.reply(200, json.dumps({"angles": ang, "raw": raw, "zero": arm_zero()}), "application/json")
@@ -928,6 +1025,14 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        if path == "/library":
+            # 💾 SAVE on the Create tab: {"svg": the drawing, "png": its preview as a data URL}
+            try:
+                body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0) or 0)))
+                base = library_save(LIBRARY_DIR, body.get("svg"), body.get("png"))
+            except (ValueError, TypeError, AttributeError) as e:
+                return self.reply(400, json.dumps({"ok": False, "message": str(e) or "not a drawing"}), "application/json")
+            return self.reply(200, json.dumps({"ok": True, "file": base, "name": library_display(base)}), "application/json")
         if path in ("/brush/off", "/brush/on"):
             if RUNNER.state in LIVE:
                 return self.reply(409, "a job is running")
@@ -985,6 +1090,13 @@ class Handler(SimpleHTTPRequestHandler):
         if ok:
             PARK.forget()
         return self.reply(200 if ok else 409, msg)
+
+    def do_DELETE(self):
+        path = unquote(urlparse(self.path).path)
+        if not path.startswith("/library/"):
+            return self.reply(404, "")
+        ok = library_delete(LIBRARY_DIR, path[len("/library/"):])
+        return self.reply(200 if ok else 404, "moved to library/.deleted" if ok else "no such drawing")
 
     def do_PUT(self):
         path = FILES.get(urlparse(self.path).path)

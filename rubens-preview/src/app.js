@@ -514,7 +514,6 @@ function drawXsec() {
 
 function updatePanel() {
   const p = selPath(), st = styleOf();
-  const tn = $('#targetName'); tn.textContent = p ? `Stroke ${String(S.paths.indexOf(p) + 1).padStart(2, '0')}` : 'New stroke'; tn.classList.toggle('sel', !!p);
   const lane = laneOf(st.weight);
   if (document.activeElement !== $('#wNum')) $('#wNum').value = inMM() ? Math.round(lane) : Math.round(st.weight * 10) / 10;   // set in mm, the pt are not whole
   $('#wSlider').value = inMM() ? Math.round(lane) : wToSlider(st.weight);
@@ -661,19 +660,61 @@ function exportCNC() {
   const s = cncSvg({ format: FORMATS[S.format], paths: S.paths, colorsOf, paletteNameOf: p => pal(p.style.palette).name, paint: S.paint });
   download(new Blob([s], { type: 'image/svg+xml' }), `rubens-cnc-${stamp()}.svg`);
 }
+// The drawing with its whole state (svg.js): Export SVG, and the Library.
+const drawingText = () => drawingSvg({ formatKey: S.format, format: FORMATS[S.format], paths: S.paths, palettes: S.palettes, paint: S.paint, paletteOf: p => pal(p.style.palette) });
+// The painted picture on a canvas, `long` px on its long side.
+function paintedCanvas(long) {
+  const k = long / Math.max(docW(), docH());
+  const cv = document.createElement('canvas'); cv.width = Math.round(docW() * k); cv.height = Math.round(docH() * k);
+  renderPaint(cv.getContext('2d'), k, cv.width, cv.height, S.paths, colorsOf, S.paint);
+  return cv;
+}
 function exportSVG() {
   finishAll();
-  const s = drawingSvg({ formatKey: S.format, format: FORMATS[S.format], paths: S.paths, palettes: S.palettes, paint: S.paint, paletteOf: p => pal(p.style.palette) });
-  download(new Blob([s], { type: 'image/svg+xml' }), `rubens-${stamp()}.svg`);
+  download(new Blob([drawingText()], { type: 'image/svg+xml' }), `rubens-${stamp()}.svg`);
 }
 function stamp() { const d = new Date(), z = n => String(n).padStart(2, '0'); return `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}`; }
 function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); }
 function exportPNG() {
   finishAll();
-  const long = 4000, k = long / Math.max(docW(), docH());
-  const cv = document.createElement('canvas'); cv.width = Math.round(docW() * k); cv.height = Math.round(docH() * k);
-  renderPaint(cv.getContext('2d'), k, cv.width, cv.height, S.paths, colorsOf, S.paint);
-  cv.toBlob(b => download(b, `rubens-${stamp()}.png`), 'image/png');
+  paintedCanvas(4000).toBlob(b => download(b, `rubens-${stamp()}.png`), 'image/png');
+}
+
+// ---------- 💾 SAVE: the drawing into the Library ----------
+// Every save is a new drawing named by the date and time — "2026-09-30
+// 01:15", "(2)" for a second one in the same minute; an older drawing stays
+// as it was (the owner, 2026-09-30). rubens.py keeps them on this Mac only
+// (rubens-preview/library/, not in git): the drawing with its whole state,
+// and its painted preview, 800 px on the long side.
+const libraryName = file => file.slice(0, 13) + ':' + file.slice(14);   // '2026-09-30 01-15' → '… 01:15'
+async function saveToLibrary() {
+  finishAll();
+  const st = $('#saveState'), b = $('#btnSave');
+  if (!S.paths.some(p => p.segs.length)) { st.textContent = 'nothing drawn yet'; return; }
+  b.disabled = true; st.textContent = 'saving…';
+  try {
+    const r = await fetch('/library', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ svg: drawingText(), png: paintedCanvas(800).toDataURL('image/png') }),
+    });
+    const o = await r.json();
+    st.textContent = o.ok ? `saved · ${o.name}` : `not saved · ${o.message}`;
+  } catch { st.textContent = 'not saved · start rubens.py'; }
+  b.disabled = false;
+}
+$('#btnSave').onclick = saveToLibrary;
+
+// Opened from the Library (library.html → index.html?open=<file>): the
+// drawing takes the place of the one on the canvas; ⌘Z brings that one back.
+async function openFromLibrary(file) {
+  history.replaceState(null, '', location.pathname);
+  try {
+    const r = await fetch('library/' + encodeURIComponent(file) + '.svg', { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    importSVG(await r.text());
+    saveNow();
+    $('#saveState').textContent = `opened · ${libraryName(file)}`;
+  } catch { $('#saveState').textContent = 'could not open it from the Library'; }
 }
 $('#btnSvg').onclick = exportSVG;
 $('#btnPng').onclick = exportPNG;
@@ -803,5 +844,7 @@ $('#anglesnap').value = String(S.angleSnap);
 renderPalettes(); syncTools(); syncView(); syncUnits();
 new ResizeObserver(layout).observe(stage);
 layout();
-if (fresh) loadDefault();
+const opening = new URLSearchParams(location.search).get('open');   // from the Library tab
+if (opening) openFromLibrary(opening);
+else if (fresh) loadDefault();
 $('#btnDefault').onclick = () => { finishAll(); loadDefault().then(ok => { if (!ok) { undoPush(); demo(); invalidate(); } }); };

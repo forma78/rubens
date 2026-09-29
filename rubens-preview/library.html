@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RUBENS · Library</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- RUBENS · Library — the drawings saved with 💾 SAVE on the Create tab,
+     newest first. They live on this Mac only (rubens.py, library/). A click
+     opens one on the Create tab; × moves it to library/.deleted/. -->
+<header class="top">
+  <div class="brand">
+    <span class="logo">RUBENS</span>
+    <nav class="tabs" aria-label="Pages">
+      <a href="index.html">Create</a>
+      <a href="calibration.html">Calibration</a>
+      <a href="job.html">Job</a>
+      <a href="library.html" class="on">Library</a>
+    </nav>
+    <span class="ver">v0.1.3</span>
+  </div>
+  <div class="top-mid"></div>
+  <div class="top-right"></div>
+</header>
+
+<main class="lib">
+  <section class="lib-grid" id="grid" aria-live="polite"></section>
+</main>
+
+<footer class="status">
+  <span id="hint">Library: every 💾 SAVE on the Create tab is here, newest first. Click one to open it on the Create tab.</span>
+  <span id="count"></span>
+</footer>
+
+<script type="module" src="src/librarypage.js"></script>
+</body>
+</html>

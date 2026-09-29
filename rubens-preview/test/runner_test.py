@@ -14,7 +14,8 @@ from urllib.parse import parse_qs, unquote, urlparse
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import rubens  # noqa: E402
 from rubens import (REACH, STEPS_PER_MM, SWING_DEG, TICKS_PER_DEG, Arm, ArmError, Board, Park, Runner,  # noqa: E402
-                    block_end, board_get, board_line, in_english, parse_look, parse_ping, piece_at, rest_of)
+                    block_end, board_get, board_line, in_english, library_delete, library_display, library_list,
+                    library_save, parse_look, parse_ping, piece_at, rest_of)
 
 
 class FakeBoard:
@@ -657,6 +658,50 @@ class BoardTest(unittest.TestCase):
             self.assertEqual(board_get("/raw?c=Z"), "? raw")          # refused before the board is asked
         finally:
             rubens.BOARD = was
+
+
+class LibraryTest(unittest.TestCase):
+    """The Library: every SAVE a new drawing named by the time (2026-09-30)."""
+
+    SVG = ('<svg xmlns="http://www.w3.org/2000/svg"><metadata id="rubens-state">'
+           '{"format": "c70x100", "paths": [{"id": 1}, {"id": 2}]}</metadata></svg>')
+    PNG = "data:image/png;base64," + __import__("base64").b64encode(b"\x89PNG fake").decode()
+    T = time.mktime((2026, 9, 30, 1, 15, 20, 0, 0, -1))
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def test_the_name_is_the_time_and_a_second_save_is_a_new_drawing(self):
+        a = library_save(self.dir, self.SVG, self.PNG, now=self.T)
+        b = library_save(self.dir, self.SVG, self.PNG, now=self.T + 10)
+        c = library_save(self.dir, self.SVG, self.PNG, now=self.T + 60)
+        self.assertEqual((a, b, c), ("2026-09-30 01-15", "2026-09-30 01-15 (2)", "2026-09-30 01-16"))
+        self.assertEqual(library_display(b), "2026-09-30 01:15 (2)")
+        for base in (a, b, c):
+            self.assertTrue(os.path.exists(os.path.join(self.dir, base + ".svg")))
+            self.assertTrue(os.path.exists(os.path.join(self.dir, base + ".png")))
+
+    def test_the_list_is_newest_first_with_format_and_strokes(self):
+        for dt in (0, 10, 60):
+            library_save(self.dir, self.SVG, self.PNG, now=self.T + dt)
+        lst = library_list(self.dir)
+        self.assertEqual([i["name"] for i in lst], ["2026-09-30 01:16", "2026-09-30 01:15 (2)", "2026-09-30 01:15"])
+        self.assertEqual((lst[0]["format"], lst[0]["strokes"], lst[0]["png"]), ("c70x100", 2, True))
+
+    def test_only_a_rubens_drawing_is_saved(self):
+        for svg, png in (("<svg/>", self.PNG), (self.SVG, "data:image/jpeg;base64,AAAA"), (None, self.PNG)):
+            with self.assertRaises(ValueError):
+                library_save(self.dir, svg, png, now=self.T)
+        self.assertEqual(library_list(self.dir), [])
+
+    def test_delete_moves_the_drawing_aside(self):
+        base = library_save(self.dir, self.SVG, self.PNG, now=self.T)
+        self.assertTrue(library_delete(self.dir, base))
+        self.assertEqual(library_list(self.dir), [])
+        kept = os.listdir(os.path.join(self.dir, ".deleted"))
+        self.assertEqual(sorted(os.path.splitext(k)[1] for k in kept), [".png", ".svg"])
+        self.assertFalse(library_delete(self.dir, base))                   # gone already
+        self.assertFalse(library_delete(self.dir, "../../calibration"))     # only library names
 
 
 if __name__ == "__main__":

@@ -1,15 +1,20 @@
-# RUBENS · Brush Preview v0.1.2
+# RUBENS · Brush Preview v0.1.3
 
-A prototype that previews brush strokes for Motor Brush. Draw a path, pick
-eight drops of paint, see what you will get, export an SVG. Three tabs:
+A prototype that previews brush strokes for Motor Brush and runs them on the
+machine. Draw a path, pick eight drops of paint, see what you will get, save
+it, paint it. Four tabs:
 
 - **Create** — draw and preview (called Paint until 2026-09-27). Does not
-  touch the hardware. **🖨 Open Job** opens the Job tab.
-- **Calibration** — the machine from above, live; jog the axes, set home,
-  record where the canvas lies. Drives the axes through the machine bridge.
-- **Job** — the drawing as the machine will run it, played on screen with
-  percent and minutes; writes `job.json`. **⚡️ Do Job** runs it on the
-  machine through `rubens.py` — once the pass firmware is flashed.
+  touch the hardware. **💾 SAVE** puts the drawing in the Library, a new
+  drawing each time, named by the date and time; **🖨 Open Job** opens the
+  Job tab.
+- **Calibration** — the machine from above, live; jog the axes and the arm,
+  set home, record where the canvas lies.
+- **Job** — the drawing as the machine will run it; writes `job.json`.
+  **⚡️ Do Job** runs it on the machine through `rubens.py`.
+- **Library** — every saved drawing, newest first, with its preview. A click
+  opens it on the Create tab; the red × moves it to `library/.deleted/`.
+  The drawings stay on this Mac: `library/` is not in git.
 
 The design is a draft.
 
@@ -57,6 +62,8 @@ drawing is kept in the browser between reloads anyway.
 | `index.html` | the Create tab, English UI |
 | `calibration.html` | the Calibration tab |
 | `job.html` | the Job tab |
+| `library.html` | the Library tab |
+| `library/` | the saved drawings: `<date time>.svg` (the drawing with its whole state) and `.png` (its preview); on this Mac only, not in git |
 | `rubens.py` | the server on 8766: pages, machine commands to the bridge, `calibration.json` and `job.json` |
 | `calibration.json` | where the canvas lies on the machine, written by the Calibration tab |
 | `job.json` | the job in mm, in the order it runs, written by the Job tab (not in git) |

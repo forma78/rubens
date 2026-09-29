@@ -87,6 +87,12 @@ through firmware yet (the firmware has no `M` and `U` commands yet).
   back (`jobToMachine`); before, the pass was cut there and the brush went
   off and on. Off the canvas only between strokes, at the start and the end
   of a job, and on Pause. Decided 2026-09-29.
+- **Library** (the owner, 2026-09-30): a fourth tab. 💾 SAVE on the Create
+  tab, where "Editing · New stroke" was, saves **a new drawing every time**,
+  named by the date and time ("2026-09-30 01:15", "(2)" in the same
+  minute) — never over an older one. The drawings are the owner's own work:
+  `library/` on this Mac only, not in git. A click opens one on the Create
+  tab; the red × moves it to `library/.deleted/` after asking.
 - **The wrist never goes past +10°: a USB camera on the holder** (the owner,
   2026-09-30: "otherwise the arm breaks the camera"). The brush leaves the
   canvas at −45° (`SWING_DEG` in `rubens.py` and `machine.js`). Every joint
@@ -280,6 +286,7 @@ shows the brush from the ping.
 | `src/app.js` | the Create tab: state, input, panels, CNC Trace on screen, export and import |
 | `src/calibration.js` | the Calibration tab |
 | `src/jobpage.js` | the Job tab |
+| `src/librarypage.js` | the Library tab (the drawings themselves are kept by `rubens.py`, `library_*`) |
 | `test/` | `node --test`; `test/shapes.js` builds the test strokes |
 
 Everything except `render.js` and the three page modules runs without a browser, so the
