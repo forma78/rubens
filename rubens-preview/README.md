@@ -24,10 +24,11 @@ python3 rubens.py
 ```
 
 Open http://localhost:8766, or double-click `start.command`. `rubens.py`
-serves the pages and passes a short list of machine commands to the bridge
-(`RAIL-drawing_machine/bridge.py`, port 8765): the ping, the look, the axes
-and the axis zero — not the arm. Calibration needs the bridge running; Paint
-and Job work without it. The pages must be served over http: the code is ES
+serves the pages and owns the board's USB port (pyserial): the pages send it
+a short list of machine commands — the ping, the look, the axes and the
+axis zero, not the arm. It starts without a board as well and picks it up
+when it appears; Calibration needs the board, Paint and Job work without it.
+The board's firmware is in `../firmware/CNCDM-001/`. The pages must be served over http: the code is ES
 modules, and browsers do not load them from `file://`.
 
 ## Tests

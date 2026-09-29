@@ -1,6 +1,6 @@
 // The machine as the Calibration page sees it: axes, stops, walls, and the
 // canvas measured on it. The numbers mirror the firmware
-// (RAIL-drawing_machine, src/main.cpp): change them together. No DOM here.
+// (../firmware/CNCDM-001/src/main.cpp): change them together. No DOM here.
 //
 // Machine coordinates are the carriage position in mm from each axis zero.
 // X runs along the long side of the frame, from the bottom of the picture

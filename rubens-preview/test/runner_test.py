@@ -1,4 +1,4 @@
-"""The job runner in rubens.py, against a fake board — no bridge, no machine.
+"""The job runner in rubens.py, against a fake board — no USB, no machine.
 
     cd rubens-preview && python3 -m unittest discover -s test -p '*_test.py'
 """
@@ -6,13 +6,15 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from urllib.parse import parse_qs, unquote, urlparse
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from rubens import (STEPS_PER_MM, TICKS_PER_DEG, Arm, Park, Runner, block_end, in_english,  # noqa: E402
-                    parse_look, parse_ping, piece_at, rest_of)
+import rubens  # noqa: E402
+from rubens import (STEPS_PER_MM, TICKS_PER_DEG, Arm, Board, Park, Runner, block_end, board_get,  # noqa: E402
+                    board_line, in_english, parse_look, parse_ping, piece_at, rest_of)
 
 
 class FakeBoard:
@@ -535,6 +537,84 @@ class ParkTest(unittest.TestCase):
         ok, msg, _ = self.park(FakeBoard(zero=False)).restore()
         self.assertFalse(ok)
         self.assertIn("find home", msg)
+
+
+class FakePort:
+    """A serial port: every line written gets `reply(line)` back on the next
+    readline. Records the order of setRTS and setDTR."""
+
+    def __init__(self, reply=lambda line: "ok " + line):
+        self.reply, self.lines, self.pins, self.out = reply, [], [], []
+        self.ready = threading.Event()
+
+    def setRTS(self, v):
+        self.pins.append(("RTS", v))
+
+    def setDTR(self, v):
+        self.pins.append(("DTR", v))
+
+    def write(self, data):
+        line = data.decode().rstrip("\n")
+        self.lines.append(line)
+        self.out.append((self.reply(line) + "\n").encode())
+        self.ready.set()
+
+    def readline(self):
+        if not self.ready.wait(0.05):
+            return b""
+        self.ready.clear()
+        return self.out.pop(0) if self.out else b""
+
+    def close(self):
+        pass
+
+
+class BoardTest(unittest.TestCase):
+    """The board on USB, in rubens.py since 2026-09-29 (it was bridge.py)."""
+
+    def test_the_addresses_become_the_board_lines_of_the_bridge(self):
+        self.assertEqual(board_line("/ping"), ("P", 0.25))
+        self.assertEqual(board_line("/look"), ("V", 2.0))
+        self.assertEqual(board_line("/cmd?a=S&n=0")[0], "S")
+        self.assertEqual(board_line("/cmd?a=K&n=0")[0], "K")
+        self.assertEqual(board_line("/cmd?a=X&n=50")[0], "X 20")      # the jog level is held to the limit
+        self.assertEqual(board_line("/cmd?a=Y&n=-50")[0], "Y -9")
+        self.assertEqual(board_line("/zero")[0], "Z")
+        self.assertEqual(board_line("/origin/y?at=-42")[0], "O Y -42")
+        self.assertEqual(board_line("/raw?c=L 12.00 30.50")[0], "L 12.00 30.50")
+        self.assertEqual(board_line("/servo?j=shoulder&d=-60")[0], "J 1 -45")
+        self.assertEqual(board_line("/servo?j=wrist&d=90")[0], "J 3 90")
+
+    def test_raw_lets_through_the_path_only(self):
+        for bad in ("/raw?c=J 3 90", "/raw?c=Z", "/raw?c=", "/raw?c=L 1 2%0AK", "/servo?j=hand&d=5", "/cmd?a=Q", "/reboot"):
+            with self.assertRaises(ValueError, msg=bad):
+                board_line(bad)
+
+    def test_no_reset_on_opening_rts_first(self):
+        port = FakePort()
+        b = Board(open_port=lambda name: port, ports=lambda: ["/dev/cu.usbserial-1"], log=lambda s: None)
+        self.assertTrue(b.open())
+        self.assertEqual(port.pins, [("RTS", False), ("DTR", False)])   # DTR first reset the board (2026-09-23)
+
+    def test_one_command_one_reply(self):
+        port = FakePort()
+        b = Board(open_port=lambda name: port, ports=lambda: ["/dev/cu.usbserial-1"], log=lambda s: None)
+        b.start()
+        self.assertEqual(b.send("P"), "ok P")
+        self.assertEqual(b.send("L 1.00 2.00"), "ok L 1.00 2.00")
+        self.assertEqual(port.lines, ["P", "L 1.00 2.00"])
+
+    def test_without_a_board_the_server_still_answers(self):
+        b = Board(open_port=lambda name: None, ports=lambda: [], log=lambda s: None)
+        self.assertFalse(b.open())
+        self.assertEqual(b.send("P"), "no board")
+        was = rubens.BOARD
+        try:
+            rubens.BOARD = None
+            self.assertEqual(board_get("/ping"), "no board")
+            self.assertEqual(board_get("/raw?c=Z"), "? raw")          # refused before the board is asked
+        finally:
+            rubens.BOARD = was
 
 
 if __name__ == "__main__":

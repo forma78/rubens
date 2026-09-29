@@ -3,11 +3,13 @@
 Measurements of the machine, newest first. Each entry keeps the date, what
 was measured, how, and what it changed. Numbers here are the source for
 `rubens-preview/src/machine.js` and for the walls in the machine firmware
-(`RAIL-drawing_machine/src/main.cpp`); change them together.
+(`firmware/CNCDM-001/src/main.cpp`); change them together.
 
-**Machine: CNCDM-001.** Its firmware, bridge and docs are in
-`~/RAIL-drawing_machine`, under git since 2026-09-28 and private on GitHub as
-`forma78/CNCDM-001`. A second machine gets its own name and its own log.
+**Machine: CNCDM-001.** Its firmware and hardware notes are in
+[`firmware/CNCDM-001/`](firmware/CNCDM-001/README.md) since 2026-09-29;
+before, in `~/RAIL-drawing_machine` (on GitHub as `forma78/CNCDM-001`, now
+archived), which the older entries below name. A second machine gets its
+own name, its own firmware folder and its own log.
 
 ---
 

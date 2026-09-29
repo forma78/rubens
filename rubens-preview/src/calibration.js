@@ -14,7 +14,7 @@ const NAMES = { tl: 'Top left', tr: 'Top right', br: 'Bottom right', bl: 'Bottom
 const INK = '#24221F', MUTE = '#7D776D', ORANGE = '#EB7A25', PAPER = '#EEEAE2';
 
 const S = {
-  link: 'wait',                 // ok · lost (bridge up, board gone) · none (no bridge) · server (no rubens.py)
+  link: 'wait',                 // ok · lost (no board on USB) · server (no rubens.py)
   pos: { x: null, y: null },    // carriage, mm; null — that axis has no zero
   edge: { x: false, y: false },
   trail: [],
@@ -26,7 +26,7 @@ async function machine(cmd, opts) {
   try {
     const r = await fetch('/machine' + cmd, { cache: 'no-store', ...opts });
     const board = r.headers.get('X-Board');
-    S.link = r.status === 502 ? 'none' : r.status === 404 ? 'server' : board === 'lost' ? 'lost' : r.ok ? 'ok' : 'none';
+    S.link = r.status === 404 ? 'server' : board === 'lost' || !r.ok ? 'lost' : 'ok';
     return r.ok ? await r.text() : null;
   } catch {
     S.link = 'server';
@@ -64,7 +64,7 @@ async function ping() {
 
 function showLink() {
   const el = $('#linkState');
-  const txt = { ok: '● MACHINE', lost: 'BOARD LOST', none: 'NO BRIDGE · start bridge.py', server: 'NO SERVER · start rubens.py', wait: '…' }[S.link];
+  const txt = { ok: '● MACHINE', lost: 'NO BOARD · USB and 12 V?', server: 'NO SERVER · start rubens.py', wait: '…' }[S.link];
   el.textContent = txt;
   el.className = 'link-state ' + (S.link === 'ok' ? 'ok' : 'bad');
 }

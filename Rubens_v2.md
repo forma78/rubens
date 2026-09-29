@@ -13,10 +13,13 @@ mislead.
 | `rubens-preview/HANDOFF.md` | the to-do list for the app |
 | `rubens-preview/README.md` | how to run and use the app |
 | `images_CNC_drawing_machine/` | photos of the machine and the arm drawing, 2026-09-27 |
-| `~/RAIL-drawing_machine/` | the machine, local only and in Russian: `README.md` (hardware, pins), `RAIL.md` (X axis), `CLAUDE.md` (firmware rules) |
+| `firmware/CNCDM-001/` | the machine's firmware, and its `README.md`: the board, pins, drivers, power, serial commands, firmware rules |
+| `CALIBRATION.md` | the dated log of machine measurements |
 
-Hardware numbers and firmware rules live in the machine repo and are not
-repeated here. If this file and `HANDOFF.md` disagree, the later entry wins.
+Hardware numbers and firmware rules live in `firmware/CNCDM-001/README.md`
+and are not repeated here. Until 2026-09-29 they were in the machine's own
+repository, `~/RAIL-drawing_machine` (`forma78/CNCDM-001`, archived); its
+`RAIL.md` is named below where a decision came from it. If this file and `HANDOFF.md` disagree, the later entry wins.
 
 Decisions Claude made as technical lead are marked *Claude's decision*.
 Any of them can be undone with one word.
@@ -43,8 +46,8 @@ Unchanged from RUBENS.md:
 - RUBENS is not firmware and does not replace it. GRBL is rejected.
   Coordinated X and Y motion is our own, on top of `FastAccelStepper`.
 - The Mac thinks, the board executes.
-- The bridge `bridge.py` owns the serial port; RUBENS reaches the hardware
-  through it over HTTP.
+- `rubens.py` owns the serial port and talks to the board itself (since
+  2026-09-29; before, through the bridge `bridge.py` of the machine repo).
 - During a pass the arm holds its pose and the axes draw.
 - The machine does not move until a person has seen what it will do. A dry
   run on a new format is mandatory.
@@ -269,12 +272,12 @@ viewing and for a pencil run.
 
 ## 6. How RUBENS talks to the machine
 
-**Three processes on the Mac:**
+**Two processes on the Mac** (since 2026-09-29; before, a third, the bridge
+`bridge.py` on 8765, owned the serial port and served the MELNICOMM pendant):
 
 | what | port | does |
 |---|---|---|
-| `bridge.py` | 8765 | as now: the only owner of the serial port, the MELNICOMM pendant |
-| `rubens.py` (to come) | 8766 | serves the Rubens page instead of `python3 -m http.server`, takes the plan, runs the job, talks to the bridge |
+| `rubens.py` | 8766 | the only owner of the serial port; serves the pages, takes the plan, runs the job |
 | the browser page | — | draws, shows progress, has the buttons |
 
 **The job is run by `rubens.py`, not by the page.** The system may throttle
@@ -286,8 +289,9 @@ and `rubens.py` share one port, so no cross-origin setup is needed.
 **Where the brush is.** The ping `P` already reports the axes:
 `ok P X <steps> Y <steps>`. `rubens.py` pings, the Job tab draws the brush.
 
-**The bridge gets** a pass-through endpoint, as planned in RUBENS.md: take a
-command over HTTP, write it to the port, return the board's reply.
+**The board's lines** go out of `rubens.py` (`board_line`): the pages'
+machine addresses become the board's commands, and `/raw` lets through only
+the path letters F, T, L, A, M, G.
 
 **Firmware:**
 
@@ -295,8 +299,8 @@ command over HTTP, write it to the port, return the board's reply.
 - `M <x> <y>` — to a point, absolute position in whole steps. For travel
   moves it can work as in RUBENS.md: from zero speed to zero speed.
 - **A painting pass runs without stopping at line/arc joints.** *Claude's
-  decision, 2026-09-27; a draft, not flashed yet*
-  (`RAIL-drawing_machine/drafts/rubens-pass/`): the host sends a chain of
+  decision, 2026-09-27; flashed the same evening*
+  (`firmware/CNCDM-001/src/path.h`): the host sends a chain of
   pieces in machine mm — `L x y`, `A cx cy x y ±1`, travel `M x y` — into a
   queue of 16 on the board, then `G`; more pieces can follow on the move. The
   board moves the tip along the chain on a 20 ms clock with a trapezoid speed

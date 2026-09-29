@@ -4,9 +4,11 @@ Written for Claude working on this app. First version 2026-09-27, after the
 first session. What the app is and how to use it is in `README.md` next to
 this file. This file is about decisions already made and what to do next.
 
-Machine context: `README.md`, `RAIL.md`, `CLAUDE.md` in the machine repo
-(`~/RAIL-drawing_machine`, in Russian; the machine is CNCDM-001, under git
-since 2026-09-28, private on GitHub as `forma78/CNCDM-001`). The spec for RUBENS is
+Machine context: `../firmware/CNCDM-001/README.md` — the machine is
+CNCDM-001; its firmware, board, pins, drivers and rules are there since
+2026-09-29 (before, in `~/RAIL-drawing_machine`, on GitHub as
+`forma78/CNCDM-001`, now archived). `rubens.py` owns the serial port; there
+is no bridge any more. The spec for RUBENS is
 `../Rubens_v2.md`; it replaced `RUBENS.md` on 2026-09-27. Read them before
 changing anything.
 
@@ -113,8 +115,9 @@ morning +90° becomes 0. The owner: no hand-fixed numbers in the firmware
 - **Firmware, one change, flashed once with the owner:** a command "the zero
   of joint j is raw pose n", and no arm motion at all until it came (as the
   axes go nowhere near a wall without a zero). The "pose at the first
-  command" rule goes. Draft in `RAIL-drawing_machine/drafts/`, host test,
-  flash together, test in the air.
+  command" rule goes; put the shoulder's sign right too (then `TURN` in
+  `rubens.py` goes to +1). In `../firmware/CNCDM-001/`, host test, flash
+  together, test in the air.
 - **Turn off** (replaces the single "Shut down" of the morning; `rubens.py`
   class `Park` is its X/Y part, tested): HARD STOP → J3 to +90° → the
   carriage stands → X/Y saved → "switch off the 12 V".
@@ -245,9 +248,9 @@ minutes left, ×1…×300) with an editable time model (estimates), and writes
 Calibration tab, the Machine section turns the job into what the board runs
 (`jobToMachine` in `machine.js`: brush off / travel / brush on / pass blocks,
 `L`, `A`, `M`, `G` in machine mm), pressed into the walls — past them the brush runs along the wall, brush down (section 2) — and reports how much lies past them; they go
-into `job.json` as `machine.blocks`. **Left:** the view of the job on the
-machine, the brush from the ping, `rubens.py` running the blocks — after the
-firmware draft (`RAIL-drawing_machine/drafts/rubens-pass/`) is tested.
+into `job.json` as `machine.blocks`. `rubens.py` runs them on the pass
+firmware (flashed 2026-09-27, `../firmware/CNCDM-001/`), and the Job tab
+shows the brush from the ping.
 
 ---
 

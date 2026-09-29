@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """RUBENS server: serves this folder on http://localhost:8766 and talks to
-the machine through its bridge (Rubens_v2.md, section 6).
+the machine on USB (Rubens_v2.md, section 6). One program, one address:
+since 2026-09-29 it owns the serial port itself (class Board); before, the
+bridge.py of the old machine repo held it on port 8765.
 
 - Static files: the Create page (index.html), Calibration (calibration.html)
   and Job (job.html).
-- /machine/<command> goes to the machine bridge (RAIL-drawing_machine,
-  bridge.py, port 8765), which stays the only owner of the serial port.
-  Only the commands in PASS get through: the ping, the look, the axes, and
-  the axis zero. The arm is not among them.
+- /machine/<command> goes to the board (board_line: the page's address →
+  the board's line). Only the commands in PASS get through: the ping, the
+  look, the axes, and the axis zero. The arm is not among them.
 - /calibration and /job: GET returns calibration.json / job.json, PUT saves
   it. The Job tab writes job.json — the job in mm, in the order it runs.
 - /arm: GET the arm in RUBENS's degrees (0° = the working pose); POST
@@ -19,15 +20,16 @@ the machine through its bridge (Rubens_v2.md, section 6).
   blocks of job.json, or the blocks in its body (a calibration run); POST /run/stop brakes along the path, /run/kill stops at
   once; /run/pause and /run/continue pause a run and go on from the same point. POST /brush/off and /brush/on swing the wrist to +90° or back to 0°
   (only the wrist, only these two, not while a job runs — the owner asked for
-  them on the Job tab, 2026-09-27). It needs the firmware and bridge from
-  RAIL-drawing_machine/drafts/rubens-pass (not flashed yet); until then a
-  start fails on the first path command and nothing moves.
+  them on the Job tab, 2026-09-27). A board without the pass firmware
+  (../firmware/CNCDM-001) fails a start on the first path command, and
+  nothing moves.
 
-Run:  python3 rubens.py
+Run:  python3 rubens.py   (needs pyserial for the board)
 Listens on this Mac only: the machine is driven from here, not from the
 network.
 """
 
+import glob
 import json
 import math
 import os
@@ -35,13 +37,10 @@ import re
 import threading
 import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote, urlparse
-from urllib.request import urlopen
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PORT = 8766
-BRIDGE = "http://127.0.0.1:8765"
 FILES = {"/calibration": os.path.join(HERE, "calibration.json"), "/job": os.path.join(HERE, "job.json")}
 PARK_FILE = os.path.join(HERE, "park.json")   # class Park; written by rubens.py only
 PASS = {"/ping", "/look", "/cmd", "/origin/x", "/origin/y"}
@@ -99,7 +98,166 @@ def block_end(cmds):
 RUNS_ENABLED = True
 
 
-# The arm (RAIL-drawing_machine/src/main.cpp: JOINT_ID, JOINT_SIGN,
+# ---------- the board, on USB ----------
+# The board speaks lines: one command, one reply. What was bridge.py's (the
+# old machine repo, 2026-09-20…29), in the same words, now here.
+PORT_GLOB = "/dev/cu.usbserial-*"
+BAUD = 115200
+AXIS_LIMIT = {"X": 20, "Y": 9}   # jog levels, 10 mm/s each (X_LEVEL_MAX, Y_LEVEL_MAX in the firmware)
+PATH_LETTERS = "FTLAMG"          # speeds, path pieces, go: the only lines /raw lets through
+
+
+def board_line(path):
+    """A machine address → (the line for the board, seconds to wait for its
+    reply). ValueError with the reply when the address is refused."""
+    u = urlparse(path)
+    q = parse_qs(u.query)
+    p = u.path
+    if p == "/ping":
+        return "P", 0.25
+    if p == "/look":
+        return "V", 2.0              # a silent servo answers by its own timeout, and there are three
+    if p == "/cmd":
+        a = (q.get("a", ["S"])[0] or "S").upper()[0]
+        if a in ("S", "K"):          # stop braking; stop at once
+            return a, 0.25
+        if a in AXIS_LIMIT:
+            try:
+                level = max(-AXIS_LIMIT[a], min(AXIS_LIMIT[a], int(q.get("n", ["0"])[0])))
+            except ValueError:
+                level = 0
+            return f"{a} {level}", 0.25
+        raise ValueError("?")
+    if p == "/zero":                 # the arm's zero where it stands: nothing moves
+        return "Z", 0.25
+    if p in ("/origin/x", "/origin/y"):   # the carriage's place becomes the axis zero, or ?at=<steps>
+        try:
+            at = int(q.get("at", ["0"])[0])
+        except ValueError:
+            raise ValueError("? at")
+        return f"O {p[-1].upper()} {at}", 0.25
+    if p == "/raw":
+        # the pass: a speed, a piece of path, go — the line as it is, but only
+        # with these letters and no control characters: no arm, jog or zero
+        line = q.get("c", [""])[0]
+        if (not line or len(line) > 60 or line[0].upper() not in PATH_LETTERS
+                or any(ord(ch) < 32 for ch in line)):
+            raise ValueError("? raw")
+        return line, 0.25
+    if p == "/servo":
+        joint = q.get("j", ["?"])[0]
+        if joint not in JOINTS:
+            raise ValueError("? joint")
+        jid, _, lim = JOINTS[joint]   # the firmware's degrees: its sign is its own
+        try:
+            deg = max(-lim, min(lim, int(q.get("d", ["0"])[0])))
+        except ValueError:
+            deg = 0
+        return f"J {jid} {deg}", 0.25
+    raise ValueError(f"? {p}")
+
+
+def pyserial(port):
+    import serial                    # pyserial: the server needs it, the tests do not
+    return serial.Serial(port, BAUD, timeout=0.2, write_timeout=0.3)
+
+
+class Board:
+    """The serial port. Opens the first /dev/cu.usbserial-*, and keeps
+    looking while there is none or it drops (the USB pulled, the board reset,
+    the 12 V switched): the server runs without a board all the same.
+
+    open_port(name) is pyserial's Serial; the tests pass a fake.
+    """
+
+    def __init__(self, open_port=pyserial, ports=lambda: sorted(glob.glob(PORT_GLOB)),
+                 sleep=time.sleep, log=lambda s: print(s, flush=True)):
+        self.open_port, self.ports, self.sleep, self.log = open_port, ports, sleep, log
+        self.ser, self.last, self.seen = None, "", 0
+        self.lock = threading.Lock()
+
+    def start(self):
+        if not self.open():
+            self.log(f"no board at {PORT_GLOB} — waiting for one")
+        threading.Thread(target=self._reader, daemon=True).start()
+
+    def open(self):
+        ports = self.ports()
+        if not ports:
+            return False
+        try:
+            ser = self.open_port(ports[0])
+            # No reset at every opening. The order matters: RTS without DTR
+            # is the board's reset (the upload resets it so). DTR used to go
+            # first, and the board rebooted at every start of the bridge and
+            # forgot the axis zero (found 2026-09-23).
+            ser.setRTS(False)
+            ser.setDTR(False)
+        except Exception as e:
+            self.log(f"{ports[0]} did not open: {e}")
+            return False
+        self.ser = ser
+        self.log(f"board: {ports[0]}")
+        return True
+
+    def drop(self, why):
+        try:
+            self.ser.close()
+        except Exception:
+            pass
+        self.ser = None
+        self.log(f"board lost: {why}")
+
+    def _reader(self):
+        while True:
+            if self.ser is None:
+                self.sleep(2.0)
+                self.open()
+                continue
+            try:
+                line = self.ser.readline()
+                if line:
+                    self.last = line.decode("utf-8", "replace").strip()
+                    self.seen += 1
+            except Exception as e:
+                self.drop(e)
+
+    def send(self, text, wait=0.25):
+        # The lock holds through the wait for the reply too: one command, one
+        # reply, or a page's ping could slip in and take another command's
+        # reply — a piece of path lost or sent twice is a bent line on the
+        # canvas (2026-09-27).
+        if self.ser is None:
+            return "no board"
+        with self.lock:
+            try:
+                was = self.seen
+                self.ser.write((text + "\n").encode())
+            except Exception as e:
+                self.drop(e)
+                return "no board"
+            t0 = time.time()
+            while self.seen == was and time.time() - t0 < wait:
+                time.sleep(0.005)
+            return self.last
+
+
+BOARD = None   # the Board once the server runs (__main__); nothing opens a port on import
+
+
+def board_get(path):
+    """What the pages, the arm and the runner send: a machine address, and
+    the board's reply."""
+    try:
+        line, wait = board_line(path)
+    except ValueError as e:
+        return str(e)
+    if BOARD is None:
+        return "no board"
+    return BOARD.send(line, wait)
+
+
+# The arm (../firmware/CNCDM-001/src/main.cpp: JOINT_ID, JOINT_SIGN,
 # JOINT_LIMIT): servo id, the firmware's sign, limit in degrees.
 JOINTS = {"shoulder": (1, -1, 45), "elbow": (2, +1, 45), "wrist": (3, +1, 90)}
 # RUBENS's degrees against the firmware's. Plus is the brush to the right
@@ -280,8 +438,8 @@ def piece_at(start, path, here, first=0):
 
 
 class Runner:
-    """Runs the machine blocks of job.json on the board, through the bridge
-    (Rubens_v2.md, section 6: the job is run here, not by the page).
+    """Runs the machine blocks of job.json on the board (Rubens_v2.md,
+    section 6: the job is run here, not by the page).
 
     A block is either {"kind": "arm", "cmd": "J 3 <deg>"} — the wrist swings
     the brush off or onto the canvas — or {"kind": "move", "cmds": [...]}: a
@@ -290,7 +448,8 @@ class Runner:
     block is over when the ping no longer says "путь". Every command and ping
     feeds the board's watchdog, so a dead runner stops the axes by itself.
 
-    send(path) -> reply is a GET on the bridge; the tests pass a fake board.
+    send(path) -> reply is board_get, a machine address; the tests pass a
+    fake board.
     """
 
     def __init__(self, send, sleep=time.sleep, swing_s=1.8, arm=None):
@@ -375,12 +534,12 @@ class Runner:
                 raise Abort("no zero on the axes: set home on the Calibration tab")
             # Before anything moves, even the brush: can the board run a path?
             # A speed command changes nothing on the canvas; the pendant
-            # firmware and the old bridge do not know it.
+            # firmware did not know it.
             probe = next((c for b in self.blocks if b.get("kind") == "move" for c in b["cmds"][:1]), "T 100")
             r = self._raw(probe)
             if not r.startswith("ok "):
-                raise Abort("the board cannot run a path yet (" + r + "): apply bridge.patch and flash "
-                            "the pass firmware, RAIL-drawing_machine/drafts/rubens-pass")
+                raise Abort("the board cannot run a path (" + r + "): flash the firmware, "
+                            "firmware/CNCDM-001")
             if self.arm:
                 try:
                     self.arm.hold()     # nothing moves; the whole arm holds from here on
@@ -635,8 +794,8 @@ class Park:
     def shut_down(self, runner):
         # HARD STOP first, whatever is running: a stop is never refused.
         r = runner.stop(hard=True)
-        if r == "no bridge":
-            return False, "No bridge: the motors were not reached, nothing saved.", None
+        if r == "no board":
+            return False, "No board: the motors were not reached, nothing saved.", None
         prev = None
         for _ in range(15):
             self.sleep(0.2)
@@ -675,16 +834,6 @@ class Park:
         return False, f"Only {'X' if ok_x else 'Y'} restored: find {axis} home at its stop.", park
 
 
-def bridge_get(path):
-    try:
-        with urlopen(BRIDGE + path, timeout=3) as r:
-            return r.read().decode("utf-8", "replace").strip()
-    except HTTPError as e:
-        return f"bridge answers {e.code} to {urlparse(path).path}"
-    except (URLError, OSError):
-        return "no bridge"
-
-
 def arm_zero():
     try:
         with open(FILES["/calibration"], encoding="utf-8") as f:
@@ -694,9 +843,9 @@ def arm_zero():
         return dict(ARM_ZERO)
 
 
-ARM = Arm(bridge_get, arm_zero)
-RUNNER = Runner(bridge_get, arm=ARM)
-PARK = Park(PARK_FILE, bridge_get)
+ARM = Arm(board_get, arm_zero)
+RUNNER = Runner(board_get, arm=ARM)
+PARK = Park(PARK_FILE, board_get)
 
 
 class Handler(SimpleHTTPRequestHandler):
@@ -749,12 +898,8 @@ class Handler(SimpleHTTPRequestHandler):
         if cmd in ("/origin/x", "/origin/y") or (
                 cmd == "/cmd" and q.get("a", [""])[0] in ("X", "Y") and q.get("n", ["0"])[0] != "0"):
             PARK.forget()   # a new zero or a jog: the parked place is no longer where the carriage is
-        url = BRIDGE + cmd + ("?" + u.query if u.query else "")
-        try:
-            with urlopen(url, timeout=3) as r:
-                return self.reply(200, r.read(), board=r.headers.get("X-Board", "ok"))
-        except (URLError, OSError):
-            return self.reply(502, "no bridge", board="none")
+        answer = board_get(cmd + ("?" + u.query if u.query else ""))
+        return self.reply(200, answer, board="ok" if BOARD is not None and BOARD.ser is not None else "lost")
 
     def do_POST(self):
         path = urlparse(self.path).path
@@ -845,8 +990,10 @@ class Handler(SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    print(f"RUBENS: http://localhost:{PORT}  (machine bridge: {BRIDGE})")
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)   # the port first: a second copy stops here
+    BOARD = Board()
+    BOARD.start()
+    print(f"RUBENS: http://localhost:{PORT}  (the board on USB, {PORT_GLOB})", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

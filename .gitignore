@@ -12,3 +12,6 @@ __pycache__/
 
 # Where the carriage stood at Turn off; machine state, not source
 park.json
+
+# PlatformIO build output and downloaded libraries (rebuilt from platformio.ini)
+.pio/
