@@ -96,7 +96,11 @@ function machine() {
   if (!S.cal) { el.innerHTML = '<p class="none">No calibration: start rubens.py.</p>'; return; }
   if (n < 3) { el.innerHTML = `<p class="none">Record at least three canvas corners on the Calibration tab (${n} so far). Until then the job stays on the artboard.</p>`; return; }
   if (S.cal.format !== S.doc.format) {
-    el.innerHTML = `<p class="warn">The corners were recorded for ${FORMATS[S.cal.format]?.label || S.cal.format}, the drawing is ${FORMATS[S.doc.format].label}.</p>`;
+    // Nothing says where a canvas of the drawing's format lies on the
+    // machine: the corners are another canvas's. Say what to do.
+    const want = FORMATS[S.doc.format].label;
+    el.innerHTML = `<p class="warn">The corners on the Calibration tab were recorded for ${FORMATS[S.cal.format]?.label || S.cal.format}; the drawing is ${want}.</p>`
+      + `<p>Record the corners of this canvas there: Format → ${want}, then the four corners. A corner out of reach: the tip as near as it goes, and the ruler offset.</p>`;
     return;
   }
   const F = FORMATS[S.doc.format], rep = canvasReport(corners, F.w, F.h);
