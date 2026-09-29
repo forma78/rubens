@@ -365,14 +365,9 @@ function draw() {
     ctx.fillText(n.toUpperCase(), X + (n[1] === 'l' ? 8 : -8), Y + (n[0] === 't' ? 14 : -8));
   }
 
-  // stops: the hard ends; walls: where the board stops the carriage
-  ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.fillStyle = INK;
-  for (const x of [STOPS.x.min, STOPS.x.max]) {
-    if (x == null) continue;
-    ctx.beginPath(); ctx.moveTo(sx(y0), sy(x)); ctx.lineTo(sx(y1), sy(x)); ctx.stroke();
-    ctx.textAlign = 'left'; ctx.fillText('stop', sx(y0) + 4, sy(x) + (x === STOPS.x.max ? -5 : 13));
-  }
-  if (STOPS.y.min != null) { ctx.beginPath(); ctx.moveTo(sx(STOPS.y.min), sy(x0)); ctx.lineTo(sx(STOPS.y.min), sy(x1)); ctx.stroke(); }
+  // The walls: where the board stops the carriage. The stops themselves, a
+  // few mm past them, are not drawn (the owner, 2026-09-30: with the canvas
+  // wider than the rails their thick lines cut through it like a frame).
   const wall = (x, y, xx, yy, ok, text, tx, ty, align) => {
     ctx.save(); ctx.strokeStyle = ORANGE; ctx.globalAlpha = ok ? 1 : 0.5; ctx.lineWidth = 1.2; ctx.setLineDash([6, 4]);
     ctx.beginPath(); ctx.moveTo(sx(y), sy(x)); ctx.lineTo(sx(yy), sy(xx)); ctx.stroke();
