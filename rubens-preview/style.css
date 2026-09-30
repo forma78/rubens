@@ -253,6 +253,10 @@ main.cal{grid-template-columns:1fr 340px}
 /* ---------- job ---------- */
 #jobView{position:absolute;inset:0;width:100%;height:100%;display:block}
 .btn.job{font-weight:600}
+/* ⚡️ Do Job: the one green key, like a Braun power key (the owner,
+   2026-09-30: #4F7A28) */
+#btnDoJob,#btnDoJob:hover{color:#fff;background:linear-gradient(#5A8A2F,#4F7A28);box-shadow:0 0 0 1px rgba(40,62,20,.55),0 1px 2px rgba(40,62,20,.3),0 3px 8px rgba(40,62,20,.18),inset 0 1px 0 rgba(255,255,255,.22)}
+#btnDoJob:active{background:#4F7A28;box-shadow:inset 0 1px 3px rgba(0,0,0,.35),0 0 0 1px rgba(40,62,20,.55)}
 .progress{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 /* the Job tab's progress: an LCD, as on the owner's clock reference
    (Screenshot 2026-09-28 at 10.52.30 PM.png), digits from src/lcd.js. Grey,
