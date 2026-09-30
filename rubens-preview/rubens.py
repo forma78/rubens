@@ -421,6 +421,65 @@ def _near_arc(q, a, c, b, turn):
     return min(math.hypot(q[0] - a[0], q[1] - a[1]), math.hypot(q[0] - b[0], q[1] - b[1]))
 
 
+def path_pieces(start, path):
+    """The pieces of a path (L, M, A commands, the first from `start`) as the
+    board runs them: start, end, length in mm; an arc's radius from its
+    start, its sweep from the start angle to the end's (firmware path.h)."""
+    TAU = 2 * math.pi
+    out, at = [], start
+    for c in path:
+        p = c.split()
+        if p[0] in ("L", "M"):
+            end = (float(p[1]), float(p[2]))
+            out.append({"a": at, "b": end, "len": math.hypot(end[0] - at[0], end[1] - at[1])})
+        else:
+            cen, end, turn = (float(p[1]), float(p[2])), (float(p[3]), float(p[4])), int(p[5])
+            r = math.hypot(at[0] - cen[0], at[1] - cen[1])
+            a0 = math.atan2(at[1] - cen[1], at[0] - cen[0])
+            s = math.atan2(end[1] - cen[1], end[0] - cen[0]) - a0
+            if turn > 0:
+                while s <= 0:
+                    s += TAU
+                while s > TAU:
+                    s -= TAU
+            else:
+                while s >= 0:
+                    s -= TAU
+                while s < -TAU:
+                    s += TAU
+            out.append({"a": at, "b": end, "c": cen, "r": r, "a0": a0, "sweep": s, "len": abs(s) * r})
+        at = end
+    return out
+
+
+def along_piece(pc, q):
+    """How far along a piece (path_pieces) the point q is, mm, held to the piece."""
+    if "c" not in pc:
+        (ax, ay), (bx, by), L = pc["a"], pc["b"], pc["len"]
+        if L == 0:
+            return 0.0
+        return max(0.0, min(1.0, ((q[0] - ax) * (bx - ax) + (q[1] - ay) * (by - ay)) / (L * L))) * L
+    TAU = 2 * math.pi
+    ang = math.atan2(q[1] - pc["c"][1], q[0] - pc["c"][0])
+    d = (ang - pc["a0"]) % TAU if pc["sweep"] > 0 else (pc["a0"] - ang) % TAU
+    S = abs(pc["sweep"])
+    if d > S:                                    # just before the start, or past the end
+        d = 0.0 if d > (S + TAU) / 2 else S
+    return d * pc["r"]
+
+
+def painted_so_far(track, done, here):
+    """The painted length of a block by now, mm: the pieces the board has run
+    whole, and on the piece it is running, how far along it the carriage is.
+    track: (pieces, painted length of each — 0 for a turn —, their sum)."""
+    geo, plen, _ = track
+    done = max(0, min(len(geo), done))
+    got = sum(plen[:done])
+    if done < len(geo) and plen[done] and here is not None:
+        got += min(plen[done], along_piece(geo[done], here))
+    return got
+
+
 def rest_of(cmds, j):
     """A move block's commands from its piece j on, with the speed in force
     at that piece first: speeds change inside a pass (a tight arc slower),
@@ -651,11 +710,19 @@ class Runner:
 
     def _move(self, b):
         pieces = [c for c in b["cmds"] if c != "G"]
-        total = sum(1 for c in pieces if c[0] in "LAM")
         base, share = self.painted, b.get("paintMM") or 0
         # A pass (brush on) can be paused on its line; a travel ends first.
         pausable = self.brush_on and any(c[0] == "F" for c in pieces)
-        start = self._here() if pausable else None
+        start = self._here() if pausable or share else None
+        # The percent goes by painted length (job.json marks each piece
+        # painted or a turn; without the marks every piece counts).
+        track = None
+        if share and start:
+            geo = path_pieces(start, [c for c in pieces if c[0] in "LAM"])
+            marks = b.get("painted") or []
+            plen = [g["len"] if (marks[i] if i < len(marks) else 1) else 0.0 for i, g in enumerate(geo)]
+            if sum(plen) > 0:
+                track = (geo, plen, sum(plen))
         started, sent = False, 0
         for c in pieces:
             while True:
@@ -670,7 +737,7 @@ class Runner:
                     if not started:
                         started = self._go()
                     self._wait(0.1)
-                    self._progress(base, share, sent, total)
+                    self._progress(base, share, sent, track)
                     continue
                 raise Abort(f"{c}: {in_english(r)}")
             if c[0] in "LAM":
@@ -680,7 +747,7 @@ class Runner:
                     started = self._go()
         if not started:
             started = self._go()
-        if not self._finish(started, base, share, sent, total, pausable):
+        if not self._finish(started, base, share, sent, track, pausable):
             return self._brake(b, start, sent, base)
         if not self._stop:
             self._arrived(b)
@@ -717,7 +784,8 @@ class Runner:
         if not self._hold():
             return
         left = max(0.0, (b.get("paintMM") or 0) - (self.painted - base))
-        self._move({"kind": "move", "cmds": rest_of(b["cmds"], j), "paintMM": left})
+        self._move({"kind": "move", "cmds": rest_of(b["cmds"], j), "paintMM": left,
+                    "painted": (b.get("painted") or [])[j:]})
 
     def _hold(self):
         # Paused: the brush off the canvas, the motors still, the watchdog fed
@@ -753,18 +821,25 @@ class Runner:
                         f"X {end[0]:.1f} Y {end[1]:.1f}. The board stopped the path itself "
                         "(a restart of the board clears it). HARD STOP sent")
 
-    def _progress(self, base, share, sent, total):
-        # What the block has painted by the last ping: the pieces the board
-        # has run, which is those sent less those still queued. Counted also
-        # while the rest is still being sent: a Brush lane is one block of
-        # some 80 pieces, and its percent stood at 0 for most of the lane
-        # (2026-09-28).
-        queued = (self.pos or {}).get("path")
-        if total and queued is not None:
-            with self.lock:
-                self.painted = base + share * max(0, sent - queued) / total
+    def _progress(self, base, share, sent, track):
+        # What the block has painted by the last ping, by length: the pieces
+        # the board has run (those sent less those still queued), and on the
+        # piece it is running, how far along it the carriage is. Counted also
+        # while the rest is still being sent (a Brush lane stood at 0 %,
+        # 2026-09-28). By counting pieces the percent stood still for the
+        # whole of a long line and jumped at its end (2026-09-30: 89.5 % shown
+        # with the carriage at 92.8 %).
+        pos = self.pos or {}
+        queued = pos.get("path")
+        if not track or queued is None:
+            return
+        here = None if pos.get("x") is None or pos.get("y") is None else \
+            (pos["x"] / STEPS_PER_MM[0], pos["y"] / STEPS_PER_MM[1])
+        got = painted_so_far(track, sent - queued, here) / track[2]
+        with self.lock:
+            self.painted = max(self.painted, base + share * got)
 
-    def _finish(self, started, base=None, share=0, sent=0, total=0, pausable=False):
+    def _finish(self, started, base=None, share=0, sent=0, track=None, pausable=False):
         # the block is over when the board no longer reports a path; False:
         # a pause came first, the path is still running
         while started:
@@ -776,7 +851,7 @@ class Runner:
             if pausable and self._pause and not self._stop:
                 return False
             if base is not None:
-                self._progress(base, share, sent, total)
+                self._progress(base, share, sent, track)
             self.sleep(0.2)
         if started:
             # the flag can drop while the motors still run the last queued

@@ -3,6 +3,7 @@
     cd rubens-preview && python3 -m unittest discover -s test -p '*_test.py'
 """
 import json
+import math
 import os
 import sys
 import tempfile
@@ -14,8 +15,9 @@ from urllib.parse import parse_qs, unquote, urlparse
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 import rubens  # noqa: E402
 from rubens import (REACH, STEPS_PER_MM, SWING_DEG, TICKS_PER_DEG, Arm, ArmError, Board, Park, Runner,  # noqa: E402
-                    block_end, board_get, board_line, in_english, library_delete, library_display, library_list,
-                    library_save, parse_look, parse_ping, piece_at, rest_of)
+                    along_piece, block_end, board_get, board_line, in_english, library_delete, library_display,
+                    library_list, library_save, painted_so_far, parse_look, parse_ping, path_pieces, piece_at,
+                    rest_of)
 
 
 class FakeBoard:
@@ -705,6 +707,44 @@ class LibraryTest(unittest.TestCase):
         self.assertEqual(sorted(os.path.splitext(k)[1] for k in kept), [".png", ".svg"])
         self.assertFalse(library_delete(self.dir, base))                   # gone already
         self.assertFalse(library_delete(self.dir, "../../calibration"))     # only library names
+
+
+class PercentTest(unittest.TestCase):
+    """The percent by painted length, and along the piece in hand (2026-09-30:
+    by counting pieces it stood still on a 602 mm line and then jumped)."""
+
+    # a long pass, a step across (a turn, not painted), a long pass back, a half circle
+    PATH = ["L 100.00 400.00", "L 105.00 400.00", "L 105.00 0.00", "A 105.00 -10.00 105.00 -20.00 1"]
+    START = (100.0, 0.0)
+
+    def test_pieces_and_how_far_along(self):
+        geo = path_pieces(self.START, self.PATH)
+        self.assertEqual([round(g["len"], 3) for g in geo], [400.0, 5.0, 400.0, round(math.pi * 10, 3)])
+        self.assertAlmostEqual(along_piece(geo[0], (100.0, 100.0)), 100.0)
+        self.assertAlmostEqual(along_piece(geo[0], (99.0, -3.0)), 0.0)          # before the start: 0
+        self.assertAlmostEqual(along_piece(geo[2], (105.0, 300.0)), 100.0)      # going back down
+        q = (95.0, -10.0)                                                        # a quarter round the arc (+X to +Y from the top)
+        self.assertAlmostEqual(along_piece(geo[3], q), math.pi * 10 / 2, places=6)
+
+    def test_the_turn_paints_nothing_and_the_piece_in_hand_counts(self):
+        geo = path_pieces(self.START, self.PATH)
+        plen = [g["len"] if m else 0.0 for g, m in zip(geo, [1, 0, 1, 1])]
+        track = (geo, plen, sum(plen))
+        self.assertAlmostEqual(painted_so_far(track, 0, (100.0, 200.0)), 200.0)   # halfway up the first
+        self.assertAlmostEqual(painted_so_far(track, 1, (102.0, 400.0)), 400.0)   # on the step: nothing more
+        self.assertAlmostEqual(painted_so_far(track, 2, (105.0, 100.0)), 700.0)   # 400 + 300 down the second
+        self.assertAlmostEqual(painted_so_far(track, 4, None), sum(plen))
+
+    def test_the_runner_percent_moves_along_a_long_piece(self):
+        b = FakeBoard()
+        r = Runner(b.send, sleep=b.sleep)
+        geo = path_pieces(self.START, self.PATH)
+        plen = [g["len"] if m else 0.0 for g, m in zip(geo, [1, 0, 1, 1])]
+        track = (geo, plen, sum(plen))
+        for y, want in ((100.0, 100.0), (300.0, 300.0)):
+            r.pos = {"x": round(100.0 * STEPS_PER_MM[0]), "y": round(y * STEPS_PER_MM[1]), "path": 4}   # nothing run whole yet
+            r._progress(0.0, 1000.0, 4, track)
+            self.assertAlmostEqual(r.painted, 1000.0 * want / track[2], delta=0.1)
 
 
 if __name__ == "__main__":

@@ -5,6 +5,12 @@ Newest first. Machine measurements are in [`CALIBRATION.md`](CALIBRATION.md).
 
 ## Unreleased
 
+- **The percent follows the brush.** It went by pieces of path counted
+  whole: on a long line (602 mm, half a minute) it stood still and then
+  jumped, and the plan on the Job tab ran ahead of the machine or fell
+  behind it (89.5 % shown with the brush at 92.8 %). It now goes by painted
+  length, and on the piece in hand by where the carriage is; the turns
+  between passes count as nothing painted.
 - **Create: a second row.** The top row keeps the tabs and 🖨 Open Job;
   the format, the angle snap, the view toggles and import / export moved
   to a row of their own, which wraps on a narrow window instead of piling

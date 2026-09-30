@@ -158,7 +158,9 @@ export function reach() {
 // maps the artboard (u, v) to the machine (x, y)). The result is a list of
 // blocks in order; the runner sends one block, waits for it, sends the next:
 //   { kind: 'arm',  cmd: 'J 3 -54', off: true }  the brush swings off (J3)
-//   { kind: 'move', cmds: [...], lengthMM, paintMM }   pieces + G
+//   { kind: 'move', cmds: [...], lengthMM, paintMM, painted }   pieces + G;
+//     painted: 1 or 0 for each piece (L, A, M) in order — a pass, or a turn —
+//     so the runner's percent goes by painted length (2026-09-30)
 // A move block is one travel (T, M, G), or a run: what is painted without
 // the brush leaving the canvas (F, L/A…, G) — a pass, or in a snake the
 // passes and turns of a stroke. Before every run: brush off, travel to its
@@ -260,10 +262,10 @@ export function jobToMachine(job, fit, { paintMMs = 20, travelMMs = 100 } = {}) 
       close(); arm(true);
       blocks.push({ kind: 'move', cmds: [`T ${travelMMs}`, `M ${f2(from.x)} ${f2(from.y)}`, 'G'], lengthMM: null, paintMM: 0 });
       arm(false);
-      run = { kind: 'move', cmds: [`F ${paintMMs}`], lengthMM: 0, paintMM: 0, v: paintMMs };
+      run = { kind: 'move', cmds: [`F ${paintMMs}`], lengthMM: 0, paintMM: 0, painted: [], v: paintMMs };
     }
     if (v !== run.v) { run.cmds.push(`F ${v}`); run.v = v; }   // an arc slower than the pass, and back
-    run.cmds.push(cmd); run.lengthMM += len; if (painted) run.paintMM += len;
+    run.cmds.push(cmd); run.painted.push(painted ? 1 : 0); run.lengthMM += len; if (painted) run.paintMM += len;
     end = to;
   };
 

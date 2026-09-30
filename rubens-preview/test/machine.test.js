@@ -239,6 +239,17 @@ test('pass speed: lines at the pass speed, tight arcs no faster than √(250 · 
   assert.equal(jobToMachine(file, straight().fit, { paintMMs: 900 }).blocks.find(b => b.cmds?.[0]?.startsWith('F')).cmds[0], 'F 200');
 });
 
+test('job on the machine: every piece of a run is marked painted or a turn, for the percent', () => {
+  const p = shape([['L', MM(400)]], { start: P(MM(100), MM(300)), weight: 500 });
+  const file = jobFile(jobSteps([p], () => EIGHT, { ...PAINT, lift: true }, 'brush', 4),
+    { formatKey: 'p60x80', format: { w: 600, h: 800 }, paint: PAINT, mode: 'brush', perLane: 4 });
+  const run = jobToMachine(file, straight().fit).blocks.find(b => b.kind === 'move' && b.cmds[0].startsWith('F'));
+  const pieces = run.cmds.filter(c => /^[LAM] /.test(c));
+  assert.equal(run.painted.length, pieces.length);
+  assert.deepEqual(run.painted, pieces.map((_, i) => (i % 2 ? 0 : 1)));   // trip, step across, trip…
+  assert.ok(Math.abs(run.paintMM - 32 * 400) < 1);
+});
+
 // Brush with n trips a lane on a 500 pt stroke: one run, 8n trips of 400 mm at
 // the pass speed, each followed by a straight step of a lane / n across.
 const brushRun = n => {
